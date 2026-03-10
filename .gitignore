@@ -29,3 +29,7 @@ dist-ssr
 .vercel
 .env*.local
 .gitnexus
+AGENTS.md
+CLAUDE.md
+.claude/
+
