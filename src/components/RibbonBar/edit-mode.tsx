@@ -1744,7 +1744,6 @@ const MultilingualField: FC = () => {
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						word.romanWord = match?.text ?? "";
-						applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
 					}
 				}
 			});
