@@ -372,3 +372,73 @@ export function predictLineRomanization(
 	const distributor = new RomanDistributor(words, romanLyric);
 	return distributor.predict();
 }
+
+/**
+ * 按空格分配罗马音到单词
+ * 根据空格分隔罗马音字符串，按顺序分配给每个单词
+ * @param words 当前行的单词列表
+ * @param romanLyric 整行音译字符串
+ */
+export function distributeRomanizationBySpace(
+	words: LyricWord[],
+	romanLyric: string,
+): string[] {
+	const results = new Array(words.length).fill("");
+	if (!romanLyric.trim()) return results;
+
+	// 按空格分割罗马音
+	const romanParts = romanLyric.trim().split(/\s+/);
+
+	// 按顺序分配给每个单词
+	for (let i = 0; i < words.length && i < romanParts.length; i++) {
+		results[i] = romanParts[i];
+	}
+
+	return results;
+}
+
+/**
+ * 按字数比例分配罗马音到单词
+ * 根据每个单词的字符数占总字符数的比例来分配罗马音
+ * @param words 当前行的单词列表
+ * @param romanLyric 整行音译字符串
+ */
+export function distributeRomanizationByCharCount(
+	words: LyricWord[],
+	romanLyric: string,
+): string[] {
+	const results = new Array(words.length).fill("");
+	const trimmedRoman = romanLyric.trim();
+	if (!trimmedRoman) return results;
+
+	// 计算每个单词的字符数（空格或空拍音节给予权重1，确保能被分配到空格字符）
+	const charCounts = words.map((w) => {
+		const trimmedLen = w.word.trim().length;
+		// 如果 trim 后长度为0（空格、空拍等），给予权重1以便能分配到空格
+		return trimmedLen > 0 ? trimmedLen : 1;
+	});
+	const totalChars = charCounts.reduce((sum, count) => sum + count, 0);
+
+	if (totalChars === 0) return results;
+
+	// 将罗马音按字符数比例分配
+	let currentIndex = 0;
+	const romanChars = trimmedRoman.split("");
+	const totalRomanChars = romanChars.length;
+
+	for (let i = 0; i < words.length; i++) {
+		const ratio = charCounts[i] / totalChars;
+		const charCount = Math.round(ratio * totalRomanChars);
+
+		if (i === words.length - 1) {
+			// 最后一个单词获得剩余的所有字符
+			results[i] = romanChars.slice(currentIndex).join("");
+		} else {
+			const endIndex = Math.min(currentIndex + charCount, totalRomanChars);
+			results[i] = romanChars.slice(currentIndex, endIndex).join("");
+			currentIndex = endIndex;
+		}
+	}
+
+	return results;
+}

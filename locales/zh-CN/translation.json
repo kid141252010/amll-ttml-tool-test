@@ -331,12 +331,14 @@
 			"rubySegment": "注音分词",
 			"advancedSegment": "高级分词...",
 			"syncLineTimestamps": "同步行时间戳",
-			"perWordRomanization": 
-			{
-				"index": "逐字音译",
-				"check": "检查逐字音译一致性",
-				"distribute": "自动分配罗马音..."
-			},
+			"perWordRomanization":
+		{
+			"index": "逐字音译",
+			"check": "检查逐字音译一致性",
+			"distribute": "自动分配罗马音...",
+			"distributeBySpace": "按空格自动分配",
+			"distributeByCharCount": "按字数自动分配"
+		},
 			"help": "帮助",
 			"helpDoc": "使用说明",
 			"importLyric": {

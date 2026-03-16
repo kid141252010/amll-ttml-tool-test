@@ -46,6 +46,18 @@ const ToolMenuItems = () => {
 							"自动分配罗马音...",
 						)}
 					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onDistributeRomanizationBySpace}>
+						{t(
+							"topBar.menu.perWordRomanization.distributeBySpace",
+							"按空格自动分配",
+						)}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onDistributeRomanizationByCharCount}>
+						{t(
+							"topBar.menu.perWordRomanization.distributeByCharCount",
+							"按字数自动分配",
+						)}
+					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onCheckRomanizationWarnings}>
 						{t("topBar.menu.perWordRomanization.check", "检查")}
 					</DropdownMenu.Item>

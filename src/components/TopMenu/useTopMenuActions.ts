@@ -7,6 +7,10 @@ import saveFile from "save-file";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import {
+	distributeRomanizationByCharCount,
+	distributeRomanizationBySpace,
+} from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
 import {
 	segmentLyricLines,
@@ -406,6 +410,118 @@ export const useTopMenuActions = () => {
 		});
 	}, [editLyricLines]);
 
+	const onDistributeRomanizationBySpace = useCallback(() => {
+		editLyricLines((draft) => {
+			for (const line of draft.lyricLines) {
+				const fullRoman = line.romanLyric || "";
+				if (line.words.length > 0 && fullRoman.trim() !== "") {
+					try {
+						const results = distributeRomanizationBySpace(
+							line.words,
+							fullRoman,
+						);
+						line.words.forEach((word, wordIndex) => {
+							if (results[wordIndex]) {
+								word.romanWord = results[wordIndex];
+							}
+						});
+						applyRomanizationWarnings(line.words);
+						// 分配完成后清除行音译和对应的多语言行音译
+						let targetLang: string | undefined;
+						if (line.romanLyricByLang) {
+							// 找到与当前行音译匹配的语言
+							Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
+								if (value === fullRoman) {
+									targetLang = key;
+									delete line.romanLyricByLang?.[key];
+								}
+							});
+						}
+						// 将逐字音译保存到对应语言
+						if (targetLang) {
+							line.wordRomanizationByLang ??= {};
+							line.wordRomanizationByLang[targetLang] = line.words
+								.filter((word) => word.romanWord.trim().length > 0)
+								.map((word) => ({
+									startTime: word.startTime,
+									endTime: word.endTime,
+									text: word.romanWord,
+								}));
+						}
+						// 如果还有其他语言的行音译，切换到第一个可用的语言
+						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
+						if (remainingLangs.length > 0) {
+							line.romanLyric = line.romanLyricByLang?.[remainingLangs[0]] ?? "";
+						} else {
+							line.romanLyric = "";
+						}
+					} catch (e) {
+						console.error(
+							`Failed to distribute romanization by space for line`,
+							e,
+						);
+					}
+				}
+			}
+		});
+	}, [editLyricLines]);
+
+	const onDistributeRomanizationByCharCount = useCallback(() => {
+	editLyricLines((draft) => {
+		for (const line of draft.lyricLines) {
+			const fullRoman = line.romanLyric || "";
+			if (line.words.length > 0 && fullRoman.trim() !== "") {
+				try {
+					const results = distributeRomanizationByCharCount(
+						line.words,
+						fullRoman,
+					);
+					line.words.forEach((word, wordIndex) => {
+						if (results[wordIndex]) {
+							word.romanWord = results[wordIndex];
+						}
+					});
+					applyRomanizationWarnings(line.words);
+					// 分配完成后清除行音译和对应的多语言行音译
+					let targetLang: string | undefined;
+					if (line.romanLyricByLang) {
+						// 找到与当前行音译匹配的语言
+						Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
+							if (value === fullRoman) {
+								targetLang = key;
+								delete line.romanLyricByLang?.[key];
+							}
+						});
+					}
+					// 将逐字音译保存到对应语言
+					if (targetLang) {
+						line.wordRomanizationByLang ??= {};
+						line.wordRomanizationByLang[targetLang] = line.words
+							.filter((word) => word.romanWord.trim().length > 0)
+							.map((word) => ({
+								startTime: word.startTime,
+								endTime: word.endTime,
+								text: word.romanWord,
+							}));
+					}
+					// 如果还有其他语言的行音译，切换到第一个可用的语言
+					const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
+					if (remainingLangs.length > 0) {
+						line.romanLyric = line.romanLyricByLang?.[remainingLangs[0]] ?? "";
+					} else {
+						line.romanLyric = "";
+					}
+				} catch (e) {
+					console.error(
+						`Failed to distribute romanization by char count for line`,
+						e,
+					);
+				}
+			}
+		}
+	});
+}, [editLyricLines]);
+
 	const onOpenAdvancedSegmentation = useCallback(() => {
 		setAdvancedSegmentationDialog(true);
 	}, [setAdvancedSegmentationDialog]);
@@ -447,6 +563,8 @@ export const useTopMenuActions = () => {
 		onSyncLineTimestamps,
 		onOpenDistributeRomanization,
 		onCheckRomanizationWarnings,
+		onDistributeRomanizationBySpace,
+		onDistributeRomanizationByCharCount,
 		onOpenLatencyTest,
 		onOpenGitHub,
 		onOpenWiki,
