@@ -50,6 +50,9 @@ export default function exportTTMLText(
 		params.push(tmp);
 	}
 
+	// 默认语言代码设置（用于根元素 xml:lang）
+	const DEFAULT_LYRIC_LANG = "zh-Hans"; // 歌词默认语言
+
 	const doc = new Document();
 
 	function createRubyWordElement(word: LyricWord): Element {
@@ -132,14 +135,6 @@ export default function exportTTMLText(
 		}
 	}
 
-	function createRomanizationSpan(word: LyricWord): Element {
-		const span = doc.createElement("span");
-		span.setAttribute("begin", msToTimestamp(word.startTime));
-		span.setAttribute("end", msToTimestamp(word.endTime));
-		span.appendChild(doc.createTextNode(word.romanWord));
-		return span;
-	}
-
 	function createRomanizationSpanFromData(word: TTMLRomanWord): Element {
 		const span = doc.createElement("span");
 		span.setAttribute("begin", msToTimestamp(word.startTime));
@@ -167,6 +162,8 @@ export default function exportTTMLText(
 		"xmlns:itunes",
 		"http://music.apple.com/lyric-ttml-internal",
 	);
+	// 设置歌词语言代码（默认 zh-Hans）
+	ttRoot.setAttribute("xml:lang", DEFAULT_LYRIC_LANG);
 
 	// Determine itunes:timing mode for Spicylyrics compatibility
 	// Word = at least one line has 2+ non-blank words (dynamic/per-word timing)
@@ -227,34 +224,8 @@ export default function exportTTMLText(
 		metadataEl.appendChild(vocalsEl);
 	}
 
-	// Extract songwriter metadata to emit in iTunes format (Spicylyrics compatibility)
-	const songwriterMeta = ttmlLyric.metadata.find(
-		(m) => m.key === "songwriter" && m.value.some((v) => v.trim().length > 0),
-	);
-
-	if (songwriterMeta) {
-		const iTunesMetadata = doc.createElement("iTunesMetadata");
-		iTunesMetadata.setAttribute(
-			"xmlns",
-			"http://music.apple.com/lyric-ttml-internal",
-		);
-		const songwritersEl = doc.createElement("songwriters");
-		for (const name of songwriterMeta.value) {
-			const trimmed = name.trim();
-			if (!trimmed) continue;
-			const swEl = doc.createElement("songwriter");
-			swEl.appendChild(doc.createTextNode(trimmed));
-			songwritersEl.appendChild(swEl);
-		}
-		if (songwritersEl.childNodes.length > 0) {
-			iTunesMetadata.appendChild(songwritersEl);
-			metadataEl.appendChild(iTunesMetadata);
-		}
-	}
-
-	// Append remaining metadata entries (skip songwriter since it's in iTunes format)
+	// Append metadata entries ( songwriter will be handled in iTunesMetadata later)
 	for (const metadata of ttmlLyric.metadata) {
-		if (metadata.key === "songwriter") continue;
 		for (const value of metadata.value) {
 			const metaEl = doc.createElement("amll:meta");
 			metaEl.setAttribute("key", metadata.key);
@@ -267,10 +238,6 @@ export default function exportTTMLText(
 
 	let i = 0;
 
-	const romanizationMap = new Map<
-		string,
-		{ main: LyricWord[]; bg: LyricWord[] }
-	>();
 	const translationByLangMap = new Map<string, Map<string, LineMetadata>>();
 	const romanizationByLangMap = new Map<string, Map<string, LineMetadata>>();
 	const wordRomanizationByLangMap = new Map<
@@ -408,93 +375,59 @@ export default function exportTTMLText(
 					bgLineSpan.setAttribute("amll:vocal", normalizedBgVocal);
 				}
 
-				if (bgLine.translatedLyric) {
-					const span = doc.createElement("span");
-					span.setAttribute("ttm:role", "x-translation");
-					span.setAttribute("xml:lang", "zh-CN");
-					span.appendChild(doc.createTextNode(bgLine.translatedLyric));
-					bgLineSpan.appendChild(span);
-				}
-
-				if (bgLine.romanLyric) {
-					const span = doc.createElement("span");
-					span.setAttribute("ttm:role", "x-roman");
-					span.appendChild(doc.createTextNode(bgLine.romanLyric));
-					bgLineSpan.appendChild(span);
-				}
-
 				lineP.appendChild(bgLineSpan);
 			}
 
-			if (line.translatedLyric) {
-				const span = doc.createElement("span");
-				span.setAttribute("ttm:role", "x-translation");
-				span.setAttribute("xml:lang", "zh-CN");
-				span.appendChild(doc.createTextNode(line.translatedLyric));
-				lineP.appendChild(span);
-			}
-
-			if (line.romanLyric) {
-				const span = doc.createElement("span");
-				span.setAttribute("ttm:role", "x-roman");
-				span.appendChild(doc.createTextNode(line.romanLyric));
-				lineP.appendChild(span);
-			}
-
+			// 收集翻译数据：只输出有语言代码的翻译（translatedLyricByLang）
 			const translationLangs = new Set<string>([
 				...Object.keys(line.translatedLyricByLang ?? {}),
 				...Object.keys(bgLine?.translatedLyricByLang ?? {}),
 			]);
+			// 处理有语言代码的翻译（跳过 und）
 			for (const lang of translationLangs) {
+				if (lang === "und") continue; // 跳过 und，不输出
 				const main = line.translatedLyricByLang?.[lang] ?? "";
 				const bg = bgLine?.translatedLyricByLang?.[lang] ?? "";
 				if (main.trim().length === 0 && bg.trim().length === 0) continue;
-				if (lang === "und") {
-					if (!line.translatedLyric && main.trim().length > 0) {
-						line.translatedLyric = main;
-					}
-					if (bgLine && !bgLine.translatedLyric && bg.trim().length > 0) {
-						bgLine.translatedLyric = bg;
-					}
-					continue;
-				}
 				if (!translationByLangMap.has(lang)) {
 					translationByLangMap.set(lang, new Map());
 				}
 				translationByLangMap.get(lang)?.set(itunesKey, { main, bg });
 			}
+			// 注意：不输出无语言代码的 translatedLyric
 
+			// 收集音译数据：逐字音译优先于逐行音译
+			// 1. 首先收集逐行音译（romanLyricByLang）
 			const romanLangs = new Set<string>([
 				...Object.keys(line.romanLyricByLang ?? {}),
 				...Object.keys(bgLine?.romanLyricByLang ?? {}),
 			]);
+			// 处理有语言代码的逐行音译（跳过 und）
 			for (const lang of romanLangs) {
+				if (lang === "und") continue; // 跳过 und，不输出
 				const main = line.romanLyricByLang?.[lang] ?? "";
 				const bg = bgLine?.romanLyricByLang?.[lang] ?? "";
 				if (main.trim().length === 0 && bg.trim().length === 0) continue;
-				if (lang === "und") {
-					if (!line.romanLyric && main.trim().length > 0) {
-						line.romanLyric = main;
-					}
-					if (bgLine && !bgLine.romanLyric && bg.trim().length > 0) {
-						bgLine.romanLyric = bg;
-					}
-					continue;
-				}
 				if (!romanizationByLangMap.has(lang)) {
 					romanizationByLangMap.set(lang, new Map());
 				}
 				romanizationByLangMap.get(lang)?.set(itunesKey, { main, bg });
 			}
+			// 注意：不输出无语言代码的 romanLyric
 
+			// 2. 然后收集逐字音译（wordRomanizationByLang），会覆盖逐行音译
 			const wordRomanLangs = new Set<string>([
 				...Object.keys(line.wordRomanizationByLang ?? {}),
 				...Object.keys(bgLine?.wordRomanizationByLang ?? {}),
 			]);
+			// 处理有语言代码的逐字音译（跳过 und）
 			for (const lang of wordRomanLangs) {
+				if (lang === "und") continue; // 跳过 und，不输出
 				const mainRoman = line.wordRomanizationByLang?.[lang] ?? [];
 				const bgRoman = bgLine?.wordRomanizationByLang?.[lang] ?? [];
 				if (mainRoman.length === 0 && bgRoman.length === 0) continue;
+				// 逐字音译优先：删除相同语言的逐行音译
+				romanizationByLangMap.delete(lang);
 				if (!wordRomanizationByLangMap.has(lang)) {
 					wordRomanizationByLangMap.set(lang, new Map());
 				}
@@ -505,14 +438,7 @@ export default function exportTTMLText(
 					bgRoman,
 				});
 			}
-
-			const hasRoman =
-				mainWords.some((w) => w.romanWord && w.romanWord.trim().length > 0) ||
-				bgWords.some((w) => w.romanWord && w.romanWord.trim().length > 0);
-
-			if (hasRoman) {
-				romanizationMap.set(itunesKey, { main: mainWords, bg: bgWords });
-			}
+			// 注意：不输出无语言代码的 word.romanWord
 
 			paramDiv.appendChild(lineP);
 		}
@@ -520,259 +446,173 @@ export default function exportTTMLText(
 		body.appendChild(paramDiv);
 	}
 
-	if (translationByLangMap.size > 0) {
-		const itunesMeta = doc.createElement("iTunesMetadata");
-		itunesMeta.setAttribute(
-			"xmlns",
-			"http://music.apple.com/lyric-ttml-internal",
-		);
-
-		const translations = doc.createElement("translations");
-		for (const [lang, entries] of translationByLangMap.entries()) {
-			const translation = doc.createElement("translation");
-			translation.setAttribute("xml:lang", lang);
-			for (const [key, { main, bg }] of entries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-				if (main.trim().length > 0) {
-					textEl.appendChild(doc.createTextNode(main));
-				}
-				if (bg.trim().length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					bgSpan.appendChild(doc.createTextNode(bg));
-					textEl.appendChild(bgSpan);
-				}
-				translation.appendChild(textEl);
-			}
-			translations.appendChild(translation);
-		}
-
-		itunesMeta.appendChild(translations);
-		metadataEl.appendChild(itunesMeta);
-	}
-
-	const hasMultiLangTransliteration =
+	// 检查是否需要创建 iTunesMetadata（songwriter、translations、transliterations）
+	const hasSongwriter = ttmlLyric.metadata.some(
+		(m) => m.key === "songwriter" && m.value.some((v) => v.trim().length > 0),
+	);
+	const hasTranslations = translationByLangMap.size > 0;
+	const hasTransliterations =
 		romanizationByLangMap.size > 0 || wordRomanizationByLangMap.size > 0;
 
-	if (romanizationMap.size > 0 || hasMultiLangTransliteration) {
-		const itunesMeta = doc.createElement("iTunesMetadata");
-		itunesMeta.setAttribute(
+	if (hasSongwriter || hasTranslations || hasTransliterations) {
+		const iTunesMetadata = doc.createElement("iTunesMetadata");
+		iTunesMetadata.setAttribute(
 			"xmlns",
 			"http://music.apple.com/lyric-ttml-internal",
 		);
 
-		const transliterations = doc.createElement("transliterations");
-		const defaultTransliteration = doc.createElement("transliteration");
-		let hasDefaultTransliteration = false;
-		if (romanizationMap.size > 0) {
-			for (const [key, { main, bg }] of romanizationMap.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-
-				for (const word of main) {
-					if (word.romanWord && word.romanWord.trim().length > 0) {
-						textEl.appendChild(createRomanizationSpan(word));
-					} else if (word.word.trim().length === 0 && textEl.hasChildNodes()) {
-						textEl.appendChild(doc.createTextNode(word.word));
-					}
+		// 1. 添加 songwriter
+		if (hasSongwriter) {
+			const songwriterMeta = ttmlLyric.metadata.find(
+				(m) =>
+					m.key === "songwriter" && m.value.some((v) => v.trim().length > 0),
+			);
+			if (songwriterMeta) {
+				const songwritersEl = doc.createElement("songwriters");
+				for (const name of songwriterMeta.value) {
+					const trimmed = name.trim();
+					if (!trimmed) continue;
+					const swEl = doc.createElement("songwriter");
+					swEl.appendChild(doc.createTextNode(trimmed));
+					songwritersEl.appendChild(swEl);
 				}
-
-				const hasBgRoman = bg.some(
-					(w) => w.romanWord && w.romanWord.trim().length > 0,
-				);
-				if (hasBgRoman) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-
-					const romanBgWords = bg.filter(
-						(w) => w.romanWord && w.romanWord.trim().length > 0,
-					);
-
-					for (
-						let wordIndex = 0;
-						wordIndex < romanBgWords.length;
-						wordIndex++
-					) {
-						const word = romanBgWords[wordIndex];
-						const span = createRomanizationSpan(word);
-
-						if (wordIndex === 0 && span.firstChild) {
-							span.firstChild.nodeValue = `(${span.firstChild.nodeValue}`;
-						}
-						if (wordIndex === romanBgWords.length - 1 && span.firstChild) {
-							span.firstChild.nodeValue = `${span.firstChild.nodeValue})`;
-						}
-
-						bgSpan.appendChild(span);
-
-						const originalIndex = bg.indexOf(word);
-						if (originalIndex > -1 && originalIndex < bg.length - 1) {
-							const nextWord = bg[originalIndex + 1];
-							if (nextWord && nextWord.word.trim().length === 0) {
-								bgSpan.appendChild(doc.createTextNode(nextWord.word));
-							}
-						}
-					}
-					textEl.appendChild(bgSpan);
+				if (songwritersEl.childNodes.length > 0) {
+					iTunesMetadata.appendChild(songwritersEl);
 				}
-
-				defaultTransliteration.appendChild(textEl);
 			}
-			hasDefaultTransliteration = true;
 		}
 
-		const undEntries = wordRomanizationByLangMap.get("und");
-		if (undEntries) {
-			for (const [key, data] of undEntries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-
-				if (data.mainRoman.length > 0) {
-					for (const word of data.mainWords) {
-						if (word.word.trim().length === 0) {
-							if (textEl.hasChildNodes()) {
-								textEl.appendChild(doc.createTextNode(word.word));
-							}
-							continue;
-						}
-						const match = data.mainRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						textEl.appendChild(createRomanizationSpanFromData(match));
+		// 2. 添加 translations
+		if (hasTranslations) {
+			const translations = doc.createElement("translations");
+			for (const [lang, entries] of translationByLangMap.entries()) {
+				const translation = doc.createElement("translation");
+				translation.setAttribute("xml:lang", lang);
+				for (const [key, { main, bg }] of entries.entries()) {
+					const textEl = doc.createElement("text");
+					textEl.setAttribute("for", key);
+					if (main.trim().length > 0) {
+						textEl.appendChild(doc.createTextNode(main));
 					}
-				}
-
-				if (data.bgRoman.length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					const bgSpans: Element[] = [];
-					for (const word of data.bgWords) {
-						if (word.word.trim().length === 0) {
-							if (bgSpan.hasChildNodes()) {
-								bgSpan.appendChild(doc.createTextNode(word.word));
-							}
-							continue;
-						}
-						const match = data.bgRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						const span = createRomanizationSpanFromData(match);
-						bgSpan.appendChild(span);
-						bgSpans.push(span);
-					}
-					if (bgSpans.length > 0) {
-						const first = bgSpans[0];
-						const last = bgSpans[bgSpans.length - 1];
-						if (first.firstChild) {
-							first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
-						}
-						if (last.firstChild) {
-							last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
-						}
+					if (bg.trim().length > 0) {
+						const bgSpan = doc.createElement("span");
+						bgSpan.setAttribute("ttm:role", "x-bg");
+						bgSpan.appendChild(doc.createTextNode(bg));
 						textEl.appendChild(bgSpan);
 					}
+					translation.appendChild(textEl);
 				}
-
-				defaultTransliteration.appendChild(textEl);
+				translations.appendChild(translation);
 			}
-			hasDefaultTransliteration = true;
+			iTunesMetadata.appendChild(translations);
 		}
 
-		if (hasDefaultTransliteration) {
-			transliterations.appendChild(defaultTransliteration);
-		}
+		// 3. 添加 transliterations
+		if (hasTransliterations) {
+			const transliterations = doc.createElement("transliterations");
+			// 用于缓存已创建的 transliteration 元素，避免使用 querySelector
+			const transliterationCache = new Map<string, Element>();
 
-		for (const [lang, entries] of wordRomanizationByLangMap.entries()) {
-			if (lang === "und") continue;
-			const transliteration = doc.createElement("transliteration");
-			transliteration.setAttribute("xml:lang", lang);
-			for (const [key, data] of entries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-
-				if (data.mainRoman.length > 0) {
-					for (const word of data.mainWords) {
-						if (word.word.trim().length === 0) {
-							if (textEl.hasChildNodes()) {
-								textEl.appendChild(doc.createTextNode(word.word));
-							}
-							continue;
-						}
-						const match = data.mainRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						textEl.appendChild(createRomanizationSpanFromData(match));
-					}
+			// 辅助函数：获取或创建 transliteration 元素
+			const getOrCreateTransliteration = (lang: string): Element => {
+				const cached = transliterationCache.get(lang);
+				if (cached) {
+					return cached;
 				}
+				const transliteration = doc.createElement("transliteration");
+				transliteration.setAttribute("xml:lang", lang);
+				transliterations.appendChild(transliteration);
+				transliterationCache.set(lang, transliteration);
+				return transliteration;
+			};
 
-				if (data.bgRoman.length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					const bgSpans: Element[] = [];
-					for (const word of data.bgWords) {
-						if (word.word.trim().length === 0) {
-							if (bgSpan.hasChildNodes()) {
-								bgSpan.appendChild(doc.createTextNode(word.word));
-							}
-							continue;
-						}
-						const match = data.bgRoman.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						if (!match || match.text.trim().length === 0) continue;
-						const span = createRomanizationSpanFromData(match);
-						bgSpan.appendChild(span);
-						bgSpans.push(span);
+			// 处理逐行音译（romanizationByLangMap）
+			for (const [lang, entries] of romanizationByLangMap.entries()) {
+				for (const [key, { main, bg }] of entries.entries()) {
+					const textEl = doc.createElement("text");
+					textEl.setAttribute("for", key);
+					if (main.trim().length > 0) {
+						textEl.appendChild(doc.createTextNode(main));
 					}
-					if (bgSpans.length > 0) {
-						const first = bgSpans[0];
-						const last = bgSpans[bgSpans.length - 1];
-						if (first.firstChild) {
-							first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
-						}
-						if (last.firstChild) {
-							last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
-						}
+					if (bg.trim().length > 0) {
+						const bgSpan = doc.createElement("span");
+						bgSpan.setAttribute("ttm:role", "x-bg");
+						bgSpan.appendChild(doc.createTextNode(bg));
 						textEl.appendChild(bgSpan);
 					}
+					const transliteration = getOrCreateTransliteration(lang);
+					transliteration.appendChild(textEl);
 				}
-
-				transliteration.appendChild(textEl);
 			}
-			transliterations.appendChild(transliteration);
+
+			// 处理逐字音译（wordRomanizationByLangMap）
+			for (const [lang, entries] of wordRomanizationByLangMap.entries()) {
+				for (const [key, data] of entries.entries()) {
+					const textEl = doc.createElement("text");
+					textEl.setAttribute("for", key);
+
+					if (data.mainRoman.length > 0) {
+						for (const word of data.mainWords) {
+							if (word.word.trim().length === 0) {
+								if (textEl.hasChildNodes()) {
+									textEl.appendChild(doc.createTextNode(word.word));
+								}
+								continue;
+							}
+							const match = data.mainRoman.find(
+								(r) =>
+									r.startTime === word.startTime &&
+									r.endTime === word.endTime,
+							);
+							if (!match || match.text.trim().length === 0) continue;
+							textEl.appendChild(createRomanizationSpanFromData(match));
+						}
+					}
+
+					if (data.bgRoman.length > 0) {
+						const bgSpan = doc.createElement("span");
+						bgSpan.setAttribute("ttm:role", "x-bg");
+						const bgSpans: Element[] = [];
+						for (const word of data.bgWords) {
+							if (word.word.trim().length === 0) {
+								if (bgSpan.hasChildNodes()) {
+									bgSpan.appendChild(doc.createTextNode(word.word));
+								}
+								continue;
+							}
+							const match = data.bgRoman.find(
+								(r) =>
+									r.startTime === word.startTime &&
+									r.endTime === word.endTime,
+							);
+							if (!match || match.text.trim().length === 0) continue;
+							const span = createRomanizationSpanFromData(match);
+							bgSpan.appendChild(span);
+							bgSpans.push(span);
+						}
+						if (bgSpans.length > 0) {
+							const first = bgSpans[0];
+							const last = bgSpans[bgSpans.length - 1];
+							if (first.firstChild) {
+								first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+							}
+							if (last.firstChild) {
+								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+							}
+							textEl.appendChild(bgSpan);
+						}
+					}
+
+					const transliteration = getOrCreateTransliteration(lang);
+					transliteration.appendChild(textEl);
+				}
+			}
+
+			iTunesMetadata.appendChild(transliterations);
 		}
 
-		for (const [lang, entries] of romanizationByLangMap.entries()) {
-			if (wordRomanizationByLangMap.has(lang)) continue;
-			const transliteration = doc.createElement("transliteration");
-			transliteration.setAttribute("xml:lang", lang);
-			for (const [key, { main, bg }] of entries.entries()) {
-				const textEl = doc.createElement("text");
-				textEl.setAttribute("for", key);
-				if (main.trim().length > 0) {
-					textEl.appendChild(doc.createTextNode(main));
-				}
-				if (bg.trim().length > 0) {
-					const bgSpan = doc.createElement("span");
-					bgSpan.setAttribute("ttm:role", "x-bg");
-					bgSpan.appendChild(doc.createTextNode(bg));
-					textEl.appendChild(bgSpan);
-				}
-				transliteration.appendChild(textEl);
-			}
-			transliterations.appendChild(transliteration);
-		}
-		itunesMeta.appendChild(transliterations);
-
-		metadataEl.appendChild(itunesMeta);
+		// 将 iTunesMetadata 添加到 metadata 的最后
+		metadataEl.appendChild(iTunesMetadata);
 	}
 
 	ttRoot.appendChild(body);

@@ -236,6 +236,25 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	log("ttml document parsed", ttmlDoc);
 
+	// 读取根节点的 xml:lang 作为歌词语言代码，默认为 zh-Hans
+	const ttRoot = ttmlDoc.querySelector("tt");
+	const lyricLang =
+		ttRoot?.getAttribute("xml:lang") ??
+		ttRoot?.getAttribute("lang") ??
+		"zh-Hans";
+
+	// 默认翻译语言代码
+	const DEFAULT_TRANSLATION_LANG = "zh-Hans";
+
+	// 计算默认音译语言代码：歌词语言 + "-Latn"，如果是中文则使用 "zh-Latn-pinyin"
+	const getDefaultRomanizationLang = (lang: string): string => {
+		if (lang.startsWith("zh")) {
+			return "zh-Latn-pinyin";
+		}
+		return `${lang}-Latn`;
+	};
+	const defaultRomanLang = getDefaultRomanizationLang(lyricLang);
+
 	const parseTranslationTextElement = (
 		textEl: Element,
 	): LineMetadata | null => {
@@ -668,6 +687,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					obscene: false,
 					emptyBeat: 0,
 					romanWord: "",
+					rubyPhraseStart: false,
 				});
 			} else if (wordNode.nodeType === Node.ELEMENT_NODE) {
 				const wordEl = wordNode as Element;
@@ -684,13 +704,21 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						);
 						haveBg = true;
 					} else if (role === "x-translation") {
-						// 没有 Apple Music 样式翻译时才使用内嵌翻译
-						if (!line.translatedLyric) {
-							line.translatedLyric = wordEl.innerHTML;
+						// 内嵌翻译使用默认翻译语言代码存储到 translatedLyricByLang
+						if (!line.translatedLyricByLang) {
+							line.translatedLyricByLang = {};
+						}
+						if (!line.translatedLyricByLang[DEFAULT_TRANSLATION_LANG]) {
+							line.translatedLyricByLang[DEFAULT_TRANSLATION_LANG] =
+								wordEl.innerHTML;
 						}
 					} else if (role === "x-roman") {
-						if (!line.romanLyric) {
-							line.romanLyric = wordEl.innerHTML;
+						// 内嵌音译使用默认音译语言代码存储到 romanLyricByLang
+						if (!line.romanLyricByLang) {
+							line.romanLyricByLang = {};
+						}
+						if (!line.romanLyricByLang[defaultRomanLang]) {
+							line.romanLyricByLang[defaultRomanLang] = wordEl.innerHTML;
 						}
 					}
 				} else {
@@ -776,9 +804,14 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	log("finished ttml load", lyricLines, metadata);
 
-	return {
+	const result = {
 		metadata,
 		lyricLines: lyricLines,
 		vocalTags,
 	};
+
+	// 输出整个解析后的对象到控制台
+	console.log("[TTML Parser] Parsed TTML object:", result);
+
+	return result;
 }
