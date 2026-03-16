@@ -102,6 +102,29 @@ export const DistributeRomanizationDialog = () => {
 								}
 							});
 							applyRomanizationWarnings(line.words);
+							// 分配完成后清除行音译和对应的多语言行音译
+							let targetLang: string | undefined;
+							if (line.romanLyricByLang) {
+								// 找到与当前行音译匹配的语言
+								Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
+									if (value === fullRoman) {
+										targetLang = key;
+										delete line.romanLyricByLang![key];
+									}
+								});
+							}
+							line.romanLyric = "";
+							// 将逐字音译保存到对应语言
+							if (targetLang) {
+								line.wordRomanizationByLang ??= {};
+								line.wordRomanizationByLang[targetLang] = line.words
+									.filter((word) => word.romanWord.trim().length > 0)
+									.map((word) => ({
+											startTime: word.startTime,
+											endTime: word.endTime,
+											text: word.romanWord,
+										}));
+							}
 						} catch (e) {
 							console.error(
 								`Failed to distribute romanization for line ${index + 1}`,
