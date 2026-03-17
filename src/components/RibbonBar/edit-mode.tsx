@@ -20,7 +20,7 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
-import { Add16Regular } from "@fluentui/react-icons";
+import { Add16Regular, Edit16Regular } from "@fluentui/react-icons";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
@@ -51,9 +51,8 @@ import {
 	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
 } from "$/states/main.ts";
-import { addLanguageDialogAtom } from "$/states/dialogs";
-import { type LyricLine, type LyricWord, newLyricLine } from "$/types/ttml";
-import { uid } from "uid";
+import { addLanguageDialogAtom, editLanguageDialogAtom } from "$/states/dialogs";
+import { type LyricLine, type LyricWord, type TTMLTranslationWord, newLyricLine } from "$/types/ttml";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
@@ -780,6 +779,7 @@ const PrimaryContentField: FC = () => {
 	const { t } = useTranslation();
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
 	const [selectedPrimaryLang, setSelectedPrimaryLang] = useState<string>("");
 
 	// 获取所有逐字翻译的语言代码
@@ -921,8 +921,44 @@ const PrimaryContentField: FC = () => {
 		"请选择主要内容语言",
 	);
 
+	const openEditPrimaryLangDialog = useCallback(() => {
+		const currentLang = lyricLines.lyricLang || selectedPrimaryLang;
+		if (!currentLang) return;
+		setEditLanguageDialog({
+			open: true,
+			target: "primary",
+			currentLang,
+			onSubmit: (newLang) => {
+				const trimmed = newLang.trim();
+				if (!trimmed || trimmed === currentLang) return;
+
+				// 检查新语言代码是否已存在
+				const existingLangs = new Set(languageOptions);
+				if (existingLangs.has(trimmed)) {
+					// 如果目标语言已存在，执行互换
+					handleLanguageChange(trimmed);
+				} else {
+					// 否则直接更改语言代码
+					editLyricLines((state) => {
+						state.lyricLang = trimmed;
+					});
+					setSelectedPrimaryLang(trimmed);
+				}
+			},
+		});
+	}, [lyricLines.lyricLang, selectedPrimaryLang, languageOptions, setEditLanguageDialog, editLyricLines, handleLanguageChange]);
+
 	return (
-		<Grid columns="1fr" gap="2" flexGrow="1" align="center">
+		<Grid columns="auto 1fr" gap="2" flexGrow="1" align="center">
+			<IconButton
+				variant="soft"
+				size="1"
+				onClick={openEditPrimaryLangDialog}
+				disabled={!selectedPrimaryLang}
+				aria-label={t("editLanguageDialog.editPrimary", "修改主要内容语言代码")}
+			>
+				<Edit16Regular />
+			</IconButton>
 			<Select.Root
 				value={selectedPrimaryLang}
 				onValueChange={handleLanguageChange}
@@ -947,6 +983,7 @@ const MultilingualField: FC = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
+	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
 	const placeholder = t(
 		"ribbonBar.editMode.multilingualPlaceholder",
 		"请选择语言",
@@ -1249,8 +1286,123 @@ const MultilingualField: FC = () => {
 		});
 	}, [applyWordRomanizationLang, editLyricLines, setAddLanguageDialog]);
 
+	const openEditTranslationLangDialog = useCallback(() => {
+		if (!currentTranslationLang) return;
+		setEditLanguageDialog({
+			open: true,
+			target: "translation",
+			currentLang: currentTranslationLang,
+			onSubmit: (newLang) => {
+				const trimmed = newLang.trim();
+				if (!trimmed || trimmed === currentTranslationLang) return;
+				editLyricLines((state) => {
+					for (const line of state.lyricLines) {
+						const byLang = line.translatedLyricByLang;
+						if (!byLang || !byLang[currentTranslationLang]) continue;
+						// 如果目标语言已存在，互换内容
+						if (byLang[trimmed]) {
+							const temp = byLang[currentTranslationLang];
+							byLang[currentTranslationLang] = byLang[trimmed];
+							byLang[trimmed] = temp;
+						} else {
+							// 否则直接重命名
+							byLang[trimmed] = byLang[currentTranslationLang];
+							delete byLang[currentTranslationLang];
+						}
+						// 更新当前显示的翻译
+						line.translatedLyric = byLang[trimmed] ?? "";
+					}
+				});
+			},
+		});
+	}, [currentTranslationLang, setEditLanguageDialog, editLyricLines]);
+
+	const openEditRomanizationLangDialog = useCallback(() => {
+		if (!currentRomanizationLang) return;
+		setEditLanguageDialog({
+			open: true,
+			target: "romanization",
+			currentLang: currentRomanizationLang,
+			onSubmit: (newLang) => {
+				const trimmed = newLang.trim();
+				if (!trimmed || trimmed === currentRomanizationLang) return;
+				editLyricLines((state) => {
+					for (const line of state.lyricLines) {
+						const byLang = line.romanLyricByLang;
+						if (!byLang || !byLang[currentRomanizationLang]) continue;
+						// 如果目标语言已存在，互换内容
+						if (byLang[trimmed]) {
+							const temp = byLang[currentRomanizationLang];
+							byLang[currentRomanizationLang] = byLang[trimmed];
+							byLang[trimmed] = temp;
+						} else {
+							// 否则直接重命名
+							byLang[trimmed] = byLang[currentRomanizationLang];
+							delete byLang[currentRomanizationLang];
+						}
+						// 更新当前显示的音译
+						line.romanLyric = byLang[trimmed] ?? "";
+					}
+				});
+			},
+		});
+	}, [currentRomanizationLang, setEditLanguageDialog, editLyricLines]);
+
+	const openEditWordRomanizationLangDialog = useCallback(() => {
+		if (!currentWordRomanizationLang) return;
+		setEditLanguageDialog({
+			open: true,
+			target: "word-romanization",
+			currentLang: currentWordRomanizationLang,
+			onSubmit: (newLang) => {
+				const trimmed = newLang.trim();
+				if (!trimmed || trimmed === currentWordRomanizationLang) return;
+				editLyricLines((state) => {
+					for (const line of state.lyricLines) {
+						const byLang = line.wordRomanizationByLang;
+						if (!byLang || !byLang[currentWordRomanizationLang]) continue;
+						// 如果目标语言已存在，互换内容
+						if (byLang[trimmed]) {
+							const temp = byLang[currentWordRomanizationLang];
+							byLang[currentWordRomanizationLang] = byLang[trimmed];
+							byLang[trimmed] = temp;
+						} else {
+							// 否则直接重命名
+							byLang[trimmed] = byLang[currentWordRomanizationLang];
+							delete byLang[currentWordRomanizationLang];
+						}
+						// 更新当前显示的逐字音译
+						const romanWords = byLang[trimmed] ?? [];
+						for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
+							const word = line.words[wordIndex];
+							if (word.word.trim().length === 0) {
+								word.romanWord = "";
+								continue;
+							}
+							const match = romanWords.find(
+								(r) =>
+									r.startTime === word.startTime && r.endTime === word.endTime,
+							);
+							word.romanWord = match?.text ?? "";
+							applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+						}
+					}
+				});
+			},
+		});
+	}, [currentWordRomanizationLang, setEditLanguageDialog, editLyricLines]);
+
 	return (
-		<Grid columns="0fr 1fr auto" gap="2" gapY="1" flexGrow="1" align="center">
+		<Grid columns="auto 0fr 1fr auto" gap="2" gapY="1" flexGrow="1" align="center">
+			<IconButton
+				variant="soft"
+				size="1"
+				onClick={openEditTranslationLangDialog}
+				disabled={!currentTranslationLang}
+				aria-label={t("editLanguageDialog.editTranslation", "修改翻译语言代码")}
+			>
+				<Edit16Regular />
+			</IconButton>
 			<Text wrap="nowrap" size="1">
 				{t("ribbonBar.editMode.translation", "翻译")}
 			</Text>
@@ -1277,6 +1429,15 @@ const MultilingualField: FC = () => {
 			>
 				<Add16Regular />
 			</IconButton>
+			<IconButton
+				variant="soft"
+				size="1"
+				onClick={openEditRomanizationLangDialog}
+				disabled={!currentRomanizationLang}
+				aria-label={t("editLanguageDialog.editRomanization", "修改音译语言代码")}
+			>
+				<Edit16Regular />
+			</IconButton>
 			<Text wrap="nowrap" size="1">
 				{t("ribbonBar.editMode.romanization", "音译")}
 			</Text>
@@ -1302,6 +1463,15 @@ const MultilingualField: FC = () => {
 				aria-label={t("addLanguageDialog.addRomanization", "新增音译语言")}
 			>
 				<Add16Regular />
+			</IconButton>
+			<IconButton
+				variant="soft"
+				size="1"
+				onClick={openEditWordRomanizationLangDialog}
+				disabled={!currentWordRomanizationLang}
+				aria-label={t("editLanguageDialog.editWordRomanization", "修改逐字音译语言代码")}
+			>
+				<Edit16Regular />
 			</IconButton>
 			<Text wrap="nowrap" size="1">
 				{t("ribbonBar.editMode.wordRomanization", "逐字音译")}
@@ -1475,9 +1645,9 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					/>
 				</Grid>
 			</RibbonSection>
-				<RibbonSection label={t("ribbonBar.editMode.multilingual", "多语言")}>
-					<MultilingualField />
-				</RibbonSection>
+				<RibbonSection label={t("ribbonBar.editMode.multilingual", "附加内容")}>
+				<MultilingualField />
+			</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.layoutMode", "布局模式")}>
 					<EditModeField
 						simpleModeLabel={t(
