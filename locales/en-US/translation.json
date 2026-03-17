@@ -349,6 +349,7 @@
 		},
 			"help": "Help",
 			"helpDoc": "Documentation (CN)",
+			"github": "GitHub",
 			"importLyric": {
 				"import": "Import lyrics",
 				"fromPlainText": "Import from plain text…",
@@ -832,5 +833,18 @@
 		"offlineReady": "Site successfully cached for offline use",
 		"updateRefresh": "Site updated, refresh to use the latest version!",
 		"refresh": "Refresh"
+	},
+	"reviewActionGroup": {
+		"stash": "Stash",
+		"switchAudio": "Switch Audio",
+		"complete": "Complete",
+		"cancel": "Cancel"
+	},
+	"riskConfirmation": {
+		"title": "Risk Confirmation",
+		"description": "Please open the console and enter the confirmation statements below. The login process will continue automatically after completion.",
+		"consoleExample": "Console input example",
+		"confirmStatement": "confirmation statement",
+		"completed": "Completed"
 	}
 }

@@ -352,6 +352,7 @@
 		},
 			"help": "帮助",
 			"helpDoc": "使用说明",
+			"github": "GitHub",
 			"importLyric": {
 				"import": "导入歌词",
 				"fromPlainText": "从纯文本导入…",
@@ -835,5 +836,18 @@
 		"offlineReady": "网站已成功离线缓存，后续可离线访问本网页",
 		"updateRefresh": "网站已更新，刷新网页以使用最新版本！",
 		"refresh": "刷新"
+	},
+	"reviewActionGroup": {
+		"stash": "暂存",
+		"switchAudio": "切换音频",
+		"complete": "完成",
+		"cancel": "取消"
+	},
+	"riskConfirmation": {
+		"title": "风险确认",
+		"description": "请打开控制台，输入以下确认语句。完成后将自动继续登录流程。",
+		"consoleExample": "控制台输入示例",
+		"confirmStatement": "确认语句",
+		"completed": "已完成"
 	}
 }

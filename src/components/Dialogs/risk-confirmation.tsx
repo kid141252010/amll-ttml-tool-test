@@ -1,6 +1,7 @@
 import { Box, Button, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { riskConfirmDialogAtom } from "$/states/dialogs";
 
 const RISK_CONFIRM_PHRASES = ["我确定我要登录该应用"];
@@ -8,6 +9,7 @@ const RISK_CONFIRM_PHRASES = ["我确定我要登录该应用"];
 const CONSOLE_HANDLER_KEY = "amllRiskConfirm";
 
 export const RiskConfirmationDialog = () => {
+	const { t } = useTranslation();
 	const [dialogState, setDialogState] = useAtom(riskConfirmDialogAtom);
 	const [progressIndex, setProgressIndex] = useState(0);
 	const progressRef = useRef(0);
@@ -61,9 +63,12 @@ export const RiskConfirmationDialog = () => {
 	return (
 		<Dialog.Root open={dialogState.open}>
 			<Dialog.Content style={{ maxWidth: "560px" }}>
-				<Dialog.Title>风险确认</Dialog.Title>
+				<Dialog.Title>{t("riskConfirmation.title", "风险确认")}</Dialog.Title>
 				<Dialog.Description>
-					请打开控制台，输入以下确认语句。完成后将自动继续登录流程。
+					{t(
+						"riskConfirmation.description",
+						"请打开控制台，输入以下确认语句。完成后将自动继续登录流程。",
+					)}
 				</Dialog.Description>
 				<Flex direction="column" gap="3" mt="4">
 					<Flex direction="column" gap="2">
@@ -78,11 +83,12 @@ export const RiskConfirmationDialog = () => {
 					</Flex>
 					<Box>
 						<Text size="2" color="gray">
-							控制台输入示例：window.{CONSOLE_HANDLER_KEY}("确认语句")
+							{t("riskConfirmation.consoleExample", "控制台输入示例")}：window.
+							{CONSOLE_HANDLER_KEY}("{t("riskConfirmation.confirmStatement", "确认语句")}")
 						</Text>
 					</Box>
 					<Text size="2" color="gray">
-						已完成：{progressText}
+						{t("riskConfirmation.completed", "已完成")}：{progressText}
 					</Text>
 					<Flex justify="end">
 						<Button
@@ -90,7 +96,7 @@ export const RiskConfirmationDialog = () => {
 							color="gray"
 							onClick={() => setDialogState({ open: false })}
 						>
-							取消
+							{t("common.cancel", "取消")}
 						</Button>
 					</Flex>
 				</Flex>
