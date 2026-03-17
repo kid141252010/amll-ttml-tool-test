@@ -376,6 +376,8 @@ export function predictLineRomanization(
 /**
  * 按空格分配罗马音到单词
  * 根据空格分隔罗马音字符串，按顺序分配给每个单词
+ * 正确处理原文中的空格单词：空格单词会分配到空字符串，音译按非空格单词分配
+ * 保留音译中的空格，将空格作为独立的分配单元
  * @param words 当前行的单词列表
  * @param romanLyric 整行音译字符串
  */
@@ -386,12 +388,55 @@ export function distributeRomanizationBySpace(
 	const results = new Array(words.length).fill("");
 	if (!romanLyric.trim()) return results;
 
-	// 按空格分割罗马音
-	const romanParts = romanLyric.trim().split(/\s+/);
+	// 按空格分割罗马音，但保留空格作为独立的部分
+	// 使用 match 来捕获空格和非空格内容
+	const trimmedRoman = romanLyric.trim();
+	const romanParts: string[] = [];
+	const regex = /[^\s]+|\s+/g;
+	let match;
+	while ((match = regex.exec(trimmedRoman)) !== null) {
+		romanParts.push(match[0]);
+	}
 
-	// 按顺序分配给每个单词
-	for (let i = 0; i < words.length && i < romanParts.length; i++) {
-		results[i] = romanParts[i];
+	// 识别原文中的空格单词（trim后长度为0的单词）
+	// 空格单词应该分配空字符串，音译按非空格单词分配
+	// 音译中的空格也应该被保留并分配
+	let romanIndex = 0;
+	for (let i = 0; i < words.length; i++) {
+		const word = words[i];
+		const isSpaceWord = word.word.trim().length === 0;
+
+		if (isSpaceWord) {
+			// 空格单词分配空字符串（原文空格）
+			results[i] = "";
+		} else {
+			// 非空格单词分配音译部分
+			// 收集连续的音译部分（包括中间的空格）
+			let combinedRoman = "";
+			while (romanIndex < romanParts.length) {
+				const part = romanParts[romanIndex];
+				if (part.trim().length === 0) {
+					// 遇到音译中的空格，添加到当前单词并继续
+					combinedRoman += part;
+					romanIndex++;
+				} else {
+					// 遇到非空格音译部分
+					if (combinedRoman.length === 0) {
+						// 这是当前单词的第一个音译部分
+						combinedRoman += part;
+						romanIndex++;
+						// 检查下一个是否是空格，如果是则包含进来
+						if (romanIndex < romanParts.length && romanParts[romanIndex].trim().length === 0) {
+							combinedRoman += romanParts[romanIndex];
+							romanIndex++;
+						}
+						break;
+					}
+					break;
+				}
+			}
+			results[i] = combinedRoman;
+		}
 	}
 
 	return results;
