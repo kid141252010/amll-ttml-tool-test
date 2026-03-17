@@ -5,6 +5,7 @@ import {
 	MusicNote2Filled,
 } from "@fluentui/react-icons";
 import { Button, Flex, Text } from "@radix-ui/themes";
+import { useTranslation } from "react-i18next";
 
 export type ReviewActionGroupProps = {
 	className?: string;
@@ -29,6 +30,8 @@ export const ReviewActionGroup = ({
 	onComplete,
 	onCancel,
 }: ReviewActionGroupProps) => {
+	const { t } = useTranslation();
+
 	return (
 		<Flex align="center" gap="1" className={className}>
 			{showStash && (
@@ -41,7 +44,7 @@ export const ReviewActionGroup = ({
 				>
 					<Flex align="center" gap="1">
 						<AddCircle20Regular />
-						<Text size="1">暂存</Text>
+						<Text size="1">{t("reviewActionGroup.stash", "暂存")}</Text>
 					</Flex>
 				</Button>
 			)}
@@ -55,20 +58,20 @@ export const ReviewActionGroup = ({
 				>
 					<Flex align="center" gap="1">
 						<MusicNote2Filled />
-						<Text size="1">切换音频</Text>
+						<Text size="1">{t("reviewActionGroup.switchAudio", "切换音频")}</Text>
 					</Flex>
 				</Button>
 			)}
 			<Button size="1" variant="soft" color="green" onClick={onComplete}>
 				<Flex align="center" gap="1">
 					<Checkmark20Regular />
-					<Text size="1">完成</Text>
+					<Text size="1">{t("reviewActionGroup.complete", "完成")}</Text>
 				</Flex>
 			</Button>
 			<Button size="1" variant="soft" color="red" onClick={onCancel}>
 				<Flex align="center" gap="1">
 					<Dismiss20Regular />
-					<Text size="1">取消</Text>
+					<Text size="1">{t("reviewActionGroup.cancel", "取消")}</Text>
 				</Flex>
 			</Button>
 		</Flex>
