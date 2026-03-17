@@ -27,6 +27,23 @@ export const addLanguageDialogAtom = atom<{
 	open: false,
 	target: "translation",
 });
+
+export type EditLanguageDialogTarget =
+	| "primary"
+	| "translation"
+	| "romanization"
+	| "word-romanization";
+
+export const editLanguageDialogAtom = atom<{
+	open: boolean;
+	target: EditLanguageDialogTarget;
+	currentLang: string;
+	onSubmit?: (newLang: string) => void;
+}>({
+	open: false,
+	target: "primary",
+	currentLang: "",
+});
 export const confirmDialogAtom = atom<{
 	open: boolean;
 	title: string;
