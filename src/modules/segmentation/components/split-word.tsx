@@ -159,6 +159,10 @@ export const SplitWordDialog = memo(() => {
 		});
 	}, []);
 
+	const clearAllSplits = useCallback(() => {
+		setSplitIndices(new Set());
+	}, []);
+
 	const handleSplit = useCallback(() => {
 		if (!targetWordText) return;
 
@@ -252,10 +256,11 @@ export const SplitWordDialog = memo(() => {
 
 					<Box my="3">
 						<ManualWordSplitter
-							word={targetWordText}
-							splitIndices={splitIndices}
-							onSplitIndexToggle={toggleSplitPoint}
-						/>
+						word={targetWordText}
+						splitIndices={splitIndices}
+						onSplitIndexToggle={toggleSplitPoint}
+						onClearAllSplits={clearAllSplits}
+					/>
 					</Box>
 
 					<Flex direction="column" gap="2">
