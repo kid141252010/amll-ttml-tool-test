@@ -387,4 +387,9 @@
 	bottom: var(--space-3);
 	z-index: 5;
 	box-shadow: var(--base-card-surface-box-shadow);
+	border-radius: 50%;
+	backdrop-filter: blur(8px);
+	width: 2.5rem;
+	height: 2.5rem;
+	padding: 0;
 }
