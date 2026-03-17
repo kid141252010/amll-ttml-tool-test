@@ -32,6 +32,11 @@
 			"title": "确认同步行时间戳",
 			"description": "此操作将根据每行单词的时间戳自动同步所有行的起始和结束时间为第一个和最后一个音节的开始和结束时间。确定要继续吗？"
 		},
+		"alignEndTimestamps": {
+			"title": "确认对齐尾部时间戳",
+			"description": "此操作将把每行的最后一个音节结束时间设置为行结束时间。确定要继续吗？",
+			"descriptionWithSelection": "此操作将把选中行的最后一个音节结束时间设置为行结束时间。确定要继续吗？"
+		},
 		"openFile": {
 			"title": "确认打开文件",
 			"description": "当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要打开新文件吗？"
@@ -85,7 +90,7 @@
 			"translation": "翻译",
 			"romanization": "音译",
 			"wordRomanization": "逐字音译",
-			"multilingual": "多语言",
+			"multilingual": "附加内容",
 			"multilingualPlaceholder": "请选择语言",
 			"duration": "持续时间",
 			"layoutMode": "布局模式",
@@ -332,7 +337,11 @@
 			"autoSegment": "一键分词",
 			"rubySegment": "注音分词",
 			"advancedSegment": "高级分词...",
-			"syncLineTimestamps": "同步行时间戳",
+			"timestampTools": {
+				"index": "时间戳",
+				"syncLineTimestamps": "同步行时间戳",
+				"alignEndTimestamps": "对齐尾部时间戳"
+			},
 			"perWordRomanization":
 		{
 			"index": "逐字音译",

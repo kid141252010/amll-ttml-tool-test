@@ -32,6 +32,11 @@
 			"title": "Confirm Sync Line Timestamps",
 			"description": "This action will automatically synchronize the start and end times of all lines based on the timestamps of each word in the line, matching the start and end times of the first and last syllables. Are you sure you want to proceed?"
 		},
+		"alignEndTimestamps": {
+			"title": "Confirm Align End Timestamps",
+			"description": "This action will set the last syllable's end time of each line to the line's end time. Are you sure you want to proceed?",
+			"descriptionWithSelection": "This action will set the last syllable's end time of selected lines to the line's end time. Are you sure you want to proceed?"
+		},
 		"openFile": {
 			"title": "Confirm Open File",
 			"description": "You have unsaved changes. If you proceed, these changes will be lost. Are you sure you want to open a new file?"
@@ -85,7 +90,7 @@
 			"translation": "Translation",
 			"romanization": "Romanization",
 			"wordRomanization": "Word-by-word romanization",
-			"multilingual": "Multilingual",
+			"multilingual": "Additional Content",
 			"multilingualPlaceholder": "Select language",
 			"duration": "Duration",
 			"layoutMode": "Layout",
@@ -329,7 +334,11 @@
 			"autoSegment": "Auto Segment",
 			"rubySegment": "Ruby Segmentation",
 			"advancedSegment": "Advanced Segment...",
-			"syncLineTimestamps": "Sync Line Timestamps",
+			"timestampTools": {
+				"index": "Timestamp",
+				"syncLineTimestamps": "Sync Line Timestamps",
+				"alignEndTimestamps": "Align End Timestamps"
+			},
 			"perWordRomanization":
 		{
 			"index": "Per-Word Romanization",
