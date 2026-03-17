@@ -33,6 +33,8 @@ export interface TTMLLyric {
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
 	optimizeOptions?: OptimizeLyricOptions;
+	/** 整个歌词的语言代码 */
+	lyricLang?: string;
 }
 
 export interface LyricWordBase {
@@ -57,6 +59,12 @@ export interface LyricWord extends AMLLLyricWord {
 }
 
 export interface TTMLRomanWord {
+	startTime: number;
+	endTime: number;
+	text: string;
+}
+
+export interface TTMLTranslationWord {
 	startTime: number;
 	endTime: number;
 	text: string;
@@ -101,6 +109,7 @@ export interface LyricLine extends AMLLLyricLine {
 	translatedLyricByLang?: Record<string, string>;
 	romanLyricByLang?: Record<string, string>;
 	wordRomanizationByLang?: Record<string, TTMLRomanWord[]>;
+	wordTranslationByLang?: Record<string, TTMLTranslationWord[]>;
 }
 
 export const newLyricLine = (): LyricLine => ({
