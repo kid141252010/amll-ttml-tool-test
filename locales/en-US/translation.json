@@ -77,6 +77,8 @@
 			"romanWord": "Word Romanization",
 			"obscene": "Obscene",
 			"rubyPhraseStart": "First Ruby",
+			"primaryContent": "Primary Content",
+			"primaryContentPlaceholder": "Select primary content language",
 			"secondaryContent": "Secondary Content",
 			"translatedLyric": "Translation",
 			"romanLyric": "Romanization",

@@ -53,6 +53,7 @@ import {
 } from "$/states/main.ts";
 import { addLanguageDialogAtom } from "$/states/dialogs";
 import { type LyricLine, type LyricWord, newLyricLine } from "$/types/ttml";
+import { uid } from "uid";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
@@ -775,6 +776,172 @@ const AuxiliaryDisplayField: FC = () => {
 	);
 };
 
+const PrimaryContentField: FC = () => {
+	const { t } = useTranslation();
+	const lyricLines = useAtomValue(lyricLinesAtom);
+	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const [selectedPrimaryLang, setSelectedPrimaryLang] = useState<string>("");
+
+	// 获取所有逐字翻译的语言代码
+	const wordTranslationLanguages = useMemo(() => {
+		const languages = new Set<string>();
+		for (const line of lyricLines.lyricLines) {
+			if (!line.wordTranslationByLang) continue;
+			for (const [lang, words] of Object.entries(line.wordTranslationByLang)) {
+				if (words.length > 0) {
+					languages.add(lang);
+				}
+			}
+		}
+		return Array.from(languages);
+	}, [lyricLines]);
+
+	// 构建下拉框选项：歌词语言代码 + 所有逐字翻译的语言代码
+	const languageOptions = useMemo(() => {
+		const options: string[] = [];
+		// 添加歌词语言代码（如果有）
+		if (lyricLines.lyricLang) {
+			options.push(lyricLines.lyricLang);
+		}
+		// 添加所有逐字翻译的语言代码
+		for (const lang of wordTranslationLanguages) {
+			if (!options.includes(lang)) {
+				options.push(lang);
+			}
+		}
+		return options;
+	}, [lyricLines.lyricLang, wordTranslationLanguages]);
+
+	// 默认选中歌词语言代码
+	// 使用 ref 跟踪 lyricLines 的引用，以便检测是否加载了新文件
+	const prevLyricLinesRef = useRef(lyricLines);
+	useEffect(() => {
+		// 检测是否加载了新文件（lyricLines 对象引用改变）
+		const isNewFile = prevLyricLinesRef.current !== lyricLines;
+		prevLyricLinesRef.current = lyricLines;
+
+		if (languageOptions.length > 0) {
+			// 如果是新文件，或者当前选中的语言不在选项中，则重置为歌词语言
+			if (isNewFile || !selectedPrimaryLang || !languageOptions.includes(selectedPrimaryLang)) {
+				setSelectedPrimaryLang(lyricLines.lyricLang || languageOptions[0]);
+			}
+		}
+	}, [languageOptions, lyricLines, selectedPrimaryLang]);
+
+	// 处理语言切换：调换歌词语言和选中语言，互换 words 和 wordTranslationByLang
+	const handleLanguageChange = useCallback(
+		(targetLang: string) => {
+			const currentLyricLang = lyricLines.lyricLang || "zh-Hans";
+
+			// 如果选中的就是当前歌词语言，不需要切换
+			if (targetLang === currentLyricLang) {
+				setSelectedPrimaryLang(targetLang);
+				return;
+			}
+
+			editLyricLines((state) => {
+				// 1. 调换歌词语言
+				state.lyricLang = targetLang;
+
+				// 2. 对每一行，逐个音节互换 words 和 wordTranslationByLang[targetLang]
+				for (const line of state.lyricLines) {
+					const targetWordTranslations = line.wordTranslationByLang?.[targetLang];
+
+					if (!targetWordTranslations || targetWordTranslations.length === 0) {
+						// 如果目标语言没有逐字翻译，跳过
+						continue;
+					}
+
+					// 确保 wordTranslationByLang 存在
+					if (!line.wordTranslationByLang) {
+						line.wordTranslationByLang = {};
+					}
+
+					// 初始化当前歌词语言的逐字翻译数组（如果不存在）
+					if (!line.wordTranslationByLang[currentLyricLang]) {
+						line.wordTranslationByLang[currentLyricLang] = [];
+					}
+
+					// 获取当前歌词语言的逐字翻译数组
+					const currentWordTranslations = line.wordTranslationByLang[currentLyricLang];
+
+					// 收集非空格单词的索引（这些是有对应翻译的音节）
+					const nonSpaceWordIndices: number[] = [];
+					for (let i = 0; i < line.words.length; i++) {
+						if (line.words[i].word.trim().length > 0) {
+							nonSpaceWordIndices.push(i);
+						}
+					}
+
+					// 逐个非空格音节互换
+					const swapCount = Math.min(nonSpaceWordIndices.length, targetWordTranslations.length);
+
+					for (let i = 0; i < swapCount; i++) {
+						const wordIndex = nonSpaceWordIndices[i];
+						const word = line.words[wordIndex];
+						const targetTrans = targetWordTranslations[i];
+
+						if (!word || !targetTrans) {
+							continue;
+						}
+
+						// 保存当前歌词内容到当前语言的逐字翻译（使用相同的索引 i）
+						currentWordTranslations[i] = {
+							startTime: word.startTime,
+							endTime: word.endTime,
+							text: word.word,
+						};
+
+						// 将目标语言的翻译内容放入 words
+						word.word = targetTrans.text;
+					}
+
+					// 删除原来的 targetLang 的 wordTranslationByLang（因为已经交换了）
+					delete line.wordTranslationByLang[targetLang];
+
+					// 清理：如果 currentWordTranslations 中有 undefined 项，过滤掉
+					line.wordTranslationByLang[currentLyricLang] = currentWordTranslations.filter(
+						(t): t is TTMLTranslationWord => t !== undefined
+					);
+
+					// 如果 wordTranslationByLang 为空，删除整个属性
+					if (Object.keys(line.wordTranslationByLang).length === 0) {
+						delete line.wordTranslationByLang;
+					}
+				}
+			});
+
+			setSelectedPrimaryLang(targetLang);
+		},
+		[lyricLines.lyricLang, editLyricLines],
+	);
+
+	const placeholder = t(
+		"ribbonBar.editMode.primaryContentPlaceholder",
+		"请选择主要内容语言",
+	);
+
+	return (
+		<Grid columns="1fr" gap="2" flexGrow="1" align="center">
+			<Select.Root
+				value={selectedPrimaryLang}
+				onValueChange={handleLanguageChange}
+				disabled={languageOptions.length === 0}
+				size="1"
+			>
+				<Select.Trigger placeholder={placeholder} />
+				<Select.Content>
+					{languageOptions.map((lang) => (
+						<Select.Item key={lang} value={lang}>
+							{lang}
+						</Select.Item>
+					))}
+				</Select.Content>
+			</Select.Root>
+		</Grid>
+	);
+};
+
 const MultilingualField: FC = () => {
 	const { t } = useTranslation();
 	const lyricLines = useAtomValue(lyricLinesAtom);
@@ -1282,27 +1449,32 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							defaultValue={false}
 						/>
 					</Grid>
-				</RibbonSection>
-				<RibbonSection
-					label={t("ribbonBar.editMode.secondaryContent", "次要内容")}
-				>
-					<Grid columns="0fr 1fr" gap="2" gapY="1" flexGrow="1" align="center">
-						<EditField
-							label={t("ribbonBar.editMode.translatedLyric", "翻译歌词")}
-							fieldName="translatedLyric"
-							parser={(v) => v}
-							formatter={(v) => v}
-							textFieldStyle={{ width: "20em" }}
-						/>
-						<EditField
-							label={t("ribbonBar.editMode.romanLyric", "音译歌词")}
-							fieldName="romanLyric"
-							parser={(v) => v}
-							formatter={(v) => v}
-							textFieldStyle={{ width: "20em" }}
-						/>
-					</Grid>
-				</RibbonSection>
+			</RibbonSection>
+			<RibbonSection
+				label={t("ribbonBar.editMode.primaryContent", "主要内容")}
+			>
+				<PrimaryContentField />
+			</RibbonSection>
+			<RibbonSection
+				label={t("ribbonBar.editMode.secondaryContent", "次要内容")}
+			>
+				<Grid columns="0fr 1fr" gap="2" gapY="1" flexGrow="1" align="center">
+					<EditField
+						label={t("ribbonBar.editMode.translatedLyric", "翻译歌词")}
+						fieldName="translatedLyric"
+						parser={(v) => v}
+						formatter={(v) => v}
+						textFieldStyle={{ width: "20em" }}
+					/>
+					<EditField
+						label={t("ribbonBar.editMode.romanLyric", "音译歌词")}
+						fieldName="romanLyric"
+						parser={(v) => v}
+						formatter={(v) => v}
+						textFieldStyle={{ width: "20em" }}
+					/>
+				</Grid>
+			</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.multilingual", "多语言")}>
 					<MultilingualField />
 				</RibbonSection>
