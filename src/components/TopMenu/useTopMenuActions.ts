@@ -441,7 +441,7 @@ export const useTopMenuActions = () => {
 						if (targetLang) {
 							line.wordRomanizationByLang ??= {};
 							line.wordRomanizationByLang[targetLang] = line.words
-								.filter((word) => word.romanWord.trim().length > 0)
+								.filter((word) => word.romanWord.length > 0)
 								.map((word) => ({
 									startTime: word.startTime,
 									endTime: word.endTime,
@@ -497,7 +497,7 @@ export const useTopMenuActions = () => {
 					if (targetLang) {
 						line.wordRomanizationByLang ??= {};
 						line.wordRomanizationByLang[targetLang] = line.words
-							.filter((word) => word.romanWord.trim().length > 0)
+							.filter((word) => word.romanWord.length > 0)
 							.map((word) => ({
 								startTime: word.startTime,
 								endTime: word.endTime,

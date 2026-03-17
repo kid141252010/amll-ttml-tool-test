@@ -127,6 +127,7 @@ export const useFileOpener = () => {
 					id: uid(),
 				})),
 				metadata: [],
+				lyricLang: "zh-Hans",
 			};
 		},
 		[],

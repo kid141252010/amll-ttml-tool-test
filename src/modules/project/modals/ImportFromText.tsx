@@ -270,6 +270,7 @@ export const ImportFromText = () => {
 			store.set(lyricLinesAtom, {
 				lyricLines: result,
 				metadata: [],
+				lyricLang: "zh-Hans",
 			});
 		},
 		[store],
