@@ -899,6 +899,14 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						}
 					}
 				}
+				// 从 translatedLyricByLang 中删除已转换为逐字翻译的语言
+				if (line.translatedLyricByLang?.[lang] !== undefined) {
+					delete line.translatedLyricByLang[lang];
+					// 如果 translatedLyricByLang 为空，删除整个属性
+					if (Object.keys(line.translatedLyricByLang).length === 0) {
+						delete line.translatedLyricByLang;
+					}
+				}
 			}
 			if (Object.keys(wordTranslationByLang).length > 0) {
 				line.wordTranslationByLang = wordTranslationByLang;
