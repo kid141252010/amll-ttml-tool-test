@@ -1,7 +1,10 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom, withImmer } from "jotai-immer";
-import { useCallback } from "react";
+import ToJyutping from "to-jyutping";
+import { pinyin } from "pinyin-pro";
+import { romanize } from "koroman";
+import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import { uid } from "uid";
@@ -60,6 +63,39 @@ export const useTopMenuActions = () => {
 	const [saveFileName, setSaveFileName] = useAtom(saveFileNameAtom);
 	const newLyricLine = useSetAtom(newLyricLinesAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+
+	// 缓存 kuroshiro 实例
+	const kuroshiroRef = useRef<unknown>(null);
+	const kuroshiroInitializingRef = useRef<Promise<unknown> | null>(null);
+
+	// 获取或初始化 kuroshiro（动态导入，减少初始加载）
+	const getKuroshiro = useCallback(async () => {
+		if (kuroshiroRef.current) {
+			return kuroshiroRef.current;
+		}
+
+		if (kuroshiroInitializingRef.current) {
+			return kuroshiroInitializingRef.current;
+		}
+
+		const initPromise = (async () => {
+			// 动态导入 kuroshiro 和 kuromoji analyzer
+			const [{ default: Kuroshiro }, { default: KuromojiAnalyzer }] = await Promise.all([
+				import("kuroshiro"),
+				import("kuroshiro-analyzer-kuromoji"),
+			]);
+
+			const kuroshiro = new Kuroshiro();
+			// 在浏览器环境中使用 /kuromoji-dict 路径
+			const dictPath = typeof window !== "undefined" ? "/kuromoji-dict" : undefined;
+			await kuroshiro.init(new KuromojiAnalyzer({ dictPath }));
+			kuroshiroRef.current = kuroshiro;
+			return kuroshiro;
+		})();
+
+		kuroshiroInitializingRef.current = initPromise;
+		return initPromise;
+	}, []);
 	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setVocalTagsEditorOpened = useSetAtom(vocalTagsEditorDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
@@ -563,6 +599,210 @@ export const useTopMenuActions = () => {
 		setAdvancedSegmentationDialog(true);
 	}, [setAdvancedSegmentationDialog]);
 
+	const onAutoTransliterationPinyin = useCallback(() => {
+		editLyricLines((draft) => {
+			for (const line of draft.lyricLines) {
+				// 获取主要歌词内容
+				const content = line.words.map((w) => w.word).join("");
+
+				// 分离中文和非中文部分
+				const segments: Array<{ text: string; isChinese: boolean }> = [];
+				let currentSegment = "";
+				let isCurrentChinese = false;
+
+				for (const char of content) {
+					// 判断是否为中文字符（CJK Unified Ideographs 范围）
+					const code = char.charCodeAt(0);
+					const isChinese = (code >= 0x4e00 && code <= 0x9fff) ||
+						(code >= 0x3400 && code <= 0x4dbf) ||
+						(code >= 0x20000 && code <= 0x2a6df) ||
+						(code >= 0x2a700 && code <= 0x2b73f) ||
+						(code >= 0x2b740 && code <= 0x2b81f) ||
+						(code >= 0x2b820 && code <= 0x2ceaf);
+
+					if (currentSegment === "") {
+						currentSegment = char;
+						isCurrentChinese = isChinese;
+					} else if (isCurrentChinese === isChinese) {
+						currentSegment += char;
+					} else {
+						segments.push({ text: currentSegment, isChinese: isCurrentChinese });
+						currentSegment = char;
+						isCurrentChinese = isChinese;
+					}
+				}
+
+				if (currentSegment !== "") {
+					segments.push({ text: currentSegment, isChinese: isCurrentChinese });
+				}
+
+				// 转换中文部分并重新组合
+				const convertedSegments = segments.map((segment) => {
+					if (segment.isChinese) {
+						return pinyin(segment.text);
+					}
+					return segment.text;
+				});
+
+				const pinyinText = convertedSegments.join("");
+
+				// 如果转换结果为空或与原文相同，跳过
+				if (!pinyinText || pinyinText === content) {
+					continue;
+				}
+
+				// 设置行音译，语言代码为 zh-Latn（汉语拉丁化）
+				line.romanLyricByLang = line.romanLyricByLang || {};
+				line.romanLyricByLang["zh-Latn-pinyin"] = pinyinText;
+
+				// 如果没有设置主要的 romanLyric，则使用这个
+				if (!line.romanLyric) {
+					line.romanLyric = pinyinText;
+				}
+			}
+		});
+	}, [editLyricLines]);
+
+	const onAutoTransliterationJyutping = useCallback(() => {
+		editLyricLines((draft) => {
+			for (const line of draft.lyricLines) {
+				// 获取主要歌词内容
+				const content = line.words.map((w) => w.word).join("");
+
+				// 使用 to-jyutping 获取粤拼文本
+				const jyutping = ToJyutping.getJyutpingText(content);
+
+				// 如果转换结果为空或与原文相同，跳过
+				if (!jyutping || jyutping === content) {
+					continue;
+				}
+
+				// 设置行音译，语言代码为 yue（粤语）
+				line.romanLyricByLang = line.romanLyricByLang || {};
+				line.romanLyricByLang["zh-Latn-jyutping"] = jyutping;
+
+				// 如果没有设置主要的 romanLyric，则使用这个
+				if (!line.romanLyric) {
+					line.romanLyric = jyutping;
+				}
+			}
+		});
+	}, [editLyricLines]);
+
+	const onAutoTransliterationJapanese = useCallback(async () => {
+		try {
+			const kuroshiro = await getKuroshiro();
+
+			// 动态导入 Kuroshiro 以使用 Util
+			const { default: KuroshiroClass } = await import("kuroshiro");
+
+			// 先收集需要处理的歌词行
+			const linesToProcess: Array<{ index: number; content: string }> = [];
+			const currentLines = store.get(lyricLinesAtom).lyricLines;
+
+			for (let i = 0; i < currentLines.length; i++) {
+				const line = currentLines[i];
+				const content = line.words.map((w) => w.word).join("");
+
+				// 检查是否包含日语
+				if (KuroshiroClass.Util.hasJapanese(content)) {
+					linesToProcess.push({ index: i, content });
+				}
+			}
+
+			// 异步转换所有日语歌词
+			const conversions = await Promise.all(
+				linesToProcess.map(async ({ index, content }) => ({
+					index,
+					romaji: await (kuroshiro as { convert: (text: string, options: { mode: string; to: string }) => Promise<string> }).convert(content, {
+						mode: "spaced",
+						to: "romaji",
+					}),
+				})),
+			);
+
+			// 更新歌词行
+			editLyricLines((draft) => {
+				for (const { index, romaji } of conversions) {
+					const line = draft.lyricLines[index];
+					if (line) {
+						// 设置行音译，语言代码为 ja-Latn
+						line.romanLyricByLang = line.romanLyricByLang || {};
+						line.romanLyricByLang["ja-Latn"] = romaji;
+
+						// 如果没有设置主要的 romanLyric，则使用这个
+						if (!line.romanLyric) {
+							line.romanLyric = romaji;
+						}
+					}
+				}
+			});
+		} catch (err) {
+			error("Failed to initialize kuroshiro:", err);
+		}
+	}, [editLyricLines, getKuroshiro, store]);
+
+	const onAutoTransliterationKorean = useCallback(() => {
+		editLyricLines((draft) => {
+			for (const line of draft.lyricLines) {
+				// 获取主要歌词内容
+				const content = line.words.map((w) => w.word).join("");
+
+				// 分离韩文和非韩文部分
+				const segments: Array<{ text: string; isKorean: boolean }> = [];
+				let currentSegment = "";
+				let isCurrentKorean = false;
+
+				for (const char of content) {
+					// 判断是否为韩文字符（Hangul Syllables 范围）
+					const code = char.charCodeAt(0);
+					const isKorean = (code >= 0xac00 && code <= 0xd7af) || // Hangul Syllables
+						(code >= 0x1100 && code <= 0x11ff) || // Hangul Jamo
+						(code >= 0x3130 && code <= 0x318f);   // Hangul Compatibility Jamo
+
+					if (currentSegment === "") {
+						currentSegment = char;
+						isCurrentKorean = isKorean;
+					} else if (isCurrentKorean === isKorean) {
+						currentSegment += char;
+					} else {
+						segments.push({ text: currentSegment, isKorean: isCurrentKorean });
+						currentSegment = char;
+						isCurrentKorean = isKorean;
+					}
+				}
+
+				if (currentSegment !== "") {
+					segments.push({ text: currentSegment, isKorean: isCurrentKorean });
+				}
+
+				// 转换韩文部分并重新组合
+				const convertedSegments = segments.map((segment) => {
+					if (segment.isKorean) {
+						return romanize(segment.text);
+					}
+					return segment.text;
+				});
+
+				const romanizedText = convertedSegments.join("");
+
+				// 如果转换结果为空或与原文相同，跳过
+				if (!romanizedText || romanizedText === content) {
+					continue;
+				}
+
+				// 设置行音译，语言代码为 ko-Latn（韩语拉丁化）
+				line.romanLyricByLang = line.romanLyricByLang || {};
+				line.romanLyricByLang["ko-Latn"] = romanizedText;
+
+				// 如果没有设置主要的 romanLyric，则使用这个
+				if (!line.romanLyric) {
+					line.romanLyric = romanizedText;
+				}
+			}
+		});
+	}, [editLyricLines]);
+
 	return {
 		newFileKey,
 		openFileKey,
@@ -603,6 +843,10 @@ export const useTopMenuActions = () => {
 		onCheckRomanizationWarnings,
 		onDistributeRomanizationBySpace,
 		onDistributeRomanizationByCharCount,
+		onAutoTransliterationPinyin,
+		onAutoTransliterationJyutping,
+		onAutoTransliterationJapanese,
+		onAutoTransliterationKorean,
 		onOpenLatencyTest,
 		onOpenGitHub,
 		onOpenWiki,

@@ -47,6 +47,25 @@ const ToolMenuItems = () => {
 			</DropdownMenu.Sub>
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger>
+					{t("topBar.menu.perWordRomanization.autoTransliteration.index", "自动音译")}
+				</DropdownMenu.SubTrigger>
+				<DropdownMenu.SubContent>
+					<DropdownMenu.Item onSelect={menu.onAutoTransliterationPinyin}>
+						{t("topBar.menu.perWordRomanization.autoTransliteration.pinyin", "拼音")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onAutoTransliterationJyutping}>
+						{t("topBar.menu.perWordRomanization.autoTransliteration.jyutping", "粤拼")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onAutoTransliterationJapanese}>
+						{t("topBar.menu.perWordRomanization.autoTransliteration.japanese", "日语注音")}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onAutoTransliterationKorean}>
+						{t("topBar.menu.perWordRomanization.autoTransliteration.korean", "韩语注音")}
+					</DropdownMenu.Item>
+				</DropdownMenu.SubContent>
+			</DropdownMenu.Sub>
+			<DropdownMenu.Sub>
+				<DropdownMenu.SubTrigger>
 					{t("topBar.menu.perWordRomanization.index", "逐字音译")}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>

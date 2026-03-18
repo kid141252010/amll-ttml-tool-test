@@ -340,13 +340,20 @@
 				"alignEndTimestamps": "Align End Timestamps"
 			},
 			"perWordRomanization":
-		{
-			"index": "Per-Word Romanization",
-			"check": "Check Per-Word Romanization",
-			"distribute": "Distribute Romanization...",
-			"distributeBySpace": "Distribute by Space",
-			"distributeByCharCount": "Distribute by Char Count"
-		},
+	{
+		"index": "Per-Word Romanization",
+		"check": "Check Per-Word Romanization",
+		"distribute": "Distribute Romanization...",
+		"distributeBySpace": "Distribute by Space",
+		"distributeByCharCount": "Distribute by Char Count",
+		"autoTransliteration": {
+			"index": "Auto Transliteration",
+			"pinyin": "Pinyin",
+			"jyutping": "Jyutping",
+			"japanese": "Japanese Ruby",
+			"korean": "Korean Ruby"
+		}
+	},
 			"help": "Help",
 			"helpDoc": "Documentation (CN)",
 			"github": "GitHub",
