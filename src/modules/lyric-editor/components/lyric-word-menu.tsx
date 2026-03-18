@@ -15,6 +15,7 @@ import {
 	newLyricLine,
 	newLyricWord,
 } from "$/types/ttml";
+import { msToTimestamp } from "$/utils/timestamp.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time";
 
 const selectedLinesSizeAtom = atom((get) => get(selectedLinesAtom).size);
@@ -154,8 +155,75 @@ export const LyricWordMenu = ({
 			</ContextMenu.Item>
 
 			<ContextMenu.Separator />
+
+			<ContextMenu.Item
+				disabled={selectedWordsSize !== 1}
+				onSelect={() => copyWordContent()}
+			>
+				{t("contextMenu.copyWordContent", "复制音节内容")}
+			</ContextMenu.Item>
+			<ContextMenu.Item
+				disabled={selectedWordsSize === 0}
+				onSelect={() => copySelectedWordsText()}
+			>
+				{t("contextMenu.copySelectedWordsText", "复制选中音节文本")}
+			</ContextMenu.Item>
+
+			<ContextMenu.Separator />
 		</>
 	);
+
+	function copyWordContent() {
+		const selectedWordIds = store.get(selectedWordsAtom);
+		const selectedWords: LyricWord[] = [];
+
+		// 收集选中的音节
+		for (const line of store.get(lyricLinesAtom).lyricLines) {
+			for (const w of line.words) {
+				if (selectedWordIds.has(w.id)) {
+					selectedWords.push(w);
+				}
+			}
+		}
+
+		// 按开始时间排序
+		selectedWords.sort((a, b) => a.startTime - b.startTime);
+
+		// 格式化为 「text/begin/end」，时间使用分:秒:毫秒格式
+		const content = selectedWords
+			.map((w) => `「${w.word}/\`${msToTimestamp(w.startTime)}\`/\`${msToTimestamp(w.endTime)}\`」`)
+			.join("\n");
+
+		// 复制到剪贴板
+		if (content) {
+			navigator.clipboard.writeText(content);
+		}
+	}
+
+	function copySelectedWordsText() {
+		const selectedWordIds = store.get(selectedWordsAtom);
+		const selectedWords: LyricWord[] = [];
+
+		// 收集选中的音节
+		for (const line of store.get(lyricLinesAtom).lyricLines) {
+			for (const w of line.words) {
+				if (selectedWordIds.has(w.id)) {
+					selectedWords.push(w);
+				}
+			}
+		}
+
+		// 按开始时间排序
+		selectedWords.sort((a, b) => a.startTime - b.startTime);
+
+		// 拼接文本为一行
+		const content = selectedWords.map((w) => w.word).join("");
+
+		// 复制到剪贴板
+		if (content) {
+			navigator.clipboard.writeText(content);
+		}
+	}
 
 	function selectedToNewLine() {
 		editLyricLines((state) => {
