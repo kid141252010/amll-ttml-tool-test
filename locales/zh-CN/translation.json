@@ -411,12 +411,15 @@
 		"insertLineAfter": "在后插入新行",
 		"copyLine": "复制行",
 		"combineLine": "合并行",
+		"copyLineContent": "复制行文本",
 		"deleteLine": "删除行",
 		"splitWord": "拆分单词…",
 		"replaceWord": "替换单词…",
 		"combineWords": "合并单词",
 		"moveFollowingWordToNewLine": "此后单词拆至新行",
-		"moveWordToNewLine": "选中单词拆至新行"
+		"moveWordToNewLine": "选中单词拆至新行",
+		"copyWordContent": "复制音节内容",
+		"copySelectedWordsText": "复制选中音节文本"
 	},
 	"settingsDialog": {
 		"title": "首选项",

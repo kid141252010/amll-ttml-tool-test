@@ -408,12 +408,15 @@
 		"insertLineAfter": "Insert new line after",
 		"copyLine": "Duplicate {count, plural, one {line} other {lines}}",
 		"combineLine": "Combine lines",
+		"copyLineContent": "Copy line text",
 		"deleteLine": "Delete {count, plural, one {line} other {lines}}",
 		"splitWord": "Split word…",
 		"replaceWord": "Replace word…",
 		"combineWords": "Combine words",
 		"moveFollowingWordToNewLine": "Move followings to new line",
-		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line"
+		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line",
+		"copyWordContent": "Copy syllable info",
+		"copySelectedWordsText": "Copy selected syllables text"
 	},
 	"settingsDialog": {
 		"title": "Preferences",

@@ -102,7 +102,7 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 			</ContextMenu.Item>
 			<ContextMenu.Separator />
 			<ContextMenu.Item onSelect={copyLineContent} disabled={selectedLinesSize === 0}>
-				{t("contextMenu.copyLineContent", "复制行内容")}
+				{t("contextMenu.copyLineContent", "复制行文本")}
 			</ContextMenu.Item>
 			<ContextMenu.Item
 				onSelect={() => {
