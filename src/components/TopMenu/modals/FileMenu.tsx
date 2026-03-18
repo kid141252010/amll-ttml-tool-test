@@ -30,17 +30,17 @@ const FileMenuItems = () => {
 			>
 				<Trans i18nKey="topBar.menu.openLyric">打开 TTML 文件</Trans>
 			</DropdownMenu.Item>
-			<DropdownMenu.Item onSelect={menu.onOpenFileFromClipboard}>
-				<Trans i18nKey="topBar.menu.openFromClipboard">
-					从剪切板打开 TTML 文件
-				</Trans>
-			</DropdownMenu.Item>
-			<DropdownMenu.Separator />
 			<DropdownMenu.Item
 				onSelect={menu.onSaveFile}
 				shortcut={formatKeyBindings(menu.saveFileKey)}
 			>
 				<Trans i18nKey="topBar.menu.saveLyric">保存 TTML 文件</Trans>
+			</DropdownMenu.Item>
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item onSelect={menu.onOpenFileFromClipboard}>
+				<Trans i18nKey="topBar.menu.openFromClipboard">
+					从剪切板打开 TTML 文件
+				</Trans>
 			</DropdownMenu.Item>
 			<DropdownMenu.Item onSelect={menu.onSaveFileToClipboard}>
 				<Trans i18nKey="topBar.menu.saveLyricToClipboard">
