@@ -100,6 +100,10 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 			<ContextMenu.Item onSelect={combineLines} disabled={!combineEnabled}>
 				{t("contextMenu.combineLine", "合并行")}
 			</ContextMenu.Item>
+			<ContextMenu.Separator />
+			<ContextMenu.Item onSelect={copyLineContent} disabled={selectedLinesSize === 0}>
+				{t("contextMenu.copyLineContent", "复制行内容")}
+			</ContextMenu.Item>
 			<ContextMenu.Item
 				onSelect={() => {
 					editLyricLines((state) => {
@@ -150,5 +154,22 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 				return [line, newLine];
 			});
 		});
+	}
+
+	function copyLineContent() {
+		// 获取选中的行
+		const linesToCopy = selectedLinesSize === 0
+			? [lineObjs.lyricLines[lineIndex]]
+			: selectedLineObjs;
+
+		// 提取行的正文文本（将单词拼接起来）
+		const content = linesToCopy
+			.map((line) => line.words.map((word) => word.word).join(""))
+			.join("\n");
+
+		// 复制到剪贴板
+		if (content) {
+			navigator.clipboard.writeText(content);
+		}
 	}
 };
