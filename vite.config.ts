@@ -1,8 +1,9 @@
 // import MillionLint from "@million/lint";
 import { exec } from "node:child_process";
 import type { Readable } from "node:stream";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
 import react from "@vitejs/plugin-react";
 import jotaiDebugLabel from "jotai/babel/plugin-debug-label";
 import jotaiReactRefresh from "jotai/babel/plugin-react-refresh";
@@ -27,6 +28,58 @@ const ReactCompilerConfig = {
 process.env.AMLL_LOCAL_EXISTS = AMLL_LOCAL_EXISTS ? "true" : "false";
 
 const plugins: Plugin[] = [
+	{
+		name: "copy-kuromoji-dict",
+		buildStart() {
+			const sourceDir = resolve(__dirname, "node_modules/kuromoji/dict");
+			const targetDir = resolve(__dirname, "public/kuromoji-dict");
+			
+			if (!existsSync(sourceDir)) {
+				console.warn("Kuromoji dict source not found, skipping copy");
+				return;
+			}
+			
+			if (!existsSync(targetDir)) {
+				mkdirSync(targetDir, { recursive: true });
+			}
+			
+			const files = [
+				"base.dat.gz",
+				"check.dat.gz",
+				"tid.dat.gz",
+				"tid_map.dat.gz",
+				"tid_pos.dat.gz",
+				"cc.dat.gz",
+				"unk.dat.gz",
+				"unk_char.dat.gz",
+				"unk_compat.dat.gz",
+				"unk_invoke.dat.gz",
+				"unk_map.dat.gz",
+				"unk_pos.dat.gz",
+			];
+			
+			for (const file of files) {
+				const sourcePath = join(sourceDir, file);
+				const targetPath = join(targetDir, file);
+				if (existsSync(sourcePath)) {
+					copyFileSync(sourcePath, targetPath);
+				}
+			}
+			console.log("Kuromoji dictionary files copied successfully");
+		},
+	},
+	{
+		name: "kuromoji-dict-mime",
+		configureServer(server) {
+			server.middlewares.use((req, res, next) => {
+				if (req.url?.includes("/kuromoji-dict/") && req.url?.endsWith(".dat.gz")) {
+					res.setHeader("Content-Type", "application/gzip");
+					res.setHeader("Content-Encoding", "identity");
+				}
+				next();
+			});
+		},
+	},
 	{
 		name: "github-proxy-dev",
 		configureServer(server) {
@@ -235,6 +288,8 @@ export default defineConfig({
 	plugins,
 	base: process.env.TAURI_ENV_PLATFORM ? "/" : "./",
 	clearScreen: false,
+	assetsInclude: ["**/*.dat.gz"],
+	publicDir: "public",
 	server: {
 		headers: {
 			"Cross-Origin-Embedder-Policy": "require-corp",
@@ -256,6 +311,7 @@ export default defineConfig({
 		alias: Object.assign(
 			{
 				$: resolve(__dirname, "src"),
+				path: "path-browserify",
 			},
 			AMLL_LOCAL_EXISTS
 				? {
@@ -272,6 +328,19 @@ export default defineConfig({
 				: {},
 		) as Record<string, string>,
 		dedupe: ["react", "react-dom", "jotai"],
+	},
+	optimizeDeps: {
+		esbuildOptions: {
+			define: {
+				global: "globalThis",
+			},
+			plugins: [
+				NodeGlobalsPolyfillPlugin({
+					buffer: true,
+					process: true,
+				}),
+			],
+		},
 	},
 	worker: {
 		format: "es",

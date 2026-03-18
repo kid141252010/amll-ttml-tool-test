@@ -34,3 +34,21 @@ interface ImportMetaEnv {
 interface ImportMeta {
 	readonly env: ImportMetaEnv;
 }
+
+// kuroshiro 类型声明
+declare module "kuroshiro" {
+	export default class Kuroshiro {
+		constructor();
+		init(analyzer: unknown): Promise<void>;
+		convert(text: string, options: { mode: string; to: string }): Promise<string>;
+		static Util: {
+			hasJapanese(text: string): boolean;
+		};
+	}
+}
+
+// kuroshiro-analyzer-kuromoji 类型声明
+declare module "kuroshiro-analyzer-kuromoji" {
+	export default class KuromojiAnalyzer {
+		constructor(options?: { dictPath?: string });
+	}
