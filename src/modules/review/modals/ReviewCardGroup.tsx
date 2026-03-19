@@ -1,8 +1,10 @@
 import {
+	ArrowSquareDown20Regular,
 	ArrowSquareUpRight20Regular,
 	Checkmark20Regular,
 	Clock20Regular,
 	Comment20Regular,
+	Dismiss20Regular,
 	PersonCircle20Regular,
 	Record20Regular,
 	Stack20Regular,
@@ -32,12 +34,15 @@ export const ReviewExpandedContent = (options: {
 	audioLoadPendingId: string | null;
 	lastNeteaseIdByPr: Record<number, string>;
 	onOpenFile: (pr: ReviewPullRequest, ids: string[]) => void | Promise<void>;
+	onDownloadFile?: (pr: ReviewPullRequest, ids: string[]) => void | Promise<void>;
+	onClose?: () => void;
 	reviewedByUser?: boolean;
 	repoOwner: string;
 	repoName: string;
 	styles: Record<string, string>;
 }) => {
 	const [openFilePending, setOpenFilePending] = useState(false);
+	const [downloadFilePending, setDownloadFilePending] = useState(false);
 	const mentions = extractMentions(options.pr.body);
 	const mention = mentions[0];
 	const visibleLabels = options.pr.labels.filter(
@@ -55,6 +60,16 @@ export const ReviewExpandedContent = (options: {
 			setOpenFilePending(false);
 		}
 	}, [neteaseIds, openFilePending, options]);
+
+	const handleDownloadFile = useCallback(async () => {
+		if (downloadFilePending || !options.onDownloadFile) return;
+		setDownloadFilePending(true);
+		try {
+			await options.onDownloadFile(options.pr, neteaseIds);
+		} finally {
+			setDownloadFilePending(false);
+		}
+	}, [neteaseIds, downloadFilePending, options]);
 	const platformItems = [
 		{
 			ids: neteaseIds,
@@ -113,6 +128,7 @@ export const ReviewExpandedContent = (options: {
 							className={options.styles.linkMuted}
 						>
 							#{options.pr.number}
+							<sub><ArrowSquareUpRight20Regular className={options.styles.icon} /></sub>
 						</a>
 					</Text>
 					{mentionUrl ? (
@@ -125,9 +141,9 @@ export const ReviewExpandedContent = (options: {
 									className={options.styles.linkMuted}
 								>
 									{mention}
+									<sub><ArrowSquareUpRight20Regular className={options.styles.icon} /></sub>
 								</a>
 							</Text>
-							<ArrowSquareUpRight20Regular className={options.styles.icon} />
 						</Flex>
 					) : (
 						<Text size="2" color="gray">
@@ -155,7 +171,7 @@ export const ReviewExpandedContent = (options: {
 						)}
 					</Flex>
 				</Flex>
-				<Flex align="center" gap="1" className={options.styles.meta}>
+				<Flex align="center" gap="2" className={options.styles.meta}>
 					{options.reviewedByUser && (
 						<Checkmark20Regular className={options.styles.icon} />
 					)}
@@ -163,6 +179,17 @@ export const ReviewExpandedContent = (options: {
 					<Text size="1" color="gray" className={options.styles.timeText}>
 						{formatTimeAgo(options.pr.createdAt)}
 					</Text>
+					{options.onClose && (
+						<Button
+							size="1"
+							variant="ghost"
+							color="gray"
+							onClick={options.onClose}
+							style={{ marginLeft: "4px" }}
+						>
+							<Dismiss20Regular className={options.styles.icon} />
+						</Button>
+					)}
 				</Flex>
 			</Flex>
 			<Box className={options.styles.overlayBody}>
@@ -354,6 +381,25 @@ export const ReviewExpandedContent = (options: {
 					gap="2"
 					className={options.styles.overlayFooter}
 				>
+					{options.onDownloadFile && (
+						<Button
+							onClick={handleDownloadFile}
+							size="2"
+							disabled={downloadFilePending}
+							variant="soft"
+						>
+							<Flex align="center" gap="2">
+								{downloadFilePending ? (
+									<Spinner size="1" />
+								) : (
+									<ArrowSquareDown20Regular className={options.styles.icon} />
+								)}
+								<Text size="2">
+									{downloadFilePending ? "下载中..." : "下载文件"}
+								</Text>
+							</Flex>
+						</Button>
+					)}
 					<Button onClick={handleOpenFile} size="2" disabled={openFilePending}>
 						<Flex align="center" gap="2">
 							{openFilePending ? (

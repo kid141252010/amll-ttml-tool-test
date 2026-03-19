@@ -47,6 +47,7 @@ const ReviewPage = () => {
 		loading,
 		neteaseIdDialog,
 		openReviewFile,
+		downloadReviewFile,
 		refreshReviewTimeline,
 		reviewedByUserMap,
 		reviewSession,
@@ -132,20 +133,11 @@ const ReviewPage = () => {
 			const maxHeight = Math.max(0, containerRect.height - padding * 2);
 			const targetWidth = Math.min(730, maxWidth);
 			const targetHeight = Math.min(460, maxHeight);
-			const centerX = rect.left + rect.width / 2;
-			const centerY = rect.top + rect.height / 2;
-			const minLeft = containerRect.left + padding;
-			const maxLeft = containerRect.right - targetWidth - padding;
-			const minTop = containerRect.top + padding;
-			const maxTop = containerRect.bottom - targetHeight - padding;
-			const left =
-				maxLeft < minLeft
-					? minLeft
-					: Math.min(Math.max(centerX - targetWidth / 2, minLeft), maxLeft);
-			const top =
-				maxTop < minTop
-					? minTop
-					: Math.min(Math.max(centerY - targetHeight / 2, minTop), maxTop);
+			// 计算屏幕中心位置
+			const centerX = containerRect.left + containerRect.width / 2;
+			const centerY = containerRect.top + containerRect.height / 2;
+			const left = centerX - targetWidth / 2;
+			const top = centerY - targetHeight / 2;
 			const toRect = new DOMRect(left, top, targetWidth, targetHeight);
 			setExpandedCard({
 				pr,
@@ -427,18 +419,20 @@ const ReviewPage = () => {
 						onClick={(event) => event.stopPropagation()}
 					>
 						<ReviewExpandedContent
-							pr={expandedCard.pr}
-							hiddenLabelSet={hiddenLabelSet}
-							audioLoadPendingId={audioLoadPendingId}
-							lastNeteaseIdByPr={lastNeteaseIdByPr}
-							onOpenFile={openReviewFile}
-							reviewedByUser={
-								reviewedByUserMap[expandedCard.pr.number] === true
-							}
-							repoOwner="Steve-xmh"
-							repoName="amll-ttml-db"
-							styles={styles}
-						/>
+						pr={expandedCard.pr}
+						hiddenLabelSet={hiddenLabelSet}
+						audioLoadPendingId={audioLoadPendingId}
+						lastNeteaseIdByPr={lastNeteaseIdByPr}
+						onOpenFile={openReviewFile}
+						onDownloadFile={downloadReviewFile}
+						onClose={closeExpanded}
+						reviewedByUser={
+							reviewedByUserMap[expandedCard.pr.number] === true
+						}
+						repoOwner="Steve-xmh"
+						repoName="amll-ttml-db"
+						styles={styles}
+					/>
 					</Card>
 				</Box>
 			)}

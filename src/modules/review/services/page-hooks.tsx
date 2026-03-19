@@ -20,6 +20,7 @@ import {
 	removeNotificationAtom,
 	upsertNotificationAtom,
 } from "$/states/notifications";
+import { confirmDialogAtom } from "$/states/dialogs";
 import {
 	ToolMode,
 	reviewReviewedPrsAtom,
@@ -57,6 +58,14 @@ const CACHE_TTL = 30 * 60 * 1000;
 const LABEL_CACHE_TTL = 30 * 60 * 1000;
 const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
 const TIMELINE_CACHE_TTL = 30 * 60 * 1000;
+
+// PR 文件内存缓存（非持久化）
+type PrFileCacheEntry = {
+	file: File;
+	fileName: string;
+	rawUrl: string;
+};
+const prFileCache = new Map<number, PrFileCacheEntry>();
 
 type CachedPayload = {
 	key: string;
@@ -234,6 +243,7 @@ export const useReviewPageLogic = () => {
 	const setPushNotification = useSetAtom(pushNotificationAtom);
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const setRemoveNotification = useSetAtom(removeNotificationAtom);
+	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const { initFromUrl } = useRemoteReviewService();
 	const remoteInitRef = useRef(false);
 	const pendingReviewModeSwitchRef = useRef(false);
@@ -645,18 +655,32 @@ export const useReviewPageLogic = () => {
 				return;
 			}
 			try {
-				const fileResult = await loadFileFromPullRequest({
-					token,
-					prNumber: pr.number,
-				});
-				if (!fileResult) {
-					setPushNotification({
-						title: "未找到可打开的歌词文件",
-						level: "warning",
-						source: "review",
+				// 检查内存缓存
+				const cachedEntry = prFileCache.get(pr.number);
+				let fileResult: { file: File; fileName: string; rawUrl: string };
+
+				if (cachedEntry) {
+					// 使用缓存的文件
+					fileResult = cachedEntry;
+				} else {
+					// 没有缓存，从 GitHub 加载
+					const loadedResult = await loadFileFromPullRequest({
+						token,
+						prNumber: pr.number,
 					});
-					return;
+					if (!loadedResult) {
+						setPushNotification({
+							title: "未找到可打开的歌词文件",
+							level: "warning",
+							source: "review",
+						});
+						return;
+					}
+					// 加入缓存
+					prFileCache.set(pr.number, loadedResult);
+					fileResult = loadedResult;
 				}
+
 				setReviewSession({
 					prNumber: pr.number,
 					prTitle: pr.title,
@@ -669,7 +693,15 @@ export const useReviewPageLogic = () => {
 					if (cleanedIds.length > 1) {
 						pendingReviewModeSwitchRef.current = true;
 					}
-					handleLoadNeteaseAudio(pr.number, cleanedIds);
+					// 显示确认弹框询问是否加载网易云音乐音频
+					setConfirmDialog({
+						open: true,
+						title: "加载网易云音乐音频",
+						description: `检测到网易云音乐 ID，是否加载音频？\nID: ${cleanedIds.join(", ")}`,
+						onConfirm: () => {
+							handleLoadNeteaseAudio(pr.number, cleanedIds);
+						},
+					});
 				}
 				if (!pendingReviewModeSwitchRef.current) {
 					setToolMode(ToolMode.Edit);
@@ -686,10 +718,75 @@ export const useReviewPageLogic = () => {
 			handleLoadNeteaseAudio,
 			openFile,
 			pat,
+			setConfirmDialog,
 			setPushNotification,
 			setReviewSession,
 			setToolMode,
 		],
+	);
+
+	const downloadReviewFile = useCallback(
+		async (pr: ReviewPullRequest, _ids: string[] = []) => {
+			const token = pat.trim();
+			if (!token) {
+				setPushNotification({
+					title: "请先在设置中登录以下载文件",
+					level: "error",
+					source: "review",
+				});
+				return;
+			}
+			try {
+				// 检查内存缓存
+				const cachedEntry = prFileCache.get(pr.number);
+				let fileResult: { file: File; fileName: string; rawUrl: string };
+
+				if (cachedEntry) {
+					// 使用缓存的文件
+					fileResult = cachedEntry;
+				} else {
+					// 没有缓存，从 GitHub 加载
+					const loadedResult = await loadFileFromPullRequest({
+						token,
+						prNumber: pr.number,
+					});
+					if (!loadedResult) {
+						setPushNotification({
+							title: "未找到可下载的歌词文件",
+							level: "warning",
+							source: "review",
+						});
+						return;
+					}
+					// 加入缓存
+					prFileCache.set(pr.number, loadedResult);
+					fileResult = loadedResult;
+				}
+
+				// 触发文件下载
+				const url = URL.createObjectURL(fileResult.file);
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = fileResult.fileName;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+
+				setPushNotification({
+					title: `已下载: ${fileResult.fileName}`,
+					level: "success",
+					source: "review",
+				});
+			} catch {
+				setPushNotification({
+					title: "下载 PR 文件失败",
+					level: "error",
+					source: "review",
+				});
+			}
+		},
+		[pat, setPushNotification],
 	);
 
 	useEffect(() => {
@@ -844,6 +941,7 @@ export const useReviewPageLogic = () => {
 			onClose: closeNeteaseIdDialog,
 		},
 		openReviewFile,
+		downloadReviewFile,
 		refreshReviewTimeline,
 		reviewedByUserMap,
 		reviewSession,
