@@ -98,20 +98,20 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 							{t("ribbonBar.previewMode.fadeWidth", "过渡宽度")}
 						</Text>
 						<TextField.Root
-							min={0}
-							step={0}
-							size="1"
-							style={{
-								width: "4em",
-							}}
-							defaultValue={lyricWordFadeWidth}
-							onBlur={(e) => {
-								const value = Number.parseFloat(e.target.value);
-								if (Number.isFinite(value)) {
-									setLyricWordFadeWidth(value);
-								}
-							}}
-						/>
+						min={0}
+						step={0}
+						size="1"
+						style={{
+							width: "4em",
+						}}
+						value={lyricWordFadeWidth}
+						onChange={(e) => {
+							const value = Number.parseFloat(e.target.value);
+							if (Number.isFinite(value)) {
+								setLyricWordFadeWidth(value);
+							}
+						}}
+					/>
 						<Text wrap="nowrap" size="1">
 							{t("ribbonBar.previewMode.fontScale", "字号倍率")}
 						</Text>
