@@ -58,7 +58,9 @@ export const ReviewActionGroup = ({
 				>
 					<Flex align="center" gap="1">
 						<MusicNote2Filled />
-						<Text size="1">{t("reviewActionGroup.switchAudio", "切换音频")}</Text>
+						<Text size="1">
+							{t("reviewActionGroup.switchAudio", "切换音频")}
+						</Text>
 					</Flex>
 				</Button>
 			)}

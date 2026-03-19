@@ -16,12 +16,71 @@ import { useTranslation } from "react-i18next";
 import { editLanguageDialogAtom } from "$/states/dialogs";
 
 const COMMON_LANGUAGE_CODES = [
-	"af", "ar", "be", "bg", "bn", "ca", "cs", "cy", "da", "de", "el", "en",
-	"eo", "es-419", "es", "et", "fa", "fi", "fr-CA", "fr", "ga", "gl", "gu",
-	"he", "hi", "hr", "ht", "hu", "id", "is", "it", "ja", "ka", "kn", "ko",
-	"lt", "lv", "mk", "mr", "ms", "mt", "nl", "no", "pl", "pt-BR", "pt-PT",
-	"pt", "ro", "ru", "sk", "sl", "sq", "sv", "sw", "ta", "te", "th", "tl",
-	"tr", "uk", "ur", "vi", "zh-Hans", "zh-Hant", "zh"
+	"af",
+	"ar",
+	"be",
+	"bg",
+	"bn",
+	"ca",
+	"cs",
+	"cy",
+	"da",
+	"de",
+	"el",
+	"en",
+	"eo",
+	"es-419",
+	"es",
+	"et",
+	"fa",
+	"fi",
+	"fr-CA",
+	"fr",
+	"ga",
+	"gl",
+	"gu",
+	"he",
+	"hi",
+	"hr",
+	"ht",
+	"hu",
+	"id",
+	"is",
+	"it",
+	"ja",
+	"ka",
+	"kn",
+	"ko",
+	"lt",
+	"lv",
+	"mk",
+	"mr",
+	"ms",
+	"mt",
+	"nl",
+	"no",
+	"pl",
+	"pt-BR",
+	"pt-PT",
+	"pt",
+	"ro",
+	"ru",
+	"sk",
+	"sl",
+	"sq",
+	"sv",
+	"sw",
+	"ta",
+	"te",
+	"th",
+	"tl",
+	"tr",
+	"uk",
+	"ur",
+	"vi",
+	"zh-Hans",
+	"zh-Hant",
+	"zh",
 ];
 
 export const EditLanguageDialog = () => {
@@ -47,7 +106,11 @@ export const EditLanguageDialog = () => {
 
 	const canSubmit = useMemo(() => {
 		const trimmed = newLang.trim();
-		return trimmed.length > 0 && trimmed !== "und" && trimmed !== dialogState.currentLang;
+		return (
+			trimmed.length > 0 &&
+			trimmed !== "und" &&
+			trimmed !== dialogState.currentLang
+		);
 	}, [newLang, dialogState.currentLang]);
 
 	const getTargetLabel = () => {
@@ -73,16 +136,13 @@ export const EditLanguageDialog = () => {
 				</Dialog.Title>
 				<Flex direction="column" gap="3">
 					<Text size="2">
-						{t("editLanguageDialog.currentLang", "当前语言代码")}: <strong>{dialogState.currentLang}</strong>
-						({getTargetLabel()})
+						{t("editLanguageDialog.currentLang", "当前语言代码")}:{" "}
+						<strong>{dialogState.currentLang}</strong>({getTargetLabel()})
 					</Text>
 					<Text size="2">
 						{t("editLanguageDialog.commonCodes", "常用语言代码")}
 					</Text>
-					<Flex
-						gap="2"
-						wrap="wrap"
-					>
+					<Flex gap="2" wrap="wrap">
 						{COMMON_LANGUAGE_CODES.map((code) => (
 							<Button
 								key={code}
@@ -95,9 +155,7 @@ export const EditLanguageDialog = () => {
 							</Button>
 						))}
 					</Flex>
-					<Text size="2">
-						{t("editLanguageDialog.newCode", "新语言代码")}
-					</Text>
+					<Text size="2">{t("editLanguageDialog.newCode", "新语言代码")}</Text>
 					<TextField.Root
 						value={newLang}
 						placeholder={t(
@@ -116,10 +174,7 @@ export const EditLanguageDialog = () => {
 					<Button variant="soft" color="gray" onClick={handleClose}>
 						{t("common.cancel", "取消")}
 					</Button>
-					<Button
-						onClick={() => handleSelect(newLang)}
-						disabled={!canSubmit}
-					>
+					<Button onClick={() => handleSelect(newLang)} disabled={!canSubmit}>
 						{t("editLanguageDialog.confirm", "确认")}
 					</Button>
 				</Flex>

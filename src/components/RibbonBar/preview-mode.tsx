@@ -55,37 +55,43 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		return (
 			<RibbonFrame ref={ref}>
 				<RibbonSection label={t("ribbonBar.previewMode.lyrics", "歌词")}>
-				<Grid columns="0fr 0fr 0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
-					<Text wrap="nowrap" size="1">
-						{t("ribbonBar.previewMode.showTranslation", "显示翻译")}
-					</Text>
-					<Checkbox
-						checked={showTranslationLine}
-						onCheckedChange={(v) => setShowTranslationLine(!!v)}
-					/>
-					<Text wrap="nowrap" size="1">
-						{t("ribbonBar.previewMode.showAnnotation", "显示标注")}
-					</Text>
-					<Checkbox
-						checked={showAnnotationLine}
-						onCheckedChange={(v) => setShowAnnotationLine(!!v)}
-					/>
-					<Text wrap="nowrap" size="1">
-						{t("ribbonBar.previewMode.showRoman", "显示音译")}
-					</Text>
-					<Checkbox
-						checked={showRomanLine}
-						onCheckedChange={(v) => setShowRomanLine(!!v)}
-					/>
-					<Text wrap="nowrap" size="1">
-						{t("ribbonBar.previewMode.maskObsceneWords", "屏蔽不雅用语")}
-					</Text>
-					<Checkbox
-						checked={hideObsceneWords}
-						onCheckedChange={(v) => setHideObsceneWords(!!v)}
-					/>
-				</Grid>
-			</RibbonSection>
+					<Grid
+						columns="0fr 0fr 0fr 0fr"
+						gap="2"
+						gapY="1"
+						flexGrow="1"
+						align="center"
+					>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.showTranslation", "显示翻译")}
+						</Text>
+						<Checkbox
+							checked={showTranslationLine}
+							onCheckedChange={(v) => setShowTranslationLine(!!v)}
+						/>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.showAnnotation", "显示标注")}
+						</Text>
+						<Checkbox
+							checked={showAnnotationLine}
+							onCheckedChange={(v) => setShowAnnotationLine(!!v)}
+						/>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.showRoman", "显示音译")}
+						</Text>
+						<Checkbox
+							checked={showRomanLine}
+							onCheckedChange={(v) => setShowRomanLine(!!v)}
+						/>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.maskObsceneWords", "屏蔽不雅用语")}
+						</Text>
+						<Checkbox
+							checked={hideObsceneWords}
+							onCheckedChange={(v) => setHideObsceneWords(!!v)}
+						/>
+					</Grid>
+				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.previewMode.word", "单词")}>
 					<Grid columns="0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
 						<Text wrap="nowrap" size="1">
@@ -220,7 +226,10 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								onWheel={(e) => {
 									e.preventDefault();
 									const delta = e.deltaY > 0 ? -1 : 1;
-									const newValue = Math.max(0, Math.min(100, alignPosition + delta));
+									const newValue = Math.max(
+										0,
+										Math.min(100, alignPosition + delta),
+									);
 									setAlignPosition(newValue);
 								}}
 							>

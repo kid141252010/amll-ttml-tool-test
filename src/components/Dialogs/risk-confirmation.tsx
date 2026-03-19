@@ -84,7 +84,8 @@ export const RiskConfirmationDialog = () => {
 					<Box>
 						<Text size="2" color="gray">
 							{t("riskConfirmation.consoleExample", "控制台输入示例")}：window.
-							{CONSOLE_HANDLER_KEY}("{t("riskConfirmation.confirmStatement", "确认语句")}")
+							{CONSOLE_HANDLER_KEY}("
+							{t("riskConfirmation.confirmStatement", "确认语句")}")
 						</Text>
 					</Box>
 					<Text size="2" color="gray">

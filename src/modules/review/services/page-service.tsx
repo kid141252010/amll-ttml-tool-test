@@ -419,20 +419,20 @@ const ReviewPage = () => {
 						onClick={(event) => event.stopPropagation()}
 					>
 						<ReviewExpandedContent
-						pr={expandedCard.pr}
-						hiddenLabelSet={hiddenLabelSet}
-						audioLoadPendingId={audioLoadPendingId}
-						lastNeteaseIdByPr={lastNeteaseIdByPr}
-						onOpenFile={openReviewFile}
-						onDownloadFile={downloadReviewFile}
-						onClose={closeExpanded}
-						reviewedByUser={
-							reviewedByUserMap[expandedCard.pr.number] === true
-						}
-						repoOwner="Steve-xmh"
-						repoName="amll-ttml-db"
-						styles={styles}
-					/>
+							pr={expandedCard.pr}
+							hiddenLabelSet={hiddenLabelSet}
+							audioLoadPendingId={audioLoadPendingId}
+							lastNeteaseIdByPr={lastNeteaseIdByPr}
+							onOpenFile={openReviewFile}
+							onDownloadFile={downloadReviewFile}
+							onClose={closeExpanded}
+							reviewedByUser={
+								reviewedByUserMap[expandedCard.pr.number] === true
+							}
+							repoOwner="Steve-xmh"
+							repoName="amll-ttml-db"
+							styles={styles}
+						/>
 					</Card>
 				</Box>
 			)}

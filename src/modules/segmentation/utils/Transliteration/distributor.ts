@@ -426,7 +426,10 @@ export function distributeRomanizationBySpace(
 						combinedRoman += part;
 						romanIndex++;
 						// 检查下一个是否是空格，如果是则包含进来
-						if (romanIndex < romanParts.length && romanParts[romanIndex].trim().length === 0) {
+						if (
+							romanIndex < romanParts.length &&
+							romanParts[romanIndex].trim().length === 0
+						) {
 							combinedRoman += romanParts[romanIndex];
 							romanIndex++;
 						}

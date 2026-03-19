@@ -258,7 +258,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	const defaultRomanLang = getDefaultRomanizationLang(lyricLang);
 
 	// 判断是否为逐字翻译：type="replacement" 或 歌词和翻译语言都以 zh 开头
-	const isWordByWordTranslation = (translationEl: Element, lang: string): boolean => {
+	const isWordByWordTranslation = (
+		translationEl: Element,
+		lang: string,
+	): boolean => {
 		const typeAttr = translationEl.getAttribute("type");
 		if (typeAttr === "replacement") return true;
 		// 如果歌词语言和翻译语言都以 zh 开头，视为逐字翻译
@@ -267,7 +270,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	};
 
 	// 解析逐字翻译的 text 元素（带时间戳的 span）
-	const parseWordByWordTranslationTextElement = (textEl: Element): { main: TTMLTranslationWord[]; bg: TTMLTranslationWord[] } | null => {
+	const parseWordByWordTranslationTextElement = (
+		textEl: Element,
+	): { main: TTMLTranslationWord[]; bg: TTMLTranslationWord[] } | null => {
 		const mainWords: TTMLTranslationWord[] = [];
 		const bgWords: TTMLTranslationWord[] = [];
 
@@ -315,7 +320,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	};
 
 	// 解析逐行翻译的 text 元素（纯文本）
-	const parseLineTranslationTextElement = (textEl: Element): LineMetadata | null => {
+	const parseLineTranslationTextElement = (
+		textEl: Element,
+	): LineMetadata | null => {
 		let main = "";
 		let bg = "";
 
@@ -361,11 +368,13 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			words,
 			translationText,
 		);
-		return words.map((word, index) => ({
-			startTime: word.startTime,
-			endTime: word.endTime,
-			text: distributed[index] ?? "",
-		})).filter(item => item.text.trim().length > 0);
+		return words
+			.map((word, index) => ({
+				startTime: word.startTime,
+				endTime: word.endTime,
+				text: distributed[index] ?? "",
+			}))
+			.filter((item) => item.text.trim().length > 0);
 	};
 
 	// parseTranslationTextElement 是 parseLineTranslationTextElement 的别名，用于兼容现有代码
@@ -487,7 +496,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const langTranslations = itunesTranslationsByLang.get(lang);
 		const langTimedTranslations = itunesTimedTranslationsByLang.get(lang);
 		const langWordTranslations = itunesWordTranslationsByLang.get(lang);
-		if (!langTranslations || !langTimedTranslations || !langWordTranslations) continue;
+		if (!langTranslations || !langTimedTranslations || !langWordTranslations)
+			continue;
 
 		for (const textEl of translationEl.querySelectorAll("text[for]")) {
 			const key = textEl.getAttribute("for");
@@ -498,7 +508,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				const hasSpanWithTime = textEl.querySelector("span[begin][end]");
 				if (hasSpanWithTime) {
 					// 情况1：内部为 span 节点和空格（带时间戳的逐字翻译）
-					const wordByWordParsed = parseWordByWordTranslationTextElement(textEl);
+					const wordByWordParsed =
+						parseWordByWordTranslationTextElement(textEl);
 					if (wordByWordParsed) {
 						langWordTranslations.set(key, wordByWordParsed);
 					}
@@ -883,7 +894,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					}
 				}
 				// 对于纯文本的逐字翻译，从 itunesTranslationsByLang 中查找并分配
-				const langLineTrans = itunesTranslationsByLang.get(lang)?.get(itunesKey);
+				const langLineTrans = itunesTranslationsByLang
+					.get(lang)
+					?.get(itunesKey);
 				if (langLineTrans && line.words.length > 0) {
 					const transText = isBG
 						? (langLineTrans.bg ?? "")

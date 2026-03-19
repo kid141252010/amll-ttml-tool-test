@@ -129,7 +129,12 @@ export const AMLLWrapper = memo(() => {
 				vocal: mapVocalTagsForPreview(line.vocal, vocalTagMap),
 			})),
 		);
-	}, [originalLyricLines, showTranslationLines, showRomanLines, showAnnotationLines]);
+	}, [
+		originalLyricLines,
+		showTranslationLines,
+		showRomanLines,
+		showAnnotationLines,
+	]);
 
 	const optimizeOptions = useMemo(
 		() => ({

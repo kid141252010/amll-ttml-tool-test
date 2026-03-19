@@ -76,27 +76,30 @@ export const SettingsCommonTab = () => {
 	const [accentColor, setAccentColor] = useAtom(accentColorAtom);
 
 	// 处理主题色切换，同时重新加载音频（非阻塞）
-	const handleAccentColorChange = useCallback((value: AccentColor) => {
-		setAccentColor(value);
-		// 使用 requestIdleCallback 或 setTimeout 延迟执行，避免阻塞 UI
-		const scheduleTask =
-			typeof requestIdleCallback !== "undefined"
-				? requestIdleCallback
-				: (cb: () => void) => setTimeout(cb, 0);
+	const handleAccentColorChange = useCallback(
+		(value: AccentColor) => {
+			setAccentColor(value);
+			// 使用 requestIdleCallback 或 setTimeout 延迟执行，避免阻塞 UI
+			const scheduleTask =
+				typeof requestIdleCallback !== "undefined"
+					? requestIdleCallback
+					: (cb: () => void) => setTimeout(cb, 0);
 
-		scheduleTask(() => {
-			// 异步加载音频，不阻塞 UI
-			readAudioCache().then((cached) => {
-				if (cached) {
-					const file = new File([cached.file], cached.name, {
-						type: cached.type,
-					});
-					// 不等待 loadMusic 完成，让它在后台执行
-					audioEngine.loadMusic(file).catch(console.error);
-				}
+			scheduleTask(() => {
+				// 异步加载音频，不阻塞 UI
+				readAudioCache().then((cached) => {
+					if (cached) {
+						const file = new File([cached.file], cached.name, {
+							type: cached.type,
+						});
+						// 不等待 loadMusic 完成，让它在后台执行
+						audioEngine.loadMusic(file).catch(console.error);
+					}
+				});
 			});
-		});
-	}, [setAccentColor]);
+		},
+		[setAccentColor],
+	);
 
 	const setMetaSuggestionManagerOpen = useSetAtom(
 		metaSuggestionManagerDialogAtom,
@@ -440,7 +443,6 @@ export const SettingsCommonTab = () => {
 						</Box>
 					</Flex>
 				</Card>
-
 			</Flex>
 
 			<Flex direction="column" gap="3">

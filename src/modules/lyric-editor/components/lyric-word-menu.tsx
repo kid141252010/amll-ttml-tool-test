@@ -191,7 +191,10 @@ export const LyricWordMenu = ({
 
 		// 格式化为 「text/begin/end」，时间使用分:秒:毫秒格式
 		const content = selectedWords
-			.map((w) => `「${w.word}/\`${msToTimestamp(w.startTime)}\`/\`${msToTimestamp(w.endTime)}\`」`)
+			.map(
+				(w) =>
+					`「${w.word}/\`${msToTimestamp(w.startTime)}\`/\`${msToTimestamp(w.endTime)}\`」`,
+			)
 			.join("\n");
 
 		// 复制到剪贴板

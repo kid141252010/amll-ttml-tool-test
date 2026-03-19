@@ -106,12 +106,14 @@ export const DistributeRomanizationDialog = () => {
 							let targetLang: string | undefined;
 							if (line.romanLyricByLang) {
 								// 找到与当前行音译匹配的语言
-								Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
-									if (value === fullRoman) {
-										targetLang = key;
-										delete line.romanLyricByLang![key];
-									}
-								});
+								Object.entries(line.romanLyricByLang).forEach(
+									([key, value]) => {
+										if (value === fullRoman) {
+											targetLang = key;
+											delete line.romanLyricByLang![key];
+										}
+									},
+								);
 							}
 							line.romanLyric = "";
 							// 将逐字音译保存到对应语言
@@ -120,10 +122,10 @@ export const DistributeRomanizationDialog = () => {
 								line.wordRomanizationByLang[targetLang] = line.words
 									.filter((word) => word.romanWord.trim().length > 0)
 									.map((word) => ({
-											startTime: word.startTime,
-											endTime: word.endTime,
-											text: word.romanWord,
-										}));
+										startTime: word.startTime,
+										endTime: word.endTime,
+										text: word.romanWord,
+									}));
 							}
 						} catch (e) {
 							console.error(

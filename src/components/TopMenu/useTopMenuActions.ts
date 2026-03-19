@@ -80,14 +80,16 @@ export const useTopMenuActions = () => {
 
 		const initPromise = (async () => {
 			// 动态导入 kuroshiro 和 kuromoji analyzer
-			const [{ default: Kuroshiro }, { default: KuromojiAnalyzer }] = await Promise.all([
-				import("kuroshiro"),
-				import("kuroshiro-analyzer-kuromoji"),
-			]);
+			const [{ default: Kuroshiro }, { default: KuromojiAnalyzer }] =
+				await Promise.all([
+					import("kuroshiro"),
+					import("kuroshiro-analyzer-kuromoji"),
+				]);
 
 			const kuroshiro = new Kuroshiro();
 			// 在浏览器环境中使用 /kuromoji-dict 路径
-			const dictPath = typeof window !== "undefined" ? "/kuromoji-dict" : undefined;
+			const dictPath =
+				typeof window !== "undefined" ? "/kuromoji-dict" : undefined;
 			await kuroshiro.init(new KuromojiAnalyzer({ dictPath }));
 			kuroshiroRef.current = kuroshiro;
 			return kuroshiro;
@@ -524,7 +526,8 @@ export const useTopMenuActions = () => {
 						// 如果还有其他语言的行音译，切换到第一个可用的语言
 						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
 						if (remainingLangs.length > 0) {
-							line.romanLyric = line.romanLyricByLang?.[remainingLangs[0]] ?? "";
+							line.romanLyric =
+								line.romanLyricByLang?.[remainingLangs[0]] ?? "";
 						} else {
 							line.romanLyric = "";
 						}
@@ -540,60 +543,61 @@ export const useTopMenuActions = () => {
 	}, [editLyricLines]);
 
 	const onDistributeRomanizationByCharCount = useCallback(() => {
-	editLyricLines((draft) => {
-		for (const line of draft.lyricLines) {
-			const fullRoman = line.romanLyric || "";
-			if (line.words.length > 0 && fullRoman.trim() !== "") {
-				try {
-					const results = distributeRomanizationByCharCount(
-						line.words,
-						fullRoman,
-					);
-					line.words.forEach((word, wordIndex) => {
-						if (results[wordIndex]) {
-							word.romanWord = results[wordIndex];
-						}
-					});
-					applyRomanizationWarnings(line.words);
-					// 分配完成后清除行音译和对应的多语言行音译
-					let targetLang: string | undefined;
-					if (line.romanLyricByLang) {
-						// 找到与当前行音译匹配的语言
-						Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
-							if (value === fullRoman) {
-								targetLang = key;
-								delete line.romanLyricByLang?.[key];
+		editLyricLines((draft) => {
+			for (const line of draft.lyricLines) {
+				const fullRoman = line.romanLyric || "";
+				if (line.words.length > 0 && fullRoman.trim() !== "") {
+					try {
+						const results = distributeRomanizationByCharCount(
+							line.words,
+							fullRoman,
+						);
+						line.words.forEach((word, wordIndex) => {
+							if (results[wordIndex]) {
+								word.romanWord = results[wordIndex];
 							}
 						});
+						applyRomanizationWarnings(line.words);
+						// 分配完成后清除行音译和对应的多语言行音译
+						let targetLang: string | undefined;
+						if (line.romanLyricByLang) {
+							// 找到与当前行音译匹配的语言
+							Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
+								if (value === fullRoman) {
+									targetLang = key;
+									delete line.romanLyricByLang?.[key];
+								}
+							});
+						}
+						// 将逐字音译保存到对应语言
+						if (targetLang) {
+							line.wordRomanizationByLang ??= {};
+							line.wordRomanizationByLang[targetLang] = line.words
+								.filter((word) => word.romanWord.length > 0)
+								.map((word) => ({
+									startTime: word.startTime,
+									endTime: word.endTime,
+									text: word.romanWord,
+								}));
+						}
+						// 如果还有其他语言的行音译，切换到第一个可用的语言
+						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
+						if (remainingLangs.length > 0) {
+							line.romanLyric =
+								line.romanLyricByLang?.[remainingLangs[0]] ?? "";
+						} else {
+							line.romanLyric = "";
+						}
+					} catch (e) {
+						console.error(
+							`Failed to distribute romanization by char count for line`,
+							e,
+						);
 					}
-					// 将逐字音译保存到对应语言
-					if (targetLang) {
-						line.wordRomanizationByLang ??= {};
-						line.wordRomanizationByLang[targetLang] = line.words
-							.filter((word) => word.romanWord.length > 0)
-							.map((word) => ({
-								startTime: word.startTime,
-								endTime: word.endTime,
-								text: word.romanWord,
-							}));
-					}
-					// 如果还有其他语言的行音译，切换到第一个可用的语言
-					const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
-					if (remainingLangs.length > 0) {
-						line.romanLyric = line.romanLyricByLang?.[remainingLangs[0]] ?? "";
-					} else {
-						line.romanLyric = "";
-					}
-				} catch (e) {
-					console.error(
-						`Failed to distribute romanization by char count for line`,
-						e,
-					);
 				}
 			}
-		}
-	});
-}, [editLyricLines]);
+		});
+	}, [editLyricLines]);
 
 	const onOpenAdvancedSegmentation = useCallback(() => {
 		setAdvancedSegmentationDialog(true);
@@ -613,7 +617,8 @@ export const useTopMenuActions = () => {
 				for (const char of content) {
 					// 判断是否为中文字符（CJK Unified Ideographs 范围）
 					const code = char.charCodeAt(0);
-					const isChinese = (code >= 0x4e00 && code <= 0x9fff) ||
+					const isChinese =
+						(code >= 0x4e00 && code <= 0x9fff) ||
 						(code >= 0x3400 && code <= 0x4dbf) ||
 						(code >= 0x20000 && code <= 0x2a6df) ||
 						(code >= 0x2a700 && code <= 0x2b73f) ||
@@ -626,7 +631,10 @@ export const useTopMenuActions = () => {
 					} else if (isCurrentChinese === isChinese) {
 						currentSegment += char;
 					} else {
-						segments.push({ text: currentSegment, isChinese: isCurrentChinese });
+						segments.push({
+							text: currentSegment,
+							isChinese: isCurrentChinese,
+						});
 						currentSegment = char;
 						isCurrentChinese = isChinese;
 					}
@@ -714,7 +722,14 @@ export const useTopMenuActions = () => {
 			const conversions = await Promise.all(
 				linesToProcess.map(async ({ index, content }) => ({
 					index,
-					romaji: await (kuroshiro as { convert: (text: string, options: { mode: string; to: string }) => Promise<string> }).convert(content, {
+					romaji: await (
+						kuroshiro as {
+							convert: (
+								text: string,
+								options: { mode: string; to: string },
+							) => Promise<string>;
+						}
+					).convert(content, {
 						mode: "spaced",
 						to: "romaji",
 					}),
@@ -756,9 +771,10 @@ export const useTopMenuActions = () => {
 				for (const char of content) {
 					// 判断是否为韩文字符（Hangul Syllables 范围）
 					const code = char.charCodeAt(0);
-					const isKorean = (code >= 0xac00 && code <= 0xd7af) || // Hangul Syllables
+					const isKorean =
+						(code >= 0xac00 && code <= 0xd7af) || // Hangul Syllables
 						(code >= 0x1100 && code <= 0x11ff) || // Hangul Jamo
-						(code >= 0x3130 && code <= 0x318f);   // Hangul Compatibility Jamo
+						(code >= 0x3130 && code <= 0x318f); // Hangul Compatibility Jamo
 
 					if (currentSegment === "") {
 						currentSegment = char;

@@ -5,12 +5,71 @@ import { useTranslation } from "react-i18next";
 import { addLanguageDialogAtom } from "$/states/dialogs";
 
 const COMMON_LANGUAGE_CODES = [
-	"af", "ar", "be", "bg", "bn", "ca", "cs", "cy", "da", "de", "el", "en",
-	"eo", "es-419", "es", "et", "fa", "fi", "fr-CA", "fr", "ga", "gl", "gu",
-	"he", "hi", "hr", "ht", "hu", "id", "is", "it", "ja", "ka", "kn", "ko",
-	"lt", "lv", "mk", "mr", "ms", "mt", "nl", "no", "pl", "pt-BR", "pt-PT",
-	"pt", "ro", "ru", "sk", "sl", "sq", "sv", "sw", "ta", "te", "th", "tl",
-	"tr", "uk", "ur", "vi", "zh-Hans", "zh-Hant", "zh"
+	"af",
+	"ar",
+	"be",
+	"bg",
+	"bn",
+	"ca",
+	"cs",
+	"cy",
+	"da",
+	"de",
+	"el",
+	"en",
+	"eo",
+	"es-419",
+	"es",
+	"et",
+	"fa",
+	"fi",
+	"fr-CA",
+	"fr",
+	"ga",
+	"gl",
+	"gu",
+	"he",
+	"hi",
+	"hr",
+	"ht",
+	"hu",
+	"id",
+	"is",
+	"it",
+	"ja",
+	"ka",
+	"kn",
+	"ko",
+	"lt",
+	"lv",
+	"mk",
+	"mr",
+	"ms",
+	"mt",
+	"nl",
+	"no",
+	"pl",
+	"pt-BR",
+	"pt-PT",
+	"pt",
+	"ro",
+	"ru",
+	"sk",
+	"sl",
+	"sq",
+	"sv",
+	"sw",
+	"ta",
+	"te",
+	"th",
+	"tl",
+	"tr",
+	"uk",
+	"ur",
+	"vi",
+	"zh-Hans",
+	"zh-Hant",
+	"zh",
 ];
 
 export const AddLanguageDialog = () => {
@@ -50,10 +109,7 @@ export const AddLanguageDialog = () => {
 					<Text size="2">
 						{t("addLanguageDialog.commonCodes", "常用语言代码")}
 					</Text>
-					<Flex
-						gap="2"
-						wrap="wrap"
-					>
+					<Flex gap="2" wrap="wrap">
 						{COMMON_LANGUAGE_CODES.map((code) => (
 							<Button
 								key={code}

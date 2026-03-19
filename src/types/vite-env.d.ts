@@ -40,7 +40,10 @@ declare module "kuroshiro" {
 	export default class Kuroshiro {
 		constructor();
 		init(analyzer: unknown): Promise<void>;
-		convert(text: string, options: { mode: string; to: string }): Promise<string>;
+		convert(
+			text: string,
+			options: { mode: string; to: string },
+		): Promise<string>;
 		static Util: {
 			hasJapanese(text: string): boolean;
 		};
@@ -52,3 +55,4 @@ declare module "kuroshiro-analyzer-kuromoji" {
 	export default class KuromojiAnalyzer {
 		constructor(options?: { dictPath?: string });
 	}
+}

@@ -41,26 +41,44 @@ const ToolMenuItems = () => {
 						{t("topBar.menu.timestampTools.syncLineTimestamps", "同步行时间戳")}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onAlignEndTimestamps}>
-						{t("topBar.menu.timestampTools.alignEndTimestamps", "对齐尾部时间戳")}
+						{t(
+							"topBar.menu.timestampTools.alignEndTimestamps",
+							"对齐尾部时间戳",
+						)}
 					</DropdownMenu.Item>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger>
-					{t("topBar.menu.perWordRomanization.autoTransliteration.index", "自动音译")}
+					{t(
+						"topBar.menu.perWordRomanization.autoTransliteration.index",
+						"自动音译",
+					)}
 				</DropdownMenu.SubTrigger>
 				<DropdownMenu.SubContent>
 					<DropdownMenu.Item onSelect={menu.onAutoTransliterationPinyin}>
-						{t("topBar.menu.perWordRomanization.autoTransliteration.pinyin", "拼音")}
+						{t(
+							"topBar.menu.perWordRomanization.autoTransliteration.pinyin",
+							"拼音",
+						)}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onAutoTransliterationJyutping}>
-						{t("topBar.menu.perWordRomanization.autoTransliteration.jyutping", "粤拼")}
+						{t(
+							"topBar.menu.perWordRomanization.autoTransliteration.jyutping",
+							"粤拼",
+						)}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onAutoTransliterationJapanese}>
-						{t("topBar.menu.perWordRomanization.autoTransliteration.japanese", "日语注音")}
+						{t(
+							"topBar.menu.perWordRomanization.autoTransliteration.japanese",
+							"日语注音",
+						)}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onAutoTransliterationKorean}>
-						{t("topBar.menu.perWordRomanization.autoTransliteration.korean", "韩语注音")}
+						{t(
+							"topBar.menu.perWordRomanization.autoTransliteration.korean",
+							"韩语注音",
+						)}
 					</DropdownMenu.Item>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
@@ -81,7 +99,9 @@ const ToolMenuItems = () => {
 							"按空格自动分配",
 						)}
 					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={menu.onDistributeRomanizationByCharCount}>
+					<DropdownMenu.Item
+						onSelect={menu.onDistributeRomanizationByCharCount}
+					>
 						{t(
 							"topBar.menu.perWordRomanization.distributeByCharCount",
 							"按字数自动分配",

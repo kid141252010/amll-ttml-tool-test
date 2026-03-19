@@ -256,11 +256,11 @@ export const SplitWordDialog = memo(() => {
 
 					<Box my="3">
 						<ManualWordSplitter
-						word={targetWordText}
-						splitIndices={splitIndices}
-						onSplitIndexToggle={toggleSplitPoint}
-						onClearAllSplits={clearAllSplits}
-					/>
+							word={targetWordText}
+							splitIndices={splitIndices}
+							onSplitIndexToggle={toggleSplitPoint}
+							onClearAllSplits={clearAllSplits}
+						/>
 					</Box>
 
 					<Flex direction="column" gap="2">

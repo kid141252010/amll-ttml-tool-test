@@ -34,7 +34,10 @@ export const ReviewExpandedContent = (options: {
 	audioLoadPendingId: string | null;
 	lastNeteaseIdByPr: Record<number, string>;
 	onOpenFile: (pr: ReviewPullRequest, ids: string[]) => void | Promise<void>;
-	onDownloadFile?: (pr: ReviewPullRequest, ids: string[]) => void | Promise<void>;
+	onDownloadFile?: (
+		pr: ReviewPullRequest,
+		ids: string[],
+	) => void | Promise<void>;
 	onClose?: () => void;
 	reviewedByUser?: boolean;
 	repoOwner: string;
@@ -128,7 +131,9 @@ export const ReviewExpandedContent = (options: {
 							className={options.styles.linkMuted}
 						>
 							#{options.pr.number}
-							<sub><ArrowSquareUpRight20Regular className={options.styles.icon} /></sub>
+							<sub>
+								<ArrowSquareUpRight20Regular className={options.styles.icon} />
+							</sub>
 						</a>
 					</Text>
 					{mentionUrl ? (
@@ -141,7 +146,11 @@ export const ReviewExpandedContent = (options: {
 									className={options.styles.linkMuted}
 								>
 									{mention}
-									<sub><ArrowSquareUpRight20Regular className={options.styles.icon} /></sub>
+									<sub>
+										<ArrowSquareUpRight20Regular
+											className={options.styles.icon}
+										/>
+									</sub>
 								</a>
 							</Text>
 						</Flex>
