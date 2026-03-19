@@ -840,14 +840,17 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						);
 						haveBg = true;
 					} else if (role === "x-translation") {
-						// 内嵌翻译使用默认翻译语言代码存储到 translatedLyricByLang
-						if (!line.translatedLyricByLang) {
-							line.translatedLyricByLang = {};
-						}
-						if (!line.translatedLyricByLang[DEFAULT_TRANSLATION_LANG]) {
-							line.translatedLyricByLang[DEFAULT_TRANSLATION_LANG] =
-								wordEl.innerHTML;
-						}
+					// 读取 xml:lang 属性，如果没有则使用默认翻译语言代码
+					const transLang =
+						wordEl.getAttribute("xml:lang") ??
+						wordEl.getAttribute("lang") ??
+						DEFAULT_TRANSLATION_LANG;
+					if (!line.translatedLyricByLang) {
+						line.translatedLyricByLang = {};
+					}
+					if (!line.translatedLyricByLang[transLang]) {
+						line.translatedLyricByLang[transLang] = wordEl.innerHTML;
+					}
 					} else if (role === "x-roman") {
 						// 内嵌音译使用默认音译语言代码存储到 romanLyricByLang
 						if (!line.romanLyricByLang) {
