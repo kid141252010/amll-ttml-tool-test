@@ -319,6 +319,74 @@
 	background-color: var(--red-a4);
 }
 
+/* 偏旁字符检测样式 */
+.lyricWord.radical {
+	box-shadow: 0 0 0 2px var(--blue-a10);
+}
+
+.lyricWord.radical:hover {
+	background-color: var(--blue-a2);
+}
+
+.lyricWord.radical.selected {
+	background-color: var(--blue-a3);
+}
+
+.lyricWord.radical.selected:hover {
+	background-color: var(--blue-a4);
+}
+
+/* 同时有偏旁字符和时间戳错误的样式（紫色） */
+.lyricWord.radical.error {
+	box-shadow: 0 0 0 2px var(--purple-a10);
+}
+
+.lyricWord.radical.error:hover {
+	background-color: var(--purple-a2);
+}
+
+.lyricWord.radical.error.selected {
+	background-color: var(--purple-a3);
+}
+
+.lyricWord.radical.error.selected:hover {
+	background-color: var(--purple-a4);
+}
+
+/* 歌词行偏旁字符检测样式 */
+.lyricLine.radical {
+	box-shadow: 0 0 0 2px var(--blue-a10);
+}
+
+.lyricLine.radical:hover {
+	background-color: var(--blue-a2);
+}
+
+.lyricLine.radical.selected {
+	background-color: var(--blue-a3);
+}
+
+.lyricLine.radical.selected:hover {
+	background-color: var(--blue-a4);
+}
+
+/* 歌词行同时有偏旁字符和时间戳错误的样式（紫色） */
+.lyricLine.radical.error {
+	box-shadow: 0 0 0 2px var(--purple-a10);
+}
+
+.lyricLine.radical.error:hover {
+	background-color: var(--purple-a2);
+}
+
+.lyricLine.radical.error.selected {
+	background-color: var(--purple-a3);
+}
+
+.lyricLine.radical.error.selected:hover {
+	background-color: var(--purple-a4);
+}
+
 :global(.radix-themes.light) .lyricWord.selected {
 	.startTime,
 	.endTime {

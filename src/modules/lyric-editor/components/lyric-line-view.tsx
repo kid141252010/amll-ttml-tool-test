@@ -58,6 +58,7 @@ import {
 	toolModeAtom,
 } from "$/states/main.ts";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
+import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
 import { LyricLineMenu } from "./lyric-line-menu.tsx";
@@ -341,6 +342,22 @@ export const LyricLineView: FC<{
 		return false;
 	}, [line.startTime, line.endTime, line.words]);
 
+	const hasRadical = useMemo(() => {
+		for (const word of line.words) {
+			if (containsRadicalChar(word.word)) {
+				return true;
+			}
+			if (word.ruby) {
+				for (const ruby of word.ruby) {
+					if (containsRadicalChar(ruby.word)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}, [line.words]);
+
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
@@ -553,6 +570,7 @@ export const LyricLineView: FC<{
 							toolMode === ToolMode.Edit && styles.edit,
 							line.ignoreSync && styles.ignoreSync,
 							hasError && toolMode === ToolMode.Edit && styles.error,
+							hasRadical && styles.radical,
 						)}
 						align="center"
 						gapX="4"
