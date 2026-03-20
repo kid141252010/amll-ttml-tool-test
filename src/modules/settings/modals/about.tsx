@@ -1,5 +1,6 @@
 import { BUILD_TIME, GIT_COMMIT } from "virtual:buildmeta";
 import {
+	ArrowClockwise24Regular,
 	CheckmarkCircle24Regular,
 	CloudArrowDown24Regular,
 } from "@fluentui/react-icons";
@@ -10,6 +11,7 @@ import {
 	Card,
 	Flex,
 	Heading,
+	IconButton,
 	Link,
 	Progress,
 	Switch,
@@ -19,6 +21,7 @@ import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { showBetaBranchWarningAtom } from "$/modules/settings/states";
 import { useAppUpdate } from "$/utils/useAppUpdate";
+import { reloadSW } from "$/utils/pwa";
 
 export const SettingsAboutTab = () => {
 	const { t } = useTranslation();
@@ -45,13 +48,14 @@ export const SettingsAboutTab = () => {
 
 			<Card>
 				<Flex direction="column" gap="2">
-					<Flex direction="column" gap="1">
-						<Text as="div" size="2">
-							{t("aboutModal.buildDate", "构建日期：{date}", {
-								date: BUILD_TIME,
-							})}
-						</Text>
-						<Text as="div" size="2">
+					<Flex align="center" justify="between">
+						<Flex direction="column" gap="1">
+							<Text as="div" size="2">
+								{t("aboutModal.buildDate", "构建日期：{date}", {
+									date: BUILD_TIME,
+								})}
+							</Text>
+							<Text as="div" size="2">
 							{t("aboutModal.gitCommit", "Git 提交：{commit}", {
 								commit:
 									GIT_COMMIT === "unknown" ? (
@@ -68,7 +72,16 @@ export const SettingsAboutTab = () => {
 							})}
 						</Text>
 					</Flex>
+					<IconButton
+						variant="soft"
+						size="2"
+						onClick={reloadSW}
+						title={t("settings.about.refreshPWA", "刷新 PWA")}
+					>
+						<ArrowClockwise24Regular />
+					</IconButton>
 				</Flex>
+			</Flex>
 			</Card>
 
 			{showUpdateCard && (

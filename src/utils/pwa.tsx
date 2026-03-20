@@ -4,8 +4,14 @@ import { confirmDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
 import { globalStore } from "$/states/store";
 
+let refreshSW: (reloadPage?: boolean) => Promise<void> = () => Promise.resolve();
+
+export const reloadSW = async () => {
+	await refreshSW(true);
+};
+
 if (!import.meta.env.TAURI_ENV_PLATFORM) {
-	const refresh = registerSW({
+	refreshSW = registerSW({
 		onOfflineReady() {
 			globalStore.set(pushNotificationAtom, {
 				title: t(
@@ -30,7 +36,7 @@ if (!import.meta.env.TAURI_ENV_PLATFORM) {
 				open: true,
 				title: t("pwa.refresh", "刷新"),
 				description: message,
-				onConfirm: () => refresh(true),
+				onConfirm: () => refreshSW(true),
 			});
 		},
 	});
