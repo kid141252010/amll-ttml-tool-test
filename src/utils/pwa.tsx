@@ -4,7 +4,8 @@ import { confirmDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
 import { globalStore } from "$/states/store";
 
-let refreshSW: (reloadPage?: boolean) => Promise<void> = () => Promise.resolve();
+let refreshSW: (reloadPage?: boolean) => Promise<void> = () =>
+	Promise.resolve();
 
 export const reloadSW = async () => {
 	await refreshSW(true);

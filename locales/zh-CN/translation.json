@@ -110,8 +110,21 @@
 			"maskObsceneWords": "屏蔽脏字",
 			"word": "单词",
 			"fadeWidth": "过渡宽度",
+			"font": "默认字体",
+			"fontScale": "字号倍率",
+			"originalFont": "原文字体",
+			"translationFont": "翻译字体",
+			"romanFont": "音译字体",
+			"annotationFont": "标注字体",
+			"fontPlaceholder": "默认",
+			"languageFont": "语言字体",
+			"selectLanguage": "选择语言",
+			"addLanguageFont": "添加语言字体",
+			"editLanguage": "修改语言",
+			"deleteLanguage": "删除语言",
 			"layout": "布局",
-			"verticalAlign": "垂直对齐"
+			"verticalAlign": "垂直对齐",
+			"bgLineOpacity": "背景行透明度"
 		},
 		"syncMode": {
 			"currentEmptyBeat": "当前空拍",

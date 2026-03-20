@@ -56,32 +56,32 @@ export const SettingsAboutTab = () => {
 								})}
 							</Text>
 							<Text as="div" size="2">
-							{t("aboutModal.gitCommit", "Git 提交：{commit}", {
-								commit:
-									GIT_COMMIT === "unknown" ? (
-										t("aboutModal.unknown", "unknown")
-									) : (
-										<Link
-											href={`https://github.com/Steve-xmh/amll-ttml-tool/commit/${GIT_COMMIT}`}
-											target="_blank"
-											rel="noreferrer"
-										>
-											{GIT_COMMIT}
-										</Link>
-									),
-							})}
-						</Text>
+								{t("aboutModal.gitCommit", "Git 提交：{commit}", {
+									commit:
+										GIT_COMMIT === "unknown" ? (
+											t("aboutModal.unknown", "unknown")
+										) : (
+											<Link
+												href={`https://github.com/Steve-xmh/amll-ttml-tool/commit/${GIT_COMMIT}`}
+												target="_blank"
+												rel="noreferrer"
+											>
+												{GIT_COMMIT}
+											</Link>
+										),
+								})}
+							</Text>
+						</Flex>
+						<IconButton
+							variant="soft"
+							size="2"
+							onClick={reloadSW}
+							title={t("settings.about.refreshPWA", "刷新 PWA")}
+						>
+							<ArrowClockwise24Regular />
+						</IconButton>
 					</Flex>
-					<IconButton
-						variant="soft"
-						size="2"
-						onClick={reloadSW}
-						title={t("settings.about.refreshPWA", "刷新 PWA")}
-					>
-						<ArrowClockwise24Regular />
-					</IconButton>
 				</Flex>
-			</Flex>
 			</Card>
 
 			{showUpdateCard && (
