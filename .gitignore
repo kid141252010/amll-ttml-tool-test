@@ -36,3 +36,4 @@ CLAUDE.md
 
 # Kuromoji dictionary files (auto-copied from node_modules)
 public/kuromoji-dict/
+before-push.ps1
