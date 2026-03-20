@@ -128,6 +128,7 @@ export const useFileOpener = () => {
 				})),
 				metadata: [],
 				lyricLang: "zh-Hans",
+				autoLang: true,
 			};
 		},
 		[],
