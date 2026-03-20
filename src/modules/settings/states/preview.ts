@@ -22,6 +22,16 @@ export const translationFontAtom = atomWithStorage("translationFont", ""); // �
 export const romanFontAtom = atomWithStorage("romanFont", ""); // 音译字体
 export const annotationFontAtom = atomWithStorage("annotationFont", ""); // 标注字体
 
+// 语言字体设置
+export interface LanguageFont {
+	lang: string;
+	font: string;
+}
+export const languageFontsAtom = atomWithStorage<LanguageFont[]>(
+	"languageFonts",
+	[],
+);
+
 // 布局设置
 export const alignPositionAtom = atomWithStorage("alignPosition", 35); // 垂直对齐位置 0-100%
 export const bgLineOpacityAtom = atomWithStorage("bgLineOpacity", 40); // 背景行透明度 0-100%

@@ -39,5 +39,6 @@ export function convertLrcLibTrackToTTML(track: LrcLibTrack): TTMLLyric {
 		lyricLines,
 		metadata,
 		lyricLang: "zh-Hans",
+		autoLang: true,
 	};
 }

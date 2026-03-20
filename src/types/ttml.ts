@@ -35,6 +35,11 @@ export interface TTMLLyric {
 	optimizeOptions?: OptimizeLyricOptions;
 	/** 整个歌词的语言代码 */
 	lyricLang?: string;
+	/**
+	 * 当文件没有定义 xml:lang 而使用默认值时这个值为 true
+	 * 此时读取翻译时不应该触发自动匹配逐字翻译的逻辑
+	 */
+	autoLang?: boolean;
 }
 
 export interface LyricWordBase {

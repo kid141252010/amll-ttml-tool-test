@@ -271,6 +271,7 @@ export const ImportFromText = () => {
 				lyricLines: result,
 				metadata: [],
 				lyricLang: "zh-Hans",
+				autoLang: true,
 			});
 		},
 		[store],

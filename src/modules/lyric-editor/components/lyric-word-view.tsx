@@ -474,7 +474,14 @@ const LyricWordViewEditAdvance = ({
 				hasError && toolMode === ToolMode.Edit && styles.error,
 				hasRadical && styles.radical,
 			),
-		[isWordBlank, isWordSelected, showRubyEditor, hasError, toolMode, hasRadical],
+		[
+			isWordBlank,
+			isWordSelected,
+			showRubyEditor,
+			hasError,
+			toolMode,
+			hasRadical,
+		],
 	);
 
 	return (
@@ -640,10 +647,7 @@ const LyricWorldViewEdit = ({
 		[word.startTime, word.endTime],
 	);
 
-	const hasRadical = useMemo(
-		() => containsRadicalChar(word.word),
-		[word.word],
-	);
+	const hasRadical = useMemo(() => containsRadicalChar(word.word), [word.word]);
 
 	const className = useMemo(
 		() =>
@@ -656,7 +660,14 @@ const LyricWorldViewEdit = ({
 				hasError && toolMode === ToolMode.Edit && styles.error,
 				hasRadical && styles.radical,
 			),
-		[isWordBlank, isWordSelected, showRubyEditor, hasError, toolMode, hasRadical],
+		[
+			isWordBlank,
+			isWordSelected,
+			showRubyEditor,
+			hasError,
+			toolMode,
+			hasRadical,
+		],
 	);
 
 	const onEnter = useCallback(

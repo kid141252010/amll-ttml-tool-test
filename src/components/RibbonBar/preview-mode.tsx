@@ -9,16 +9,31 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
-import { Checkbox, Grid, Slider, Text, TextField } from "@radix-ui/themes";
-import { useAtom } from "jotai";
-import { forwardRef } from "react";
+import {
+	Button,
+	Checkbox,
+	Grid,
+	IconButton,
+	Select,
+	Slider,
+	Text,
+	TextField,
+} from "@radix-ui/themes";
+import { useAtom, useSetAtom } from "jotai";
+import { forwardRef, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	addLanguageDialogAtom,
+	editLanguageDialogAtom,
+} from "$/states/dialogs";
+import { lyricLinesAtom } from "$/states/main";
 import {
 	alignPositionAtom,
 	annotationFontAtom,
 	bgLineOpacityAtom,
 	fontScaleAtom,
 	hideObsceneWordsAtom,
+	languageFontsAtom,
 	lyricWordFadeWidthAtom,
 	originalFontAtom,
 	romanFontAtom,
@@ -26,8 +41,14 @@ import {
 	showRomanLinesAtom,
 	showTranslationLinesAtom,
 	translationFontAtom,
+	type LanguageFont,
 } from "$/modules/settings/states/preview";
 import { RibbonFrame, RibbonSection } from "./common";
+import {
+	Add16Regular,
+	Delete16Regular,
+	Edit16Regular,
+} from "@fluentui/react-icons";
 
 export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 	(_props, ref) => {
@@ -49,10 +70,102 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const [translationFont, setTranslationFont] = useAtom(translationFontAtom);
 		const [romanFont, setRomanFont] = useAtom(romanFontAtom);
 		const [annotationFont, setAnnotationFont] = useAtom(annotationFontAtom);
+		// 语言字体设置
+		const [languageFonts, setLanguageFonts] = useAtom(languageFontsAtom);
+		const [selectedLang, setSelectedLang] = useState<string>("");
+		const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
+		const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
+		const lyricLines = useAtom(lyricLinesAtom);
 		// 布局设置
 		const [alignPosition, setAlignPosition] = useAtom(alignPositionAtom);
 		const [bgLineOpacity, setBgLineOpacity] = useAtom(bgLineOpacityAtom);
 		const { t } = useTranslation();
+
+		// 获取当前选中的语言字体对象
+		const selectedLanguageFont = useMemo(() => {
+			if (!selectedLang) return null;
+			return languageFonts.find((lf) => lf.lang === selectedLang) || null;
+		}, [selectedLang, languageFonts]);
+
+		// 处理添加语言字体
+		const handleAddLanguageFont = useCallback(() => {
+			setAddLanguageDialog({
+				open: true,
+				target: "translation",
+				onSubmit: (lang) => {
+					const trimmed = lang.trim();
+					if (!trimmed || languageFonts.some((lf) => lf.lang === trimmed)) {
+						return;
+					}
+					const newLanguageFont: LanguageFont = { lang: trimmed, font: "" };
+					setLanguageFonts([...languageFonts, newLanguageFont]);
+					setSelectedLang(trimmed);
+				},
+			});
+		}, [languageFonts, setLanguageFonts, setAddLanguageDialog]);
+
+		// 处理编辑语言代码
+		const handleEditLanguage = useCallback(() => {
+			if (!selectedLang) return;
+			setEditLanguageDialog({
+				open: true,
+				target: "translation",
+				currentLang: selectedLang,
+				onSubmit: (newLang) => {
+					const trimmed = newLang.trim();
+					if (!trimmed || trimmed === selectedLang) return;
+					// 检查是否已存在
+					if (languageFonts.some((lf) => lf.lang === trimmed)) {
+						return;
+					}
+					setLanguageFonts(
+						languageFonts.map((lf) =>
+							lf.lang === selectedLang ? { ...lf, lang: trimmed } : lf,
+						),
+					);
+					setSelectedLang(trimmed);
+				},
+			});
+		}, [selectedLang, languageFonts, setLanguageFonts, setEditLanguageDialog]);
+
+		// 处理删除语言字体
+		const handleDeleteLanguage = useCallback(
+			(lang: string) => {
+				setLanguageFonts(languageFonts.filter((lf) => lf.lang !== lang));
+				if (selectedLang === lang) {
+					setSelectedLang("");
+				}
+			},
+			[languageFonts, setLanguageFonts, selectedLang],
+		);
+
+		// 处理字体变更
+		const handleFontChange = useCallback(
+			(font: string) => {
+				if (!selectedLang) return;
+				setLanguageFonts(
+					languageFonts.map((lf) =>
+						lf.lang === selectedLang ? { ...lf, font } : lf,
+					),
+				);
+			},
+			[selectedLang, languageFonts, setLanguageFonts],
+		);
+
+		// 检查当前歌词语言是否匹配语言字体设置
+		const matchedLanguageFont = useMemo(() => {
+			const currentLyricLang = lyricLines[0]?.lyricLang;
+			if (!currentLyricLang) return null;
+			return languageFonts.find((lf) => lf.lang === currentLyricLang) || null;
+		}, [lyricLines, languageFonts]);
+
+		// 获取实际使用的原文字体（考虑语言字体覆盖）
+		const effectiveOriginalFont = useMemo(() => {
+			if (matchedLanguageFont?.font) {
+				return matchedLanguageFont.font;
+			}
+			return originalFont;
+		}, [matchedLanguageFont, originalFont]);
 
 		return (
 			<RibbonFrame ref={ref}>
@@ -100,20 +213,20 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 							{t("ribbonBar.previewMode.fadeWidth", "过渡宽度")}
 						</Text>
 						<TextField.Root
-						min={0}
-						step={0}
-						size="1"
-						style={{
-							width: "4em",
-						}}
-						value={lyricWordFadeWidth}
-						onChange={(e) => {
-							const value = Number.parseFloat(e.target.value);
-							if (Number.isFinite(value)) {
-								setLyricWordFadeWidth(value);
-							}
-						}}
-					/>
+							min={0}
+							step={0}
+							size="1"
+							style={{
+								width: "4em",
+							}}
+							value={lyricWordFadeWidth}
+							onChange={(e) => {
+								const value = Number.parseFloat(e.target.value);
+								if (Number.isFinite(value)) {
+									setLyricWordFadeWidth(value);
+								}
+							}}
+						/>
 						<Text wrap="nowrap" size="1">
 							{t("ribbonBar.previewMode.fontScale", "字号倍率")}
 						</Text>
@@ -151,7 +264,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 						</div>
 					</Grid>
 				</RibbonSection>
-				<RibbonSection label={t("ribbonBar.previewMode.font", "字体")}>
+				<RibbonSection label={t("ribbonBar.previewMode.font", "默认字体")}>
 					<Grid
 						columns="0fr 1fr 0fr 1fr"
 						gap="2"
@@ -161,13 +274,23 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 					>
 						<Text wrap="nowrap" size="1">
 							{t("ribbonBar.previewMode.originalFont", "原文字体")}
+							{matchedLanguageFont && (
+								<span style={{ color: "var(--accent-9)", marginLeft: "4px" }}>
+									*
+								</span>
+							)}
 						</Text>
 						<TextField.Root
 							size="1"
 							style={{ width: "180px" }}
 							value={originalFont}
 							onChange={(e) => setOriginalFont(e.target.value)}
-							placeholder={t("ribbonBar.previewMode.fontPlaceholder", "默认")}
+							placeholder={
+								matchedLanguageFont?.font
+									? t("ribbonBar.previewMode.fontPlaceholder", "默认") +
+										` (${matchedLanguageFont.font})`
+									: t("ribbonBar.previewMode.fontPlaceholder", "默认")
+							}
 						/>
 						<Text wrap="nowrap" size="1">
 							{t("ribbonBar.previewMode.annotationFont", "标注字体")}
@@ -201,80 +324,164 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 						/>
 					</Grid>
 				</RibbonSection>
+				<RibbonSection
+					label={t("ribbonBar.previewMode.languageFont", "语言字体")}
+				>
+					<Grid
+						columns="auto 1fr auto"
+						gap="2"
+						gapY="1"
+						flexGrow="1"
+						align="center"
+					>
+						<IconButton
+							variant="soft"
+							size="1"
+							onClick={handleEditLanguage}
+							disabled={!selectedLang}
+							aria-label={t("ribbonBar.previewMode.editLanguage", "修改语言")}
+						>
+							<Edit16Regular />
+						</IconButton>
+						<Select.Root
+							value={selectedLang}
+							onValueChange={setSelectedLang}
+							size="1"
+						>
+							<Select.Trigger
+								placeholder={t(
+									"ribbonBar.previewMode.selectLanguage",
+									"选择语言",
+								)}
+								style={{ width: "120px" }}
+							/>
+							<Select.Content>
+								{languageFonts.map((lf) => (
+									<Select.Item key={lf.lang} value={lf.lang}>
+										<div
+											style={{
+												display: "flex",
+												alignItems: "center",
+												justifyContent: "space-between",
+												width: "100%",
+												gap: "8px",
+											}}
+										>
+											<IconButton
+												variant="ghost"
+												size="1"
+												onClick={(e) => {
+													e.stopPropagation();
+													handleDeleteLanguage(lf.lang);
+												}}
+												aria-label={t(
+													"ribbonBar.previewMode.deleteLanguage",
+													"删除语言",
+												)}
+											>
+												<Delete16Regular />
+											</IconButton>
+											<span>{lf.lang}</span>
+										</div>
+									</Select.Item>
+								))}
+							</Select.Content>
+						</Select.Root>
+						<IconButton
+							variant="soft"
+							size="1"
+							onClick={handleAddLanguageFont}
+							aria-label={t(
+								"ribbonBar.previewMode.addLanguageFont",
+								"添加语言字体",
+							)}
+						>
+							<Add16Regular />
+						</IconButton>
+						<TextField.Root
+							size="1"
+							style={{ gridColumn: "1/-1" }}
+							value={selectedLanguageFont?.font || ""}
+							onChange={(e) => handleFontChange(e.target.value)}
+							placeholder={t("ribbonBar.previewMode.fontPlaceholder", "默认")}
+							disabled={!selectedLang}
+						/>
+					</Grid>
+				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.previewMode.layout", "布局")}>
-				<Grid columns="0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
-					<Text wrap="nowrap" size="1">
-						{t("ribbonBar.previewMode.verticalAlign", "垂直对齐")}
-					</Text>
-					<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-						<Slider
-							value={[alignPosition]}
-							onValueChange={(v) => setAlignPosition(v[0])}
-							min={0}
-							max={100}
-							step={1}
-							style={{ width: "80px" }}
-						/>
-						<TextField.Root
-							size="1"
-							style={{ width: "4em" }}
-							value={alignPosition}
-							onChange={(e) => {
-								const value = Number.parseInt(e.target.value);
-								if (Number.isFinite(value) && value >= 0 && value <= 100) {
-									setAlignPosition(value);
-								}
-							}}
-							onWheel={(e) => {
-								e.preventDefault();
-								const delta = e.deltaY > 0 ? -1 : 1;
-								const newValue = Math.max(
-									0,
-									Math.min(100, alignPosition + delta),
-								);
-								setAlignPosition(newValue);
-							}}
-						>
-							<TextField.Slot>%</TextField.Slot>
-						</TextField.Root>
-					</div>
-					<Text wrap="nowrap" size="1">
-						{t("ribbonBar.previewMode.bgLineOpacity", "背景行透明度")}
-					</Text>
-					<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-						<Slider
-							value={[bgLineOpacity]}
-							onValueChange={(v) => setBgLineOpacity(v[0])}
-							min={0}
-							max={100}
-							step={1}
-							style={{ width: "80px" }}
-						/>
-						<TextField.Root
-							size="1"
-							style={{ width: "4em" }}
-							value={bgLineOpacity}
-							onChange={(e) => {
-								const value = Number.parseInt(e.target.value);
-								if (Number.isFinite(value) && value >= 0 && value <= 100) {
-									setBgLineOpacity(value);
-								}
-							}}
-							onWheel={(e) => {
-								e.preventDefault();
-								const delta = e.deltaY > 0 ? -1 : 1;
-								const newValue = Math.max(
-									0,
-									Math.min(100, bgLineOpacity + delta),
-								);
-								setBgLineOpacity(newValue);
-							}}
-						>
-							<TextField.Slot>%</TextField.Slot>
-						</TextField.Root>
-					</div>
-				</Grid>
-			</RibbonSection>
+					<Grid columns="0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.verticalAlign", "垂直对齐")}
+						</Text>
+						<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+							<Slider
+								value={[alignPosition]}
+								onValueChange={(v) => setAlignPosition(v[0])}
+								min={0}
+								max={100}
+								step={1}
+								style={{ width: "80px" }}
+							/>
+							<TextField.Root
+								size="1"
+								style={{ width: "4em" }}
+								value={alignPosition}
+								onChange={(e) => {
+									const value = Number.parseInt(e.target.value);
+									if (Number.isFinite(value) && value >= 0 && value <= 100) {
+										setAlignPosition(value);
+									}
+								}}
+								onWheel={(e) => {
+									e.preventDefault();
+									const delta = e.deltaY > 0 ? -1 : 1;
+									const newValue = Math.max(
+										0,
+										Math.min(100, alignPosition + delta),
+									);
+									setAlignPosition(newValue);
+								}}
+							>
+								<TextField.Slot>%</TextField.Slot>
+							</TextField.Root>
+						</div>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.bgLineOpacity", "背景行透明度")}
+						</Text>
+						<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+							<Slider
+								value={[bgLineOpacity]}
+								onValueChange={(v) => setBgLineOpacity(v[0])}
+								min={0}
+								max={100}
+								step={1}
+								style={{ width: "80px" }}
+							/>
+							<TextField.Root
+								size="1"
+								style={{ width: "4em" }}
+								value={bgLineOpacity}
+								onChange={(e) => {
+									const value = Number.parseInt(e.target.value);
+									if (Number.isFinite(value) && value >= 0 && value <= 100) {
+										setBgLineOpacity(value);
+									}
+								}}
+								onWheel={(e) => {
+									e.preventDefault();
+									const delta = e.deltaY > 0 ? -1 : 1;
+									const newValue = Math.max(
+										0,
+										Math.min(100, bgLineOpacity + delta),
+									);
+									setBgLineOpacity(newValue);
+								}}
+							>
+								<TextField.Slot>%</TextField.Slot>
+							</TextField.Root>
+						</div>
+					</Grid>
+				</RibbonSection>
 			</RibbonFrame>
 		);
 	},

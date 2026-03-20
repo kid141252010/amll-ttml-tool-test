@@ -23,6 +23,7 @@ import {
 	annotationFontAtom,
 	bgLineOpacityAtom,
 	fontScaleAtom,
+	languageFontsAtom,
 	lyricWordFadeWidthAtom,
 	originalFontAtom,
 	romanFontAtom,
@@ -109,10 +110,31 @@ export const AMLLWrapper = memo(() => {
 	const translationFont = useAtomValue(translationFontAtom);
 	const romanFont = useAtomValue(romanFontAtom);
 	const annotationFont = useAtomValue(annotationFontAtom);
+	const languageFonts = useAtomValue(languageFontsAtom);
 	// 布局设置
 	const alignPosition = useAtomValue(alignPositionAtom);
 	const bgLineOpacity = useAtomValue(bgLineOpacityAtom);
 	const playerRef = useRef<LyricPlayerRef>(null);
+
+	// 计算实际使用的原文字体（根据语言字体设置）
+	const effectiveOriginalFont = useMemo(() => {
+		const lyricLang = originalLyricLines.lyricLang;
+		const autoLang = originalLyricLines.autoLang;
+		// 当歌词语言存在且 autoLang 为 false 时，查找对应的语言字体
+		if (lyricLang && !autoLang) {
+			const matchedLangFont = languageFonts.find((lf) => lf.lang === lyricLang);
+			if (matchedLangFont?.font) {
+				return matchedLangFont.font;
+			}
+		}
+		// 否则使用默认原文字体
+		return originalFont;
+	}, [
+		originalLyricLines.lyricLang,
+		originalLyricLines.autoLang,
+		languageFonts,
+		originalFont,
+	]);
 
 	const lyricLines = useMemo(() => {
 		const vocalTagMap = new Map(
@@ -170,7 +192,7 @@ export const AMLLWrapper = memo(() => {
 				{
 					// 字体设置 CSS 变量
 					"--amll-lp-font-scale": fontScale / 100,
-					"--amll-lp-original-font": originalFont || "inherit",
+					"--amll-lp-original-font": effectiveOriginalFont || "inherit",
 					"--amll-lp-translation-font": translationFont || "inherit",
 					"--amll-lp-roman-font": romanFont || "inherit",
 					"--amll-lp-annotation-font": annotationFont || "inherit",

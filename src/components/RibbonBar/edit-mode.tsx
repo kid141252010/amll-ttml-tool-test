@@ -1311,6 +1311,32 @@ const MultilingualField: FC = () => {
 		});
 	}, [applyWordRomanizationLang, editLyricLines, setAddLanguageDialog]);
 
+	// 当歌词解析完成后，自动选择第一个可用语言
+	useEffect(() => {
+		// 自动选择第一个翻译语言
+		if (translationLanguages.length > 0 && !currentTranslationLang) {
+			applyTranslationLang(translationLanguages[0]);
+		}
+	}, [translationLanguages, currentTranslationLang, applyTranslationLang]);
+
+	useEffect(() => {
+		// 自动选择第一个音译语言
+		if (romanizationLanguages.length > 0 && !currentRomanizationLang) {
+			applyRomanizationLang(romanizationLanguages[0]);
+		}
+	}, [romanizationLanguages, currentRomanizationLang, applyRomanizationLang]);
+
+	useEffect(() => {
+		// 自动选择第一个逐字音译语言
+		if (wordRomanizationLanguages.length > 0 && !currentWordRomanizationLang) {
+			applyWordRomanizationLang(wordRomanizationLanguages[0]);
+		}
+	}, [
+		wordRomanizationLanguages,
+		currentWordRomanizationLang,
+		applyWordRomanizationLang,
+	]);
+
 	const openEditTranslationLangDialog = useCallback(() => {
 		if (!currentTranslationLang) return;
 		setEditLanguageDialog({

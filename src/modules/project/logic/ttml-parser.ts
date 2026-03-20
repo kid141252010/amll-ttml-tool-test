@@ -240,10 +240,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	// 读取根节点的 xml:lang 作为歌词语言代码，默认为 zh-Hans
 	const ttRoot = ttmlDoc.querySelector("tt");
-	const lyricLang =
-		ttRoot?.getAttribute("xml:lang") ??
-		ttRoot?.getAttribute("lang") ??
-		"zh-Hans";
+	const lyricLangAttr =
+		ttRoot?.getAttribute("xml:lang") ?? ttRoot?.getAttribute("lang");
+	const lyricLang = lyricLangAttr ?? "zh-Hans";
+	const autoLang = !lyricLangAttr; // 当文件没有定义 xml:lang 时这个值为 true
 
 	// 默认翻译语言代码
 	const DEFAULT_TRANSLATION_LANG = "zh-Hans";
@@ -264,6 +264,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	): boolean => {
 		const typeAttr = translationEl.getAttribute("type");
 		if (typeAttr === "replacement") return true;
+		// 当 autoLang 为 true 时，不根据语言代码自动判断逐字翻译
+		if (autoLang) return false;
 		// 如果歌词语言和翻译语言都以 zh 开头，视为逐字翻译
 		if (lyricLang.startsWith("zh") && lang.startsWith("zh")) return true;
 		return false;
@@ -997,6 +999,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		lyricLines: lyricLines,
 		vocalTags,
 		lyricLang,
+		autoLang,
 	};
 
 	// 输出整个解析后的对象到控制台
