@@ -24,3 +24,4 @@ export const annotationFontAtom = atomWithStorage("annotationFont", ""); // 标�
 
 // 布局设置
 export const alignPositionAtom = atomWithStorage("alignPosition", 35); // 垂直对齐位置 0-100%
+export const bgLineOpacityAtom = atomWithStorage("bgLineOpacity", 40); // 背景行透明度 0-100%

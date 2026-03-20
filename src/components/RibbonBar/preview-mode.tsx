@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import {
 	alignPositionAtom,
 	annotationFontAtom,
+	bgLineOpacityAtom,
 	fontScaleAtom,
 	hideObsceneWordsAtom,
 	lyricWordFadeWidthAtom,
@@ -50,6 +51,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const [annotationFont, setAnnotationFont] = useAtom(annotationFontAtom);
 		// 布局设置
 		const [alignPosition, setAlignPosition] = useAtom(alignPositionAtom);
+		const [bgLineOpacity, setBgLineOpacity] = useAtom(bgLineOpacityAtom);
 		const { t } = useTranslation();
 
 		return (
@@ -200,44 +202,79 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.previewMode.layout", "布局")}>
-					<Grid columns="0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
-						<Text wrap="nowrap" size="1">
-							{t("ribbonBar.previewMode.verticalAlign", "垂直对齐")}
-						</Text>
-						<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-							<Slider
-								value={[alignPosition]}
-								onValueChange={(v) => setAlignPosition(v[0])}
-								min={0}
-								max={100}
-								step={1}
-								style={{ width: "80px" }}
-							/>
-							<TextField.Root
-								size="1"
-								style={{ width: "4em" }}
-								value={alignPosition}
-								onChange={(e) => {
-									const value = Number.parseInt(e.target.value);
-									if (Number.isFinite(value) && value >= 0 && value <= 100) {
-										setAlignPosition(value);
-									}
-								}}
-								onWheel={(e) => {
-									e.preventDefault();
-									const delta = e.deltaY > 0 ? -1 : 1;
-									const newValue = Math.max(
-										0,
-										Math.min(100, alignPosition + delta),
-									);
-									setAlignPosition(newValue);
-								}}
-							>
-								<TextField.Slot>%</TextField.Slot>
-							</TextField.Root>
-						</div>
-					</Grid>
-				</RibbonSection>
+				<Grid columns="0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
+					<Text wrap="nowrap" size="1">
+						{t("ribbonBar.previewMode.verticalAlign", "垂直对齐")}
+					</Text>
+					<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+						<Slider
+							value={[alignPosition]}
+							onValueChange={(v) => setAlignPosition(v[0])}
+							min={0}
+							max={100}
+							step={1}
+							style={{ width: "80px" }}
+						/>
+						<TextField.Root
+							size="1"
+							style={{ width: "4em" }}
+							value={alignPosition}
+							onChange={(e) => {
+								const value = Number.parseInt(e.target.value);
+								if (Number.isFinite(value) && value >= 0 && value <= 100) {
+									setAlignPosition(value);
+								}
+							}}
+							onWheel={(e) => {
+								e.preventDefault();
+								const delta = e.deltaY > 0 ? -1 : 1;
+								const newValue = Math.max(
+									0,
+									Math.min(100, alignPosition + delta),
+								);
+								setAlignPosition(newValue);
+							}}
+						>
+							<TextField.Slot>%</TextField.Slot>
+						</TextField.Root>
+					</div>
+					<Text wrap="nowrap" size="1">
+						{t("ribbonBar.previewMode.bgLineOpacity", "背景行透明度")}
+					</Text>
+					<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+						<Slider
+							value={[bgLineOpacity]}
+							onValueChange={(v) => setBgLineOpacity(v[0])}
+							min={0}
+							max={100}
+							step={1}
+							style={{ width: "80px" }}
+						/>
+						<TextField.Root
+							size="1"
+							style={{ width: "4em" }}
+							value={bgLineOpacity}
+							onChange={(e) => {
+								const value = Number.parseInt(e.target.value);
+								if (Number.isFinite(value) && value >= 0 && value <= 100) {
+									setBgLineOpacity(value);
+								}
+							}}
+							onWheel={(e) => {
+								e.preventDefault();
+								const delta = e.deltaY > 0 ? -1 : 1;
+								const newValue = Math.max(
+									0,
+									Math.min(100, bgLineOpacity + delta),
+								);
+								setBgLineOpacity(newValue);
+							}}
+						>
+							<TextField.Slot>%</TextField.Slot>
+						</TextField.Root>
+					</div>
+				</Grid>
+			</RibbonSection>
 			</RibbonFrame>
 		);
 	},

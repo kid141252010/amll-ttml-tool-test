@@ -21,6 +21,7 @@ import {
 	// hideObsceneWordsAtom,
 	alignPositionAtom,
 	annotationFontAtom,
+	bgLineOpacityAtom,
 	fontScaleAtom,
 	lyricWordFadeWidthAtom,
 	originalFontAtom,
@@ -110,6 +111,7 @@ export const AMLLWrapper = memo(() => {
 	const annotationFont = useAtomValue(annotationFontAtom);
 	// 布局设置
 	const alignPosition = useAtomValue(alignPositionAtom);
+	const bgLineOpacity = useAtomValue(bgLineOpacityAtom);
 	const playerRef = useRef<LyricPlayerRef>(null);
 
 	const lyricLines = useMemo(() => {
@@ -172,6 +174,8 @@ export const AMLLWrapper = memo(() => {
 					"--amll-lp-translation-font": translationFont || "inherit",
 					"--amll-lp-roman-font": romanFont || "inherit",
 					"--amll-lp-annotation-font": annotationFont || "inherit",
+					// 布局设置 CSS 变量
+					"--amll-lp-bg-line-opacity": bgLineOpacity / 100,
 				} as React.CSSProperties
 			}
 		>
