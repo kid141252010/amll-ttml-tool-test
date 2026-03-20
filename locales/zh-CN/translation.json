@@ -288,7 +288,8 @@
 			"updateNow": "立即更新",
 			"downloading": "正在下载更新...",
 			"ready": "更新已准备就绪，重启应用以生效。",
-			"restart": "重启应用"
+			"restart": "重启应用",
+			"refreshPWA": "刷新 PWA"
 		},
 		"group": {
 			"display": "显示",
