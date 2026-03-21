@@ -92,3 +92,10 @@ export const duplicateSongIdDialogAtom = atom<{
 	open: false,
 	existingIds: [],
 });
+
+// 消减卡顿对话框
+export const reduceStutterDialogAtom = atom<{
+	open: boolean;
+}>({
+	open: false,
+});

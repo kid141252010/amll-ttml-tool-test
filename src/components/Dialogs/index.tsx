@@ -20,6 +20,7 @@ import { NotificationCenterDialog } from "./notification-center.tsx";
 import { MetaSuggestionManagerDialog } from "./meta-suggestion-manager.tsx";
 import { StorageManagerDialog } from "./storage-manager.tsx";
 import { DuplicateSongIdDialog } from "./duplicate-song-id.tsx";
+import { ReduceStutterDialog } from "./reduce-stutter.tsx";
 
 export const Dialogs = () => {
 	return (
@@ -46,6 +47,7 @@ export const Dialogs = () => {
 			<MetaSuggestionManagerDialog />
 			<StorageManagerDialog />
 			<DuplicateSongIdDialog />
+			<ReduceStutterDialog />
 		</>
 	);
 };

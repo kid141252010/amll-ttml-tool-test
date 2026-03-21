@@ -46,6 +46,9 @@ const ToolMenuItems = () => {
 							"对齐尾部时间戳",
 						)}
 					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={menu.onReduceStutter}>
+						{t("topBar.menu.timestampTools.reduceStutter", "消减卡顿")}
+					</DropdownMenu.Item>
 				</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 			<DropdownMenu.Sub>

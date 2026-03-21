@@ -27,6 +27,7 @@ import {
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
+	reduceStutterDialogAtom,
 	settingsDialogAtom,
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
@@ -510,6 +511,10 @@ export const useTopMenuActions = () => {
 		});
 	}, [editLyricLines, setConfirmDialog, t, selectedLineIds]);
 
+	const onReduceStutter = useCallback(() => {
+		store.set(reduceStutterDialogAtom, { open: true });
+	}, [store]);
+
 	const onOpenDistributeRomanization = useCallback(() => {
 		setDistributeRomanizationDialog(true);
 	}, [setDistributeRomanizationDialog]);
@@ -892,6 +897,7 @@ export const useTopMenuActions = () => {
 		onOpenAdvancedSegmentation,
 		onSyncLineTimestamps,
 		onAlignEndTimestamps,
+		onReduceStutter,
 		onOpenDistributeRomanization,
 		onCheckRomanizationWarnings,
 		onDistributeRomanizationBySpace,
