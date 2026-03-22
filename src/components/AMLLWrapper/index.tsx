@@ -25,6 +25,7 @@ import {
 	fontScaleAtom,
 	languageFontsAtom,
 	lyricWordFadeWidthAtom,
+	lyricWidthAtom,
 	originalFontAtom,
 	romanFontAtom,
 	showAnnotationLinesAtom,
@@ -114,6 +115,7 @@ export const AMLLWrapper = memo(() => {
 	// 布局设置
 	const alignPosition = useAtomValue(alignPositionAtom);
 	const bgLineOpacity = useAtomValue(bgLineOpacityAtom);
+	const lyricWidth = useAtomValue(lyricWidthAtom);
 	const playerRef = useRef<LyricPlayerRef>(null);
 
 	// 计算实际使用的原文字体（根据语言字体设置）
@@ -189,17 +191,18 @@ export const AMLLWrapper = memo(() => {
 		<Card
 			className={classNames(styles.amllWrapper, darkMode && styles.isDark)}
 			style={
-				{
-					// 字体设置 CSS 变量
-					"--amll-lp-font-scale": fontScale / 100,
-					"--amll-lp-original-font": effectiveOriginalFont || "inherit",
-					"--amll-lp-translation-font": translationFont || "inherit",
-					"--amll-lp-roman-font": romanFont || "inherit",
-					"--amll-lp-annotation-font": annotationFont || "inherit",
-					// 布局设置 CSS 变量
-					"--amll-lp-bg-line-opacity": bgLineOpacity / 100,
-				} as React.CSSProperties
-			}
+					{
+						// 字体设置 CSS 变量
+						"--amll-lp-font-scale": fontScale / 100,
+						"--amll-lp-original-font": effectiveOriginalFont || "inherit",
+						"--amll-lp-translation-font": translationFont || "inherit",
+						"--amll-lp-roman-font": romanFont || "inherit",
+						"--amll-lp-annotation-font": annotationFont || "inherit",
+						// 布局设置 CSS 变量
+						"--amll-lp-bg-line-opacity": bgLineOpacity / 100,
+						"--amll-lp-width": lyricWidth / 100,
+					} as React.CSSProperties
+				}
 		>
 			<LyricPlayer
 				className="amll-lyric-player"

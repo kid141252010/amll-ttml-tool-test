@@ -14,4 +14,12 @@
 	--amll-lp-translation-font: inherit;
 	--amll-lp-roman-font: inherit;
 	--amll-lp-annotation-font: inherit;
+
+	/* 布局设置 */
+	--amll-lp-width: 1; /* 默认 100% */
+}
+
+/* 歌词显示区域的宽度控制 */
+.amllWrapper {
+	padding: 0 calc((100% - (var(--amll-lp-width) * 100%)) / 2);
 }
