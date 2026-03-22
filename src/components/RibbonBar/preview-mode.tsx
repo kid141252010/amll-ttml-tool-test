@@ -20,7 +20,7 @@ import {
 	TextField,
 } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
-import { forwardRef, useCallback, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	addLanguageDialogAtom,
@@ -35,6 +35,7 @@ import {
 	hideObsceneWordsAtom,
 	languageFontsAtom,
 	lyricWordFadeWidthAtom,
+	lyricWidthAtom,
 	originalFontAtom,
 	romanFontAtom,
 	showAnnotationLinesAtom,
@@ -77,9 +78,23 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
 		const lyricLines = useAtom(lyricLinesAtom);
 		// 布局设置
-		const [alignPosition, setAlignPosition] = useAtom(alignPositionAtom);
-		const [bgLineOpacity, setBgLineOpacity] = useAtom(bgLineOpacityAtom);
-		const { t } = useTranslation();
+	const [alignPosition, setAlignPosition] = useAtom(alignPositionAtom);
+	const [bgLineOpacity, setBgLineOpacity] = useAtom(bgLineOpacityAtom);
+	const [lyricWidth, setLyricWidth] = useAtom(lyricWidthAtom);
+	const { t } = useTranslation();
+
+	// 当歌词语言变化时，自动选择对应的语言字体
+	useEffect(() => {
+		const currentLyricLang = lyricLines[0]?.lyricLang;
+		if (currentLyricLang) {
+			const hasLanguageFont = languageFonts.some(
+				(lf) => lf.lang === currentLyricLang,
+			);
+			if (hasLanguageFont) {
+				setSelectedLang(currentLyricLang);
+			}
+		}
+	}, [lyricLines, languageFonts]);
 
 		// 获取当前选中的语言字体对象
 		const selectedLanguageFont = useMemo(() => {
@@ -210,23 +225,23 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 				<RibbonSection label={t("ribbonBar.previewMode.word", "单词")}>
 					<Grid columns="0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
 						<Text wrap="nowrap" size="1">
-							{t("ribbonBar.previewMode.fadeWidth", "过渡宽度")}
-						</Text>
-						<TextField.Root
-							min={0}
-							step={0}
-							size="1"
-							style={{
-								width: "4em",
-							}}
-							value={lyricWordFadeWidth}
-							onChange={(e) => {
-								const value = Number.parseFloat(e.target.value);
-								if (Number.isFinite(value)) {
-									setLyricWordFadeWidth(value);
-								}
-							}}
-						/>
+						{t("ribbonBar.previewMode.fadeWidth", "过渡宽度")}
+					</Text>
+					<TextField.Root
+						min={0}
+						step={0}
+						size="1"
+						style={{
+							width: "4em",
+						}}
+						value={lyricWordFadeWidth.toFixed(2)}
+						onChange={(e) => {
+							const value = Number.parseFloat(e.target.value);
+							if (Number.isFinite(value)) {
+								setLyricWordFadeWidth(value);
+							}
+						}}
+					/>
 						<Text wrap="nowrap" size="1">
 							{t("ribbonBar.previewMode.fontScale", "字号倍率")}
 						</Text>
@@ -475,6 +490,41 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 										Math.min(100, bgLineOpacity + delta),
 									);
 									setBgLineOpacity(newValue);
+								}}
+							>
+								<TextField.Slot>%</TextField.Slot>
+							</TextField.Root>
+						</div>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.width", "宽度")}
+						</Text>
+						<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+							<Slider
+								value={[lyricWidth]}
+								onValueChange={(v) => setLyricWidth(v[0])}
+								min={0}
+								max={100}
+								step={1}
+								style={{ width: "80px" }}
+							/>
+							<TextField.Root
+								size="1"
+								style={{ width: "4em" }}
+								value={lyricWidth}
+								onChange={(e) => {
+									const value = Number.parseInt(e.target.value);
+									if (Number.isFinite(value) && value >= 0 && value <= 100) {
+										setLyricWidth(value);
+									}
+								}}
+								onWheel={(e) => {
+									e.preventDefault();
+									const delta = e.deltaY > 0 ? -1 : 1;
+									const newValue = Math.max(
+										0,
+										Math.min(100, lyricWidth + delta),
+									);
+									setLyricWidth(newValue);
 								}}
 							>
 								<TextField.Slot>%</TextField.Slot>
