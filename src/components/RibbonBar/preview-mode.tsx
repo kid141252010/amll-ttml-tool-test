@@ -234,7 +234,11 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 						style={{
 							width: "4em",
 						}}
-						value={lyricWordFadeWidth.toFixed(2)}
+						value={
+							lyricWordFadeWidth % 1 === 0
+								? lyricWordFadeWidth.toFixed(1)
+								: lyricWordFadeWidth.toString()
+						}
 						onChange={(e) => {
 							const value = Number.parseFloat(e.target.value);
 							if (Number.isFinite(value)) {
