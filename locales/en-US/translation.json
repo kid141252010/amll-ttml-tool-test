@@ -436,6 +436,8 @@
 			"selectInverted": "Invert Selection",
 			"selectWordsOfMatchedSelection": "Select similar words",
 			"deleteSelection": "Delete Selection",
+			"copyWordContent": "Copy syllable info",
+			"copySelectedWordsText": "Copy selected syllables text",
 			"switchEditMode": "Mode Switch - Switch to Edit Mode",
 			"switchSyncMode": "Mode Switch - Switch to Timing Mode",
 			"switchPreviewMode": "Mode Switch - Switch to Preview Mode",

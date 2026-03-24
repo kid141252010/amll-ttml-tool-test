@@ -4,6 +4,8 @@
 
 import type { WritableAtom } from "jotai";
 import {
+	cmdCopySelectedWordsText,
+	cmdCopyWordContent,
 	cmdDeleteSelection,
 	cmdMoveNextLine,
 	cmdMoveNextWord,
@@ -59,6 +61,8 @@ export const keySelectInvertedAtom = cmdSelectInverted.atom;
 export const keySelectWordsOfMatchedSelectionAtom =
 	cmdSelectWordsOfMatchedSelection.atom;
 export const keyDeleteSelectionAtom = cmdDeleteSelection.atom;
+export const keyCopyWordContentAtom = cmdCopyWordContent.atom;
+export const keyCopySelectedWordsTextAtom = cmdCopySelectedWordsText.atom;
 
 export const keySwitchEditModeAtom = cmdSwitchEditMode.atom;
 export const keySwitchSyncModeAtom = cmdSwitchSyncMode.atom;

@@ -11,7 +11,7 @@
 
 import { MyLocation24Regular } from "@fluentui/react-icons";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
-import { atom, useAtomValue } from "jotai";
+import { atom, useAtomValue, useStore } from "jotai";
 import { splitAtom } from "jotai/utils";
 import { focusAtom } from "jotai-optics";
 import {
@@ -27,12 +27,19 @@ import { useTranslation } from "react-i18next";
 import { ViewportList, type ViewportListRef } from "react-viewport-list";
 import { currentTimeAtom } from "$/modules/audio/states";
 import {
+	keyCopySelectedWordsTextAtom,
+	keyCopyWordContentAtom,
+} from "$/states/keybindings.ts";
+import {
 	lyricLinesAtom,
 	selectedLinesAtom,
+	selectedWordsAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import type { LyricLine } from "$/types/ttml.ts";
+import type { LyricLine, LyricWord } from "$/types/ttml.ts";
+import { msToTimestamp } from "$/utils/timestamp.ts";
+import { useKeyBindingAtom } from "$/utils/keybindings.ts";
 import { LyricLineView } from "./lyric-line-view";
 import styles from "./index.module.css";
 
@@ -71,6 +78,74 @@ export const LyricLinesView: FC = forwardRef<HTMLDivElement>((_props, ref) => {
 	const viewElRef = useRef<HTMLDivElement>(null);
 	const toolMode = useAtomValue(toolModeAtom);
 	const { t } = useTranslation();
+	const store = useStore();
+
+	// 复制音节内容功能（复用 lyric-word-menu.tsx 中的逻辑）
+	useKeyBindingAtom(
+		keyCopyWordContentAtom,
+		useCallback(() => {
+			const selectedWordIds = store.get(selectedWordsAtom);
+			if (selectedWordIds.size === 0) return;
+
+			const selectedWords: LyricWord[] = [];
+
+			// 收集选中的音节
+			for (const line of store.get(lyricLinesAtom).lyricLines) {
+				for (const w of line.words) {
+					if (selectedWordIds.has(w.id)) {
+						selectedWords.push(w);
+					}
+				}
+			}
+
+			// 按开始时间排序
+			selectedWords.sort((a, b) => a.startTime - b.startTime);
+
+			// 格式化为 「text/begin/end」，时间使用分:秒:毫秒格式
+			const content = selectedWords
+				.map(
+					(w) =>
+						`「${w.word}/\`${msToTimestamp(w.startTime)}\`/\`${msToTimestamp(w.endTime)}\`」`,
+				)
+				.join("\n");
+
+			// 复制到剪贴板
+			if (content) {
+				navigator.clipboard.writeText(content);
+			}
+		}, [store]),
+	);
+
+	// 复制选中音节文本功能（复用 lyric-word-menu.tsx 中的 copySelectedWordsText 逻辑）
+	useKeyBindingAtom(
+		keyCopySelectedWordsTextAtom,
+		useCallback(() => {
+			const selectedWordIds = store.get(selectedWordsAtom);
+			if (selectedWordIds.size === 0) return;
+
+			const selectedWords: LyricWord[] = [];
+
+			// 收集选中的音节
+			for (const line of store.get(lyricLinesAtom).lyricLines) {
+				for (const w of line.words) {
+					if (selectedWordIds.has(w.id)) {
+						selectedWords.push(w);
+					}
+				}
+			}
+
+			// 按开始时间排序
+			selectedWords.sort((a, b) => a.startTime - b.startTime);
+
+			// 拼接文本为一行
+			const content = selectedWords.map((w) => w.word).join("");
+
+			// 复制到剪贴板
+			if (content) {
+				navigator.clipboard.writeText(content);
+			}
+		}, [store]),
+	);
 
 	const scrollToIndexAtom = useMemo(
 		() =>

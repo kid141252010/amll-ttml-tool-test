@@ -90,6 +90,20 @@ export const cmdDeleteSelection = registerCommand(
 	"Edit",
 );
 
+export const cmdCopyWordContent = registerCommand(
+	"copyWordContent",
+	[CONTROL_KEY, "KeyC"],
+	t("settingsDialog.keybindings.copyWordContent"),
+	"Edit",
+);
+
+export const cmdCopySelectedWordsText = registerCommand(
+	"copySelectedWordsText",
+	[CONTROL_KEY, "Shift", "KeyC"],
+	t("settingsDialog.keybindings.copySelectedWordsText"),
+	"Edit",
+);
+
 // =========================================================================================
 //  视图模式
 // =========================================================================================

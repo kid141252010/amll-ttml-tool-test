@@ -458,6 +458,8 @@
 			"selectInverted": "反选",
 			"selectWordsOfMatchedSelection": "选中同类单词",
 			"deleteSelection": "删除所选",
+			"copyWordContent": "复制音节内容",
+			"copySelectedWordsText": "复制选中音节文本",
 			"switchEditMode": "模式切换 - 切换到编辑模式",
 			"switchSyncMode": "模式切换 - 切换到打轴模式",
 			"switchPreviewMode": "模式切换 - 切换到预览模式",
