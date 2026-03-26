@@ -11,7 +11,7 @@
 
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import { REDO, UNDO, withHistory } from "jotai-history";
+import { REDO, RESET, UNDO, withHistory } from "jotai-history";
 import { uid } from "uid";
 import { identifyProject } from "$/modules/project/logic/project-info";
 import type { TTMLLyric } from "../types/ttml";
@@ -117,6 +117,7 @@ export const newLyricLinesAtom = atom(
 			autoLang: true,
 		},
 	) => {
+		set(undoableLyricLinesAtom, RESET);
 		set(lyricLinesAtom, newState);
 		set(selectedLinesAtom, new Set());
 		set(selectedWordsAtom, new Set());
