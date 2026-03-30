@@ -793,25 +793,6 @@ export const ReviewReportDialog = () => {
 						<Button
 							size="2"
 							variant="soft"
-							color="green"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认接受",
-									description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-									onConfirm: () => submitReview("APPROVE"),
-								})
-							}
-							disabled={approvedByUser || submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Checkmark20Regular />
-								<Text size="2">接受</Text>
-							</Flex>
-						</Button>
-						<Button
-							size="2"
-							variant="soft"
 							color="red"
 							onClick={() =>
 								setConfirmDialog({
@@ -833,7 +814,26 @@ export const ReviewReportDialog = () => {
 						<Button
 							size="2"
 							variant="soft"
-							color="gray"
+							color="blue"
+							onClick={() =>
+								setConfirmDialog({
+									open: true,
+									title: "确认接受",
+									description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+									onConfirm: () => submitReview("APPROVE"),
+								})
+							}
+							disabled={approvedByUser || submitPending !== null}
+						>
+							<Flex align="center" gap="2">
+								<Checkmark20Regular />
+								<Text size="2">接受</Text>
+							</Flex>
+						</Button>
+						<Button
+							size="2"
+							variant="soft"
+							color="green"
 							onClick={() =>
 								setConfirmDialog({
 									open: true,
