@@ -23,21 +23,7 @@ export const TileComponent = memo(
 		const currentBitmapRef = useRef<ImageBitmap | undefined>(undefined);
 
 		useEffect(() => {
-			if (bitmap !== currentBitmapRef.current) {
-				// 先保存旧 bitmap 的引用
-				const oldBitmap = currentBitmapRef.current;
-				// 更新当前 bitmap 引用
-				currentBitmapRef.current = bitmap;
-				// 关闭旧的 bitmap
-				if (oldBitmap) {
-					try {
-						oldBitmap.close();
-					} catch {
-						// 忽略已关闭的 bitmap
-					}
-				}
-			}
-
+			// 注意：bitmap 的生命周期由 LRU 缓存管理，组件只负责绘制，不关闭 bitmap
 			if (bitmap && canvasRef.current) {
 				const canvas = canvasRef.current;
 				if (canvas.width !== bitmap.width) canvas.width = bitmap.width;
@@ -45,7 +31,7 @@ export const TileComponent = memo(
 				const ctx = canvas.getContext("2d");
 				// 清除画布
 				ctx?.clearRect(0, 0, canvas.width, canvas.height);
-				// 检查 bitmap 是否有效
+				// 绘制 bitmap
 				try {
 					ctx?.drawImage(bitmap, 0, 0);
 				} catch (e) {
@@ -53,21 +39,9 @@ export const TileComponent = memo(
 					console.warn("Failed to draw bitmap:", e);
 				}
 			}
+			// 更新当前 bitmap 引用（仅用于追踪，不管理生命周期）
+			currentBitmapRef.current = bitmap;
 		}, [bitmap]);
-
-		// 清理函数
-		useEffect(() => {
-			return () => {
-				if (currentBitmapRef.current) {
-					try {
-						currentBitmapRef.current.close();
-					} catch {
-						// 忽略已关闭的 bitmap
-					}
-					currentBitmapRef.current = undefined;
-				}
-			};
-		}, []);
 
 		return (
 			<canvas
