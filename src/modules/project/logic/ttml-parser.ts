@@ -931,24 +931,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 		}
 
-		// 自动标记 rubyPhraseStart：如果单词有 ruby 且是行首或前一个单词没有 ruby，则标记为 ruby 短语开始
-		for (let i = 0; i < line.words.length; i++) {
-			const word = line.words[i];
-			if (word.ruby && word.ruby.length > 0) {
-				// 检查是否已经有 rubyPhraseStart 标记
-				if (!word.rubyPhraseStart) {
-					// 如果是行首单词，或者前一个单词没有 ruby，则标记为 ruby 短语开始
-					const isFirstWord = i === 0;
-					const prevWord = i > 0 ? line.words[i - 1] : null;
-					const prevWordHasNoRuby =
-						!prevWord || !prevWord.ruby || prevWord.ruby.length === 0;
-					if (isFirstWord || prevWordHasNoRuby) {
-						word.rubyPhraseStart = true;
-					}
-				}
-			}
-		}
-
 		if (!startTimeAttr || !endTimeAttr) {
 			line.startTime = line.words
 				.filter((w) => w.word.trim().length > 0)
