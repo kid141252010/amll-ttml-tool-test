@@ -81,7 +81,7 @@
 			"wordContent": "Word Content",
 			"romanWord": "Word Romanization",
 			"obscene": "Obscene",
-			"rubyPhraseStart": "First Ruby",
+			"rubyPhraseStart": "Start Ruby",
 			"primaryContent": "Primary Content",
 			"primaryContentPlaceholder": "Select primary content language",
 			"secondaryContent": "Secondary Content",
@@ -95,7 +95,13 @@
 			"duration": "Duration",
 			"layoutMode": "Layout",
 			"auxiliaryLineDisplay": "Auxiliary Line Display",
-			"rubyAnnotation": "Ruby Annotation"
+			"rubyAnnotation": "Ruby Annotation",
+			"grouping": "Grouping",
+			"songPart": "Song Part",
+			"none": "None",
+			"noSelection": "No selection",
+			"addCustomPart": "Add custom",
+			"customPartPlaceholder": "Custom part"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",

@@ -710,6 +710,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		isDuet = false,
 		parentItunesKey: string | null = null,
 		parentVocal: string | string[] | null = null,
+		songPart: string | null = null,
 	) {
 		const startTimeAttr = lineEl.getAttribute("begin");
 		const endTimeAttr = lineEl.getAttribute("end");
@@ -741,6 +742,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			ignoreSync: false,
 			vocal: parsedLineVocal,
 		};
+
+		// 如果是该 div 的第一个非背景行，且存在 songPart，则设置到行对象中
+		if (songPart && !isBG) {
+			line.songPart = songPart;
+		}
 		let haveBg = false;
 
 		const itunesKey = isBG
@@ -839,6 +845,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							line.isDuet,
 							itunesKey,
 							line.vocal?.length ? line.vocal : null,
+							null, // 背景行不传递 songPart
 						);
 						haveBg = true;
 					} else if (role === "x-translation") {
@@ -970,8 +977,34 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
-	for (const lineEl of ttmlDoc.querySelectorAll("body p[begin][end]")) {
-		parseLineElement(lineEl, false, false, null, null);
+	// 先遍历所有 div，解析 song-part 属性，然后处理其中的 p 标签
+	const divElements = ttmlDoc.querySelectorAll("body div[begin][end]");
+	if (divElements.length > 0) {
+		// 存在 div 结构，按 div 分组解析
+		for (const divEl of divElements) {
+			// 获取 div 的 song-part 属性（支持 itunes:song-part 和 songPart）
+			const songPart =
+				divEl.getAttribute("itunes:song-part") ??
+				divEl.getAttribute("songPart") ??
+				divEl.getAttribute("song-part") ??
+				null;
+			// 标记是否是该 div 的第一个非背景行
+			let isFirstLineInDiv = true;
+			for (const lineEl of divEl.querySelectorAll("p[begin][end]")) {
+				// 只将 songPart 传递给该 div 的第一个非背景行
+				const songPartToPass = isFirstLineInDiv ? songPart : null;
+				parseLineElement(lineEl, false, false, null, null, songPartToPass);
+				// 如果当前行不是背景行，则后续行不再传递 songPart
+				if (!lineEl.getAttribute("ttm:role") || lineEl.getAttribute("ttm:role") !== "x-bg") {
+					isFirstLineInDiv = false;
+				}
+			}
+		}
+	} else {
+		// 没有 div 结构，直接解析 body 下的 p 标签
+		for (const lineEl of ttmlDoc.querySelectorAll("body p[begin][end]")) {
+			parseLineElement(lineEl, false, false, null, null, null);
+		}
 	}
 
 	log("finished ttml load", lyricLines, metadata);

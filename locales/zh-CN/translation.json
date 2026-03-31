@@ -86,7 +86,7 @@
 			"wordContent": "单词内容",
 			"romanWord": "单词音译",
 			"obscene": "不雅用语",
-			"rubyPhraseStart": "起始 Ruby",
+			"rubyPhraseStart": "开始 Ruby",
 			"primaryContent": "主要内容",
 			"primaryContentPlaceholder": "请选择主要内容语言",
 			"secondaryContent": "次要内容",
@@ -100,7 +100,13 @@
 			"duration": "持续时间",
 			"layoutMode": "布局模式",
 			"auxiliaryLineDisplay": "辅助行显示",
-			"rubyAnnotation": "Ruby 标注"
+			"rubyAnnotation": "Ruby 标注",
+			"grouping": "分组",
+			"songPart": "Song Part",
+			"none": "无",
+			"noSelection": "未选择",
+			"addCustomPart": "添加自定义",
+			"customPartPlaceholder": "自定义 Part"
 		},
 		"previewMode": {
 			"lyrics": "歌词",

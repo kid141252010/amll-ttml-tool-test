@@ -39,10 +39,24 @@ export default function exportTTMLText(
 
 	let tmp: LyricLine[] = [];
 	for (const line of lyric) {
+		// 当遇到空行时，结束当前 div
 		if (line.words.length === 0 && tmp.length > 0) {
 			params.push(tmp);
 			tmp = [];
-		} else {
+			continue;
+		}
+
+		if (line.words.length > 0) {
+			// 只在以下情况创建新 div：
+			// 1. 当前没有 div（tmp.length === 0）
+			// 2. 当前行有 songPart（表示新的开始）
+			const shouldStartNewDiv = tmp.length === 0 || line.songPart;
+
+			if (shouldStartNewDiv && tmp.length > 0) {
+				params.push(tmp);
+				tmp = [];
+			}
+
 			tmp.push(line);
 		}
 	}
@@ -283,6 +297,14 @@ export default function exportTTMLText(
 
 		paramDiv.setAttribute("begin", msToTimestamp(beginTime));
 		paramDiv.setAttribute("end", msToTimestamp(endTime));
+
+		// 查找该 div 中第一个有 songPart 的非背景行，将其 songPart 写入 div
+		const firstLineWithSongPart = param.find(
+			(line) => line.songPart && line.songPart.trim().length > 0 && !line.isBG,
+		);
+		if (firstLineWithSongPart?.songPart) {
+			paramDiv.setAttribute("itunes:song-part", firstLineWithSongPart.songPart);
+		}
 
 		for (let lineIndex = 0; lineIndex < param.length; lineIndex++) {
 			const line = param[lineIndex];

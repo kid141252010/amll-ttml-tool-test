@@ -115,6 +115,10 @@ export interface LyricLine extends AMLLLyricLine {
 	romanLyricByLang?: Record<string, string>;
 	wordRomanizationByLang?: Record<string, TTMLRomanWord[]>;
 	wordTranslationByLang?: Record<string, TTMLTranslationWord[]>;
+	/**
+	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:song-part 属性）
+	 */
+	songPart?: string;
 }
 
 export const newLyricLine = (): LyricLine => ({
