@@ -731,6 +731,139 @@ function EditModeField({
 // 	);
 // }
 
+const SONG_PART_OPTIONS = [
+	{ value: "Verse", label: "Verse" },
+	{ value: "Chorus", label: "Chorus" },
+	{ value: "PreChorus", label: "PreChorus" },
+	{ value: "Bridge", label: "Bridge" },
+	{ value: "Intro", label: "Intro" },
+	{ value: "Outro", label: "Outro" },
+	{ value: "Refrain", label: "Refrain" },
+	{ value: "Instrumental", label: "Instrumental" },
+	{ value: "Hook", label: "Hook" },
+	{ value: "Reprise", label: "Reprise" },
+	{ value: "Transition", label: "Transition" },
+	{ value: "FalseChorus", label: "FalseChorus" },
+];
+
+const NONE_VALUE = "__none__";
+
+const SongPartField: FC = () => {
+	const { t } = useTranslation();
+	const selectedLines = useAtomValue(selectedLinesAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
+	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const [customPart, setCustomPart] = useState("");
+	const [isAddingCustom, setIsAddingCustom] = useState(false);
+
+	// 获取当前选中行的 songPart 值
+	const currentSongPart = useMemo(() => {
+		if (selectedLines.size === 0) return undefined;
+		const values = new Set<string | undefined>();
+		for (const line of lyricLines.lyricLines) {
+			if (selectedLines.has(line.id)) {
+				values.add(line.songPart);
+			}
+		}
+		if (values.size === 1) {
+			const value = values.values().next().value;
+			return value ?? NONE_VALUE;
+		}
+		return undefined; // 多个值
+	}, [selectedLines, lyricLines]);
+
+	const handleSongPartChange = useCallback(
+		(value: string) => {
+			editLyricLines((state) => {
+				for (const line of state.lyricLines) {
+					if (selectedLines.has(line.id)) {
+						line.songPart = value === NONE_VALUE ? undefined : value;
+					}
+				}
+				return state;
+			});
+		},
+		[editLyricLines, selectedLines],
+	);
+
+	const handleAddCustomPart = useCallback(() => {
+		if (customPart.trim()) {
+			handleSongPartChange(customPart.trim());
+			setCustomPart("");
+			setIsAddingCustom(false);
+		}
+	}, [customPart, handleSongPartChange]);
+
+	const displayValue = currentSongPart === undefined ? NONE_VALUE : currentSongPart;
+
+	return (
+		<Select.Root
+			value={displayValue}
+			onValueChange={handleSongPartChange}
+			size="1"
+		>
+			<Select.Trigger
+				placeholder={
+					selectedLines.size === 0
+						? t("ribbonBar.editMode.noSelection", "No selection")
+						: currentSongPart === undefined
+							? t("ribbonBar.editMode.multipleValues", "Multiple values...")
+							: t("ribbonBar.editMode.none", "None")
+				}
+				disabled={selectedLines.size === 0}
+				style={{ width: "6em" }}
+			/>
+			<Select.Content>
+				<Select.Item value={NONE_VALUE}>
+					{t("ribbonBar.editMode.none", "None")}
+				</Select.Item>
+				{SONG_PART_OPTIONS.map((option) => (
+					<Select.Item key={option.value} value={option.value}>
+						{option.label}
+					</Select.Item>
+				))}
+				<Select.Separator />
+				{isAddingCustom ? (
+					<Flex gap="2" p="2" align="center">
+						<TextField.Root
+							size="1"
+							placeholder={t("ribbonBar.editMode.customPartPlaceholder", "Custom part")}
+							value={customPart}
+							onChange={(e) => setCustomPart(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									handleAddCustomPart();
+								}
+							}}
+							style={{ width: "120px" }}
+						/>
+						<IconButton
+							size="1"
+							variant="soft"
+							onClick={handleAddCustomPart}
+						>
+							<Add16Regular />
+						</IconButton>
+					</Flex>
+				) : (
+					<Select.Item
+						value="__add_custom__"
+						onClick={(e) => {
+							e.preventDefault();
+							setIsAddingCustom(true);
+						}}
+					>
+						<Flex gap="2" align="center">
+							<Add16Regular />
+							{t("ribbonBar.editMode.addCustomPart", "Add custom")}
+						</Flex>
+					</Select.Item>
+				)}
+			</Select.Content>
+		</Select.Root>
+	);
+};
+
 const AuxiliaryDisplayField: FC = () => {
 	const [showTranslation, setShowTranslation] = useAtom(
 		showLineTranslationAtom,
@@ -1662,31 +1795,37 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection
-					label={t("ribbonBar.editMode.wordProperties", "单词属性")}
-				>
-					<Grid columns="0fr 1fr" gap="2" gapY="1" flexGrow="1" align="center">
-						<EditField
-							label={t("ribbonBar.editMode.wordContent", "单词内容")}
-							fieldName="word"
-							isWordField
-							parser={(v) => v}
-							formatter={(v) => v}
-						/>
-						<EditField
-							label={t("ribbonBar.editMode.romanWord", "单词音译")}
-							fieldName="romanWord"
-							isWordField
-							parser={(v) => v}
-							formatter={(v) => v || ""}
-						/>
-						<CheckboxField
-							label={t("ribbonBar.editMode.obscene", "不雅用语")}
-							isWordField
-							fieldName="obscene"
-							defaultValue={false}
-						/>
-					</Grid>
-				</RibbonSection>
+				label={t("ribbonBar.editMode.wordProperties", "单词属性")}
+			>
+				<Grid columns="0fr 0fr 0fr 0fr" gap="2" gapY="1" flexGrow="1" align="center">
+					<EditField
+						label={t("ribbonBar.editMode.wordContent", "单词内容")}
+						fieldName="word"
+						isWordField
+						parser={(v) => v}
+						formatter={(v) => v}
+					/>
+					<CheckboxField
+						label={t("ribbonBar.editMode.obscene", "不雅用语")}
+						isWordField
+						fieldName="obscene"
+						defaultValue={false}
+					/>
+					<EditField
+						label={t("ribbonBar.editMode.romanWord", "单词音译")}
+						fieldName="romanWord"
+						isWordField
+						parser={(v) => v}
+						formatter={(v) => v || ""}
+					/>
+					<CheckboxField
+						label={t("ribbonBar.editMode.rubyPhraseStart", "Start Ruby")}
+						isWordField
+						fieldName="rubyPhraseStart"
+						defaultValue={false}
+					/>
+				</Grid>
+			</RibbonSection>
 				<RibbonSection
 					label={t("ribbonBar.editMode.primaryContent", "主要内容")}
 				>
@@ -1733,17 +1872,10 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					<AuxiliaryDisplayField />
 				</RibbonSection>
 				<RibbonSection
-					label={t("ribbonBar.editMode.rubyAnnotation", "Ruby 标注")}
-				>
-					<Grid columns="0fr 0fr" gap="4" gapY="1" flexGrow="1" align="center">
-						<CheckboxField
-							label={t("ribbonBar.editMode.rubyPhraseStart", "开始 Ruby")}
-							isWordField
-							fieldName="rubyPhraseStart"
-							defaultValue={false}
-						/>
-					</Grid>
-				</RibbonSection>
+				label={t("ribbonBar.editMode.songPart", "Song Part")}
+			>
+				<SongPartField />
+			</RibbonSection>
 			</RibbonFrame>
 		);
 	},
