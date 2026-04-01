@@ -1044,9 +1044,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	if (divElements.length > 0) {
 		// 存在 div 结构，按 div 分组解析
 		for (const divEl of divElements) {
-			// 获取 div 的 song-part 属性（支持 itunes:song-part 和 songPart）
+			// 获取 div 的 song-part 属性（支持 itunes:song-part、itunes:songPart、songPart 和 song-part）
 			const songPart =
 				divEl.getAttribute("itunes:song-part") ??
+				divEl.getAttribute("itunes:songPart") ??
 				divEl.getAttribute("songPart") ??
 				divEl.getAttribute("song-part") ??
 				null;
