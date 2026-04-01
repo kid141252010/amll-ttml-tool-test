@@ -286,29 +286,56 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					const nestedSpans = el.querySelectorAll("span[begin][end]");
 					if (nestedSpans.length > 0) {
 						nestedSpans.forEach((span) => {
-							let bgWordText = span.textContent ?? "";
-							bgWordText = bgWordText
+							const rawText = span.textContent ?? "";
+							const bgWordText = rawText
 								.trim()
 								.replace(/^[（(]/, "")
 								.replace(/[)）]$/, "")
 								.trim();
 							if (bgWordText) {
+								// 检测该 span 后是否有空格
+								// 1. span 内部文本尾部是否有空格
+								const hasTrailingSpace = /\s+$/.test(rawText);
+								// 2. span 之后是否有纯文本空格节点
+								let hasSpaceAfter = hasTrailingSpace;
+								if (!hasSpaceAfter) {
+									const nextNode = span.nextSibling;
+									if (nextNode?.nodeType === Node.TEXT_NODE) {
+										const nextText = nextNode.textContent ?? "";
+										hasSpaceAfter = /^\s+/.test(nextText);
+									}
+								}
 								bgWords.push({
 									startTime: parseTimespan(span.getAttribute("begin") ?? ""),
 									endTime: parseTimespan(span.getAttribute("end") ?? ""),
 									text: bgWordText,
+									hasSpaceAfter,
 								});
 							}
 						});
 					}
 				} else if (el.hasAttribute("begin") && el.hasAttribute("end")) {
 					// 主行：直接是带时间戳的 span
-					const text = el.textContent?.trim() ?? "";
+					const rawText = el.textContent ?? "";
+					const text = rawText.trim();
 					if (text) {
+						// 检测该 span 后是否有空格
+						// 1. span 内部文本尾部是否有空格
+						const hasTrailingSpace = /\s+$/.test(rawText);
+						// 2. span 之后是否有纯文本空格节点
+						let hasSpaceAfter = hasTrailingSpace;
+						if (!hasSpaceAfter) {
+							const nextNode = el.nextSibling;
+							if (nextNode?.nodeType === Node.TEXT_NODE) {
+								const nextText = nextNode.textContent ?? "";
+								hasSpaceAfter = /^\s+/.test(nextText);
+							}
+						}
 						mainWords.push({
 							startTime: parseTimespan(el.getAttribute("begin") ?? ""),
 							endTime: parseTimespan(el.getAttribute("end") ?? ""),
 							text: text,
+							hasSpaceAfter,
 						});
 					}
 				}
@@ -399,29 +426,64 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					if (nestedSpans.length > 0) {
 						isWordByWord = true;
 						nestedSpans.forEach((span) => {
-							let bgWordText = span.textContent ?? "";
-							bgWordText = bgWordText
+							const rawText = span.textContent ?? "";
+							const bgWordText = rawText
 								.trim()
 								.replace(/^[（(]/, "")
 								.replace(/[)）]$/, "")
 								.trim();
 
-							bgWords.push({
-								startTime: parseTimespan(span.getAttribute("begin") ?? ""),
-								endTime: parseTimespan(span.getAttribute("end") ?? ""),
-								text: bgWordText,
-							});
+							if (bgWordText) {
+								// 检测该 span 后是否有空格
+								// 1. span 内部文本尾部是否有空格
+								const hasTrailingSpace = /\s+$/.test(rawText);
+								// 2. span 之后是否有纯文本空格节点
+								let hasSpaceAfter = hasTrailingSpace;
+								if (!hasSpaceAfter) {
+									const nextNode = span.nextSibling;
+									if (nextNode?.nodeType === Node.TEXT_NODE) {
+										const nextText = nextNode.textContent ?? "";
+										hasSpaceAfter = /^\s+/.test(nextText);
+									}
+								}
+
+								bgWords.push({
+									startTime: parseTimespan(span.getAttribute("begin") ?? ""),
+									endTime: parseTimespan(span.getAttribute("end") ?? ""),
+									text: bgWordText,
+									hasSpaceAfter,
+								});
+							}
 						});
 					} else {
 						lineRomanBg += el.textContent ?? "";
 					}
 				} else if (el.hasAttribute("begin") && el.hasAttribute("end")) {
 					isWordByWord = true;
-					mainWords.push({
-						startTime: parseTimespan(el.getAttribute("begin") ?? ""),
-						endTime: parseTimespan(el.getAttribute("end") ?? ""),
-						text: el.textContent ?? "",
-					});
+					const rawText = el.textContent ?? "";
+					const text = rawText.trim();
+
+					if (text) {
+						// 检测该 span 后是否有空格
+						// 1. span 内部文本尾部是否有空格
+						const hasTrailingSpace = /\s+$/.test(rawText);
+						// 2. span 之后是否有纯文本空格节点
+						let hasSpaceAfter = hasTrailingSpace;
+						if (!hasSpaceAfter) {
+							const nextNode = el.nextSibling;
+							if (nextNode?.nodeType === Node.TEXT_NODE) {
+								const nextText = nextNode.textContent ?? "";
+								hasSpaceAfter = /^\s+/.test(nextText);
+							}
+						}
+
+						mainWords.push({
+							startTime: parseTimespan(el.getAttribute("begin") ?? ""),
+							endTime: parseTimespan(el.getAttribute("end") ?? ""),
+							text: text,
+							hasSpaceAfter,
+						});
+					}
 				}
 			}
 		}

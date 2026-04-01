@@ -160,6 +160,17 @@ export default function exportTTMLText(
 		return span;
 	}
 
+	// 辅助函数：创建逐字翻译的 span 元素
+	function createTranslationSpanFromData(word: TTMLTranslationWord): Element {
+		const span = doc.createElement("span");
+		span.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
+		span.setAttribute("begin", msToTimestamp(word.startTime));
+		span.setAttribute("end", msToTimestamp(word.endTime));
+		// 去除首尾空格，空格会作为单独的空格文本节点添加
+		span.appendChild(doc.createTextNode(word.text.trim()));
+		return span;
+	}
+
 	function normalizeVocalValue(vocal?: string | string[] | null): string {
 		if (!vocal) return "";
 		const parts = Array.isArray(vocal) ? vocal : vocal.split(/[\s,]+/);
@@ -572,18 +583,7 @@ export default function exportTTMLText(
 				return translation;
 			};
 
-			// 辅助函数：创建逐字翻译的 span 元素
-			const createTranslationSpanFromData = (
-				word: TTMLTranslationWord,
-			): Element => {
-				const span = doc.createElement("span");
-				span.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-				span.setAttribute("begin", msToTimestamp(word.startTime));
-				span.setAttribute("end", msToTimestamp(word.endTime));
-				// 去除首尾空格，空格会作为单独的空格文本节点添加
-				span.appendChild(doc.createTextNode(word.text.trim()));
-				return span;
-			};
+
 
 			// 2.1 处理逐行翻译（translationByLangMap）- type="subtitle"
 			for (const [lang, entries] of translationByLangMap.entries()) {
@@ -629,10 +629,9 @@ export default function exportTTMLText(
 							);
 							if (!match || match.text.length === 0) continue;
 							textEl.appendChild(createTranslationSpanFromData(match));
-							// 如果音译文本有尾随空格，添加空格文本节点
-							const trailingSpaces = match.text.match(/\s+$/)?.[0] ?? "";
-							if (trailingSpaces.length > 0) {
-								textEl.appendChild(doc.createTextNode(trailingSpaces));
+							// 如果 hasSpaceAfter 为 true，添加空格文本节点
+							if (match.hasSpaceAfter) {
+								textEl.appendChild(doc.createTextNode(" "));
 							}
 						}
 					}
@@ -661,10 +660,9 @@ export default function exportTTMLText(
 							const span = createTranslationSpanFromData(match);
 							bgSpan.appendChild(span);
 							bgSpans.push(span);
-							// 如果音译文本有尾随空格，添加空格文本节点
-							const trailingSpaces = match.text.match(/\s+$/)?.[0] ?? "";
-							if (trailingSpaces.length > 0) {
-								bgSpan.appendChild(doc.createTextNode(trailingSpaces));
+							// 如果 hasSpaceAfter 为 true，添加空格文本节点
+							if (match.hasSpaceAfter) {
+								bgSpan.appendChild(doc.createTextNode(" "));
 							}
 						}
 						if (bgSpans.length > 0) {
@@ -751,10 +749,9 @@ export default function exportTTMLText(
 							);
 							if (!match || match.text.length === 0) continue;
 							textEl.appendChild(createRomanizationSpanFromData(match));
-							// 如果音译文本有尾随空格，添加空格文本节点
-							const trailingSpaces = match.text.match(/\s+$/)?.[0] ?? "";
-							if (trailingSpaces.length > 0) {
-								textEl.appendChild(doc.createTextNode(trailingSpaces));
+							// 如果 hasSpaceAfter 为 true，添加空格文本节点
+							if (match.hasSpaceAfter) {
+								textEl.appendChild(doc.createTextNode(" "));
 							}
 						}
 					}
@@ -783,10 +780,9 @@ export default function exportTTMLText(
 							const span = createRomanizationSpanFromData(match);
 							bgSpan.appendChild(span);
 							bgSpans.push(span);
-							// 如果音译文本有尾随空格，添加空格文本节点
-							const trailingSpaces = match.text.match(/\s+$/)?.[0] ?? "";
-							if (trailingSpaces.length > 0) {
-								bgSpan.appendChild(doc.createTextNode(trailingSpaces));
+							// 如果 hasSpaceAfter 为 true，添加空格文本节点
+							if (match.hasSpaceAfter) {
+								bgSpan.appendChild(doc.createTextNode(" "));
 							}
 						}
 						if (bgSpans.length > 0) {

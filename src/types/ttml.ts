@@ -67,12 +67,16 @@ export interface TTMLRomanWord {
 	startTime: number;
 	endTime: number;
 	text: string;
+	/** @description 该音节后是否有空格 */
+	hasSpaceAfter?: boolean;
 }
 
 export interface TTMLTranslationWord {
 	startTime: number;
 	endTime: number;
 	text: string;
+	/** @description 该音节后是否有空格 */
+	hasSpaceAfter?: boolean;
 }
 
 export const newLyricWord = (): LyricWord => ({
