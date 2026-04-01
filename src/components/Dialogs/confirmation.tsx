@@ -37,7 +37,10 @@ export const ConfirmationDialog = () => {
 
 	return (
 		<Dialog.Root open={dialogState.open} onOpenChange={handleCancel}>
-			<Dialog.Content>
+			<Dialog.Content
+				onPointerDownOutside={(e) => e.preventDefault()}
+				onInteractOutside={(e) => e.preventDefault()}
+			>
 				<Dialog.Title>{dialogState.title}</Dialog.Title>
 				<Dialog.Description>{dialogState.description}</Dialog.Description>
 				{dialogState.input && (

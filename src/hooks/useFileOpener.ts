@@ -220,8 +220,9 @@ export const useFileOpener = () => {
 		 * 打开文件
 		 * @param file
 		 * @param forceExt 可选参数，用于强制指定解析方式，不传入则从文件后缀名推断
+		 * @returns Promise，当文件成功打开时 resolve，用户取消时 reject
 		 */
-		(file: File, forceExt?: string) => {
+		(file: File, forceExt?: string): Promise<void> => {
 			const run = () => performOpenFile(file, forceExt);
 
 			const rawExt = file.name.split(".").pop()?.toLowerCase() || "";
@@ -229,31 +230,47 @@ export const useFileOpener = () => {
 
 			if (AUDIO_EXTENSIONS.has(finalExt)) {
 				run();
-				return;
+				return Promise.resolve();
 			}
 
 			if (fileUpdateSession) {
-				setConfirmDialog({
-					open: true,
-					title: "确认进入编辑",
-					description: `当前处于 PR #${fileUpdateSession.prNumber} 更新会话。是否继续打开文件并进入编辑？`,
-					onConfirm: run,
+				return new Promise((resolve, reject) => {
+					setConfirmDialog({
+						open: true,
+						title: "确认进入编辑",
+						description: `当前处于 PR #${fileUpdateSession.prNumber} 更新会话。是否继续打开文件并进入编辑？`,
+						onConfirm: () => {
+							run();
+							resolve();
+						},
+						onCancel: () => {
+							reject(new Error("用户取消"));
+						},
+					});
 				});
-				return;
 			}
 
 			if (isDirty) {
-				setConfirmDialog({
-					open: true,
-					title: t("confirmDialog.openFile.title", "确认打开文件"),
-					description: t(
-						"confirmDialog.openFile.description",
-						"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要打开新文件吗？",
-					),
-					onConfirm: run,
+				return new Promise((resolve, reject) => {
+					setConfirmDialog({
+						open: true,
+						title: t("confirmDialog.openFile.title", "确认打开文件"),
+						description: t(
+							"confirmDialog.openFile.description",
+							"当前文件有未保存的更改。如果继续，这些更改将会丢失。确定要打开新文件吗？",
+						),
+						onConfirm: () => {
+							run();
+							resolve();
+						},
+						onCancel: () => {
+							reject(new Error("用户取消"));
+						},
+					});
 				});
 			} else {
 				run();
+				return Promise.resolve();
 			}
 		},
 		[fileUpdateSession, isDirty, performOpenFile, setConfirmDialog, t],

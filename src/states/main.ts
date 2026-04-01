@@ -117,8 +117,8 @@ export const newLyricLinesAtom = atom(
 			autoLang: true,
 		},
 	) => {
-		set(undoableLyricLinesAtom, RESET);
 		set(lyricLinesAtom, newState);
+		set(undoableLyricLinesAtom, RESET);
 		set(selectedLinesAtom, new Set());
 		set(selectedWordsAtom, new Set());
 	},
