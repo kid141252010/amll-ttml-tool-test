@@ -98,9 +98,47 @@ export const ReduceStutterDialog = () => {
 					(prevWord.endTime + nextWord.startTime) / 2,
 				);
 
+				// 记录原始时间用于同步更新逐字翻译和音译
+				const prevEndTime = prevWord.endTime;
+				const nextStartTime = nextWord.startTime;
+
 				// 设置两个音节的边界为中间时间
 				prevWord.endTime = middleTime;
 				nextWord.startTime = middleTime;
+
+				// 同步更新逐字翻译的时间戳
+				if (line.wordTranslationByLang) {
+					Object.values(line.wordTranslationByLang).forEach((translations) => {
+						// 找到与 prevWord 和 nextWord 时间匹配的翻译项
+						translations.forEach((trans) => {
+							// 如果翻译项的结束时间等于 prevWord 的原始结束时间，则更新
+							if (trans.endTime === prevEndTime) {
+								trans.endTime = middleTime;
+							}
+							// 如果翻译项的开始时间等于 nextWord 的原始开始时间，则更新
+							if (trans.startTime === nextStartTime) {
+								trans.startTime = middleTime;
+							}
+						});
+					});
+				}
+
+				// 同步更新逐字音译的时间戳
+				if (line.wordRomanizationByLang) {
+					Object.values(line.wordRomanizationByLang).forEach((romanizations) => {
+						// 找到与 prevWord 和 nextWord 时间匹配的音译项
+						romanizations.forEach((roman) => {
+							// 如果音译项的结束时间等于 prevWord 的原始结束时间，则更新
+							if (roman.endTime === prevEndTime) {
+								roman.endTime = middleTime;
+							}
+							// 如果音译项的开始时间等于 nextWord 的原始开始时间，则更新
+							if (roman.startTime === nextStartTime) {
+								roman.startTime = middleTime;
+							}
+						});
+					});
+				}
 			});
 		});
 
