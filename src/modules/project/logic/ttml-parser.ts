@@ -21,6 +21,7 @@ import type {
 	LyricLine,
 	LyricWord,
 	LyricWordBase,
+	TTMLAgent,
 	TTMLLyric,
 	TTMLMetadata,
 	TTMLRomanWord,
@@ -696,8 +697,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	});
 
-	let mainAgentId = "v1";
-
 	const metadata: TTMLMetadata[] = [];
 	for (const meta of ttmlDoc.querySelectorAll("meta")) {
 		if (meta.tagName === "amll:meta") {
@@ -754,17 +753,54 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
-	for (const agent of ttmlDoc.querySelectorAll("ttm\\:agent")) {
-		if (agent.getAttribute("type") === "person") {
-			const id = agent.getAttribute("xml:id");
-			if (id) {
-				mainAgentId = id;
-				break;
+	// 解析所有 ttm:agent 元素
+	const agents: TTMLAgent[] = [];
+	let mainAgentId = "v1";
+	let foundFirstPerson = false; // 标记是否已找到第一个 person 类型的 agent
+
+	// 使用 getElementsByTagNameNS 或遍历所有元素来查找 ttm:agent
+	// 因为 querySelectorAll 在处理 XML 命名空间时可能不一致
+	const allElements = ttmlDoc.getElementsByTagName("*");
+	for (const el of allElements) {
+		// 检查标签名是否以 ttm:agent 结尾（处理命名空间前缀）
+		const tagName = el.tagName;
+		if (tagName !== "ttm:agent" && !tagName.endsWith(":agent")) continue;
+
+		const id = el.getAttribute("xml:id");
+		const type = el.getAttribute("type") as "person" | "group" | "other" | null;
+		if (!id || !type) continue;
+
+		// 收集所有 ttm:name 子元素
+		const names: string[] = [];
+		for (const child of el.getElementsByTagName("*")) {
+			const childTagName = child.tagName;
+			if (childTagName !== "ttm:name" && !childTagName.endsWith(":name")) continue;
+			const name = child.textContent?.trim();
+			if (name) {
+				names.push(name);
 			}
+		}
+
+		agents.push({ id, type, names });
+
+		// 找到第一个 person 类型的 agent 作为主歌手
+		if (type === "person" && !foundFirstPerson) {
+			mainAgentId = id;
+			foundFirstPerson = true;
 		}
 	}
 
+	// 创建 agent 查找映射，用于快速获取 agent 类型
+	const agentMap = new Map<string, TTMLAgent>();
+	for (const agent of agents) {
+		agentMap.set(agent.id, agent);
+	}
+
 	const lyricLines: LyricLine[] = [];
+
+	// 对唱判断相关变量
+	let currentAgentId = mainAgentId; // 变量 a：当前 agent id，默认为主歌手
+	let duetToggle = false; // 变量 b：对唱切换状态，默认为 false
 
 	function parseLineElement(
 		lineEl: Element,
@@ -789,16 +825,43 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			lineEl.getAttribute("amll:vocal") ?? lineEl.getAttribute("vocal");
 		const lineVocal = lineVocalAttr ?? (isBG ? parentVocal : null);
 		const parsedLineVocal = parseVocalValue(lineVocal);
+
+		// 计算当前行的对唱状态
+		let lineIsDuet: boolean;
+		if (isBG) {
+			// 背景行继承主行的对唱状态
+			lineIsDuet = isDuet;
+		} else {
+			const lineAgentId = lineEl.getAttribute("ttm:agent");
+			if (lineAgentId) {
+				const agent = agentMap.get(lineAgentId);
+				if (agent?.type === "group") {
+					// 如果 agent 类型为 group，直接判定为对唱
+					lineIsDuet = true;
+				} else if (agent?.type === "person" || agent?.type === "other") {
+					// 如果为 person 或 other，与 currentAgentId 比较
+					if (lineAgentId !== currentAgentId) {
+						currentAgentId = lineAgentId;
+						duetToggle = !duetToggle;
+					}
+					lineIsDuet = duetToggle;
+				} else {
+					// 找不到 agent 信息，使用原来的逻辑
+					lineIsDuet = lineAgentId !== mainAgentId;
+				}
+			} else {
+				// 没有 ttm:agent 属性，不是对唱
+				lineIsDuet = false;
+			}
+		}
+
 		const line: LyricLine = {
 			id: uid(),
 			words: [],
 			translatedLyric: "",
 			romanLyric: "",
 			isBG,
-			isDuet: isBG
-				? isDuet
-				: !!lineEl.getAttribute("ttm:agent") &&
-					lineEl.getAttribute("ttm:agent") !== mainAgentId,
+			isDuet: lineIsDuet,
 			startTime: parsedStartTime,
 			endTime: parsedEndTime,
 			ignoreSync: false,
@@ -1072,10 +1135,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	log("finished ttml load", lyricLines, metadata);
 
-	const result = {
+	const result: TTMLLyric = {
 		metadata,
 		lyricLines: lyricLines,
 		vocalTags,
+		agents: agents.length > 0 ? agents : undefined,
 		lyricLang,
 		autoLang,
 	};

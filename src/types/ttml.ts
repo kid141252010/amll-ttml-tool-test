@@ -28,10 +28,17 @@ export interface TTMLVocalTag {
 	value: string;
 }
 
+export interface TTMLAgent {
+	id: string;
+	type: "person" | "group" | "other";
+	names: string[];
+}
+
 export interface TTMLLyric {
 	metadata: TTMLMetadata[];
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
+	agents?: TTMLAgent[];
 	optimizeOptions?: OptimizeLyricOptions;
 	/** 整个歌词的语言代码 */
 	lyricLang?: string;
