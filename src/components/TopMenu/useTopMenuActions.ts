@@ -33,6 +33,7 @@ import {
 	timeShiftDialogAtom,
 	vocalTagsEditorDialogAtom,
 	duplicateSongIdDialogAtom,
+	agentManagerDialogAtom,
 } from "$/states/dialogs.ts";
 import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
@@ -103,6 +104,7 @@ export const useTopMenuActions = () => {
 	}, []);
 	const setMetadataEditorOpened = useSetAtom(metadataEditorDialogAtom);
 	const setVocalTagsEditorOpened = useSetAtom(vocalTagsEditorDialogAtom);
+	const setAgentManagerOpened = useSetAtom(agentManagerDialogAtom);
 	const setSettingsDialogOpened = useSetAtom(settingsDialogAtom);
 	const undoLyricLines = useAtomValue(undoableLyricLinesAtom);
 	const store = useStore();
@@ -289,6 +291,10 @@ export const useTopMenuActions = () => {
 	const onOpenVocalTagsEditor = useCallback(() => {
 		setVocalTagsEditorOpened(true);
 	}, [setVocalTagsEditorOpened]);
+
+	const onOpenAgentManager = useCallback(() => {
+		setAgentManagerOpened(true);
+	}, [setAgentManagerOpened]);
 
 	const onOpenSettings = useCallback(() => {
 		setSettingsDialogOpened(true);
@@ -891,6 +897,7 @@ export const useTopMenuActions = () => {
 		onOpenTimeShift,
 		onOpenMetadataEditor,
 		onOpenVocalTagsEditor,
+		onOpenAgentManager,
 		onOpenSettings,
 		onAutoSegment,
 		onRubySegment,
