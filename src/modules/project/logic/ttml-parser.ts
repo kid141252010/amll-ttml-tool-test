@@ -835,26 +835,17 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			// 背景行继承主行的对唱状态
 			lineIsDuet = isDuet;
 		} else {
-			if (lineAgentId) {
-				const agent = agentMap.get(lineAgentId);
-				if (agent?.type === "group") {
-					// 如果 agent 类型为 group，直接判定为对唱
-					lineIsDuet = true;
-				} else if (agent?.type === "person" || agent?.type === "other") {
-					// 如果为 person 或 other，与 currentAgentId 比较
-					if (lineAgentId !== currentAgentId) {
-						currentAgentId = lineAgentId;
-						duetToggle = !duetToggle;
-					}
-					lineIsDuet = duetToggle;
-				} else {
-					// 找不到 agent 信息，使用原来的逻辑
-					lineIsDuet = lineAgentId !== mainAgentId;
-				}
-			} else {
-				// 没有 ttm:agent 属性，不是对唱
-				lineIsDuet = false;
-			}
+			// 使用可复用的对唱状态计算函数
+			const result = calculateDuetState(
+				lineAgentId ?? undefined,
+				agentMap,
+				mainAgentId,
+				currentAgentId,
+				duetToggle,
+			);
+			lineIsDuet = result.isDuet;
+			currentAgentId = result.newCurrentAgentId;
+			duetToggle = result.newDuetToggle;
 		}
 
 		const line: LyricLine = {
@@ -1155,4 +1146,64 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	console.log("[TTML Parser] Parsed TTML object:", result);
 
 	return result;
+}
+
+/**
+ * 计算行的对唱状态
+ * @param agentId - 行的 agent ID
+ * @param agentMap - agent 查找映射
+ * @param mainAgentId - 主歌手 agent ID
+ * @param currentAgentId - 当前 agent ID（用于切换判断）
+ * @param duetToggle - 当前对唱切换状态
+ * @returns 包含 isDuet、newCurrentAgentId、newDuetToggle 的对象
+ */
+export function calculateDuetState(
+	agentId: string | undefined,
+	agentMap: Map<string, TTMLAgent>,
+	mainAgentId: string,
+	currentAgentId: string,
+	duetToggle: boolean,
+): {
+	isDuet: boolean;
+	newCurrentAgentId: string;
+	newDuetToggle: boolean;
+} {
+	if (!agentId) {
+		return {
+			isDuet: false,
+			newCurrentAgentId: currentAgentId,
+			newDuetToggle: duetToggle,
+		};
+	}
+
+	const agent = agentMap.get(agentId);
+
+	if (agent?.type === "group") {
+		// 如果 agent 类型为 group，直接判定为对唱
+		return {
+			isDuet: true,
+			newCurrentAgentId: agentId,
+			newDuetToggle: true,
+		};
+	}
+
+	if (agent?.type === "person" || agent?.type === "other") {
+		// 如果为 person 或 other，与 currentAgentId 比较
+		let newDuetToggle = duetToggle;
+		if (agentId !== currentAgentId) {
+			newDuetToggle = !duetToggle;
+		}
+		return {
+			isDuet: newDuetToggle,
+			newCurrentAgentId: agentId,
+			newDuetToggle,
+		};
+	}
+
+	// 找不到 agent 信息，使用原来的逻辑
+	return {
+		isDuet: agentId !== mainAgentId,
+		newCurrentAgentId: agentId,
+		newDuetToggle: agentId !== mainAgentId,
+	};
 }
