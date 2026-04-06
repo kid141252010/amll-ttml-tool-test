@@ -296,3 +296,12 @@ export async function deleteProject(projectId: string): Promise<void> {
 
 	await tx.done;
 }
+
+/**
+ * @description 删除单个历史版本
+ * @param versionId 要删除的版本 ID
+ */
+export async function deleteVersion(versionId: number): Promise<void> {
+	const db = await getDB();
+	await db.delete("versions", versionId);
+}
