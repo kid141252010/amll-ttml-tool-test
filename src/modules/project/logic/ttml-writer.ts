@@ -223,18 +223,39 @@ export default function exportTTMLText(
 	const hasOtherPerson = !!lyric.find((v) => v.isDuet);
 
 	const metadataEl = doc.createElement("metadata");
-	const mainPersonAgent = doc.createElement("ttm:agent");
-	mainPersonAgent.setAttribute("type", "person");
-	mainPersonAgent.setAttribute("xml:id", "v1");
 
-	metadataEl.appendChild(mainPersonAgent);
+	// 导出 agents 数组
+	const agents = ttmlLyric.agents ?? [];
+	if (agents.length > 0) {
+		// 使用已有的 agents
+		for (const agent of agents) {
+			const agentEl = doc.createElement("ttm:agent");
+			agentEl.setAttribute("type", agent.type);
+			agentEl.setAttribute("xml:id", agent.id);
 
-	if (hasOtherPerson) {
-		const otherPersonAgent = doc.createElement("ttm:agent");
-		otherPersonAgent.setAttribute("type", "other");
-		otherPersonAgent.setAttribute("xml:id", "v2");
+			// 添加 ttm:name 子元素
+			for (const name of agent.names) {
+				const nameEl = doc.createElement("ttm:name");
+				nameEl.setAttribute("type", "full");
+				nameEl.appendChild(doc.createTextNode(name));
+				agentEl.appendChild(nameEl);
+			}
 
-		metadataEl.appendChild(otherPersonAgent);
+			metadataEl.appendChild(agentEl);
+		}
+	} else {
+		// agents 为空时添加默认 agent
+		const mainPersonAgent = doc.createElement("ttm:agent");
+		mainPersonAgent.setAttribute("type", "person");
+		mainPersonAgent.setAttribute("xml:id", "v1");
+		metadataEl.appendChild(mainPersonAgent);
+
+		if (hasOtherPerson) {
+			const otherPersonAgent = doc.createElement("ttm:agent");
+			otherPersonAgent.setAttribute("type", "other");
+			otherPersonAgent.setAttribute("xml:id", "v2");
+			metadataEl.appendChild(otherPersonAgent);
+		}
 	}
 
 	const vocalTags =

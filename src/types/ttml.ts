@@ -38,7 +38,7 @@ export interface TTMLLyric {
 	metadata: TTMLMetadata[];
 	lyricLines: LyricLine[];
 	vocalTags?: TTMLVocalTag[];
-	agents?: TTMLAgent[];
+	agents: TTMLAgent[];
 	optimizeOptions?: OptimizeLyricOptions;
 	/** 整个歌词的语言代码 */
 	lyricLang?: string;
@@ -130,6 +130,10 @@ export interface LyricLine extends AMLLLyricLine {
 	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:song-part 属性）
 	 */
 	songPart?: string;
+	/**
+	 * @description 存储该行的 agent 信息（来自 ttm:agent 属性）
+	 */
+	agent?: string;
 }
 
 export const newLyricLine = (): LyricLine => ({

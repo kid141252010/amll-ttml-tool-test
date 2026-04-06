@@ -826,13 +826,15 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const lineVocal = lineVocalAttr ?? (isBG ? parentVocal : null);
 		const parsedLineVocal = parseVocalValue(lineVocal);
 
+		// 获取行的 agent id
+		const lineAgentId = lineEl.getAttribute("ttm:agent");
+
 		// 计算当前行的对唱状态
 		let lineIsDuet: boolean;
 		if (isBG) {
 			// 背景行继承主行的对唱状态
 			lineIsDuet = isDuet;
 		} else {
-			const lineAgentId = lineEl.getAttribute("ttm:agent");
 			if (lineAgentId) {
 				const agent = agentMap.get(lineAgentId);
 				if (agent?.type === "group") {
@@ -871,6 +873,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		// 如果是该 div 的第一个非背景行，且存在 songPart，则设置到行对象中
 		if (songPart && !isBG) {
 			line.songPart = songPart;
+		}
+
+		// 保存行的 agent 信息
+		if (lineAgentId && !isBG) {
+			line.agent = lineAgentId;
 		}
 		let haveBg = false;
 
@@ -1139,7 +1146,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		metadata,
 		lyricLines: lyricLines,
 		vocalTags,
-		agents: agents.length > 0 ? agents : undefined,
+		agents,
 		lyricLang,
 		autoLang,
 	};
