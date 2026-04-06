@@ -19,6 +19,7 @@ import {
 	Select,
 	Text,
 	TextField,
+	Tooltip,
 } from "@radix-ui/themes";
 import { Add16Regular, Edit16Regular } from "@fluentui/react-icons";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
@@ -58,6 +59,7 @@ import {
 import {
 	type LyricLine,
 	type LyricWord,
+	type TTMLAgent,
 	type TTMLTranslationWord,
 	newLyricLine,
 } from "$/types/ttml";
@@ -795,72 +797,221 @@ const SongPartField: FC = () => {
 	}, [customPart, handleSongPartChange]);
 
 	const displayValue = currentSongPart === undefined ? NONE_VALUE : currentSongPart;
+	const songPartLabelId = useId();
 
 	return (
-		<Select.Root
-			value={displayValue}
-			onValueChange={handleSongPartChange}
-			size="1"
-		>
-			<Select.Trigger
-				placeholder={
-					selectedLines.size === 0
-						? t("ribbonBar.editMode.noSelection", "No selection")
-						: currentSongPart === undefined
-							? t("ribbonBar.editMode.multipleValues", "Multiple values...")
-							: t("ribbonBar.editMode.none", "None")
-				}
-				disabled={selectedLines.size === 0}
-				style={{ width: "6em" }}
-			/>
-			<Select.Content>
-				<Select.Item value={NONE_VALUE}>
-					{t("ribbonBar.editMode.none", "None")}
-				</Select.Item>
-				{SONG_PART_OPTIONS.map((option) => (
-					<Select.Item key={option.value} value={option.value}>
-						{option.label}
+		<>
+			<Text size="1" id={songPartLabelId}>
+				{t("ribbonBar.editMode.songPart", "Song Part")}
+			</Text>
+			<Select.Root
+				value={displayValue}
+				onValueChange={handleSongPartChange}
+				size="1"
+			>
+				<Select.Trigger
+					placeholder={
+						selectedLines.size === 0
+							? t("ribbonBar.editMode.noSelection", "No selection")
+							: currentSongPart === undefined
+								? t("ribbonBar.editMode.multipleValues", "Multiple values...")
+								: t("ribbonBar.editMode.none", "None")
+					}
+					disabled={selectedLines.size === 0}
+					style={{ minWidth: "6em" }}
+					aria-labelledby={songPartLabelId}
+				/>
+				<Select.Content>
+					<Select.Item value={NONE_VALUE}>
+						{t("ribbonBar.editMode.none", "None")}
 					</Select.Item>
-				))}
-				<Select.Separator />
-				{isAddingCustom ? (
-					<Flex gap="2" p="2" align="center">
-						<TextField.Root
-							size="1"
-							placeholder={t("ribbonBar.editMode.customPartPlaceholder", "Custom part")}
-							value={customPart}
-							onChange={(e) => setCustomPart(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									handleAddCustomPart();
-								}
-							}}
-							style={{ width: "120px" }}
-						/>
-						<IconButton
-							size="1"
-							variant="soft"
-							onClick={handleAddCustomPart}
-						>
-							<Add16Regular />
-						</IconButton>
-					</Flex>
-				) : (
-					<Select.Item
-						value="__add_custom__"
-						onClick={(e) => {
-							e.preventDefault();
-							setIsAddingCustom(true);
-						}}
-					>
-						<Flex gap="2" align="center">
-							<Add16Regular />
-							{t("ribbonBar.editMode.addCustomPart", "Add custom")}
+					{SONG_PART_OPTIONS.map((option) => (
+						<Select.Item key={option.value} value={option.value}>
+							{option.label}
+						</Select.Item>
+					))}
+					<Select.Separator />
+					{isAddingCustom ? (
+						<Flex gap="2" p="2" align="center">
+							<TextField.Root
+								size="1"
+								placeholder={t("ribbonBar.editMode.customPartPlaceholder", "Custom part")}
+								value={customPart}
+								onChange={(e) => setCustomPart(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										handleAddCustomPart();
+									}
+								}}
+								style={{ width: "120px" }}
+							/>
+							<IconButton
+								size="1"
+								variant="soft"
+								onClick={handleAddCustomPart}
+							>
+								<Add16Regular />
+							</IconButton>
 						</Flex>
+					) : (
+						<Select.Item
+							value="__add_custom__"
+							onClick={(e) => {
+								e.preventDefault();
+								setIsAddingCustom(true);
+							}}
+						>
+							<Flex gap="2" align="center">
+								<Add16Regular />
+								{t("ribbonBar.editMode.addCustomPart", "Add custom")}
+							</Flex>
+						</Select.Item>
+					)}
+				</Select.Content>
+			</Select.Root>
+		</>
+	);
+};
+
+const AgentField: FC = () => {
+	const { t } = useTranslation();
+	const selectedLines = useAtomValue(selectedLinesAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
+	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const agentLabelId = useId();
+
+	// 按类型分类 agent，保持原有顺序
+	const groupedAgents = useMemo(() => {
+		const person: TTMLAgent[] = [];
+		const group: TTMLAgent[] = [];
+		const other: TTMLAgent[] = [];
+
+		// 兼容旧数据：如果 agents 不存在，使用空数组
+		const agents = lyricLines.agents ?? [];
+
+		for (const agent of agents) {
+			if (agent.type === "person") person.push(agent);
+			else if (agent.type === "group") group.push(agent);
+			else other.push(agent);
+		}
+
+		return { person, group, other };
+	}, [lyricLines.agents]);
+
+	// 获取当前选中行的 agent 值
+	const currentAgent = useMemo(() => {
+		if (selectedLines.size === 0) return undefined;
+		const values = new Set<string | undefined>();
+		for (const line of lyricLines.lyricLines) {
+			if (selectedLines.has(line.id)) {
+				// 从行的 agent 字段获取值
+				values.add(line.agent);
+			}
+		}
+		if (values.size === 1) {
+			const value = values.values().next().value;
+			return value ?? NONE_VALUE;
+		}
+		return undefined;
+	}, [selectedLines, lyricLines]);
+
+	const handleAgentChange = useCallback(
+		(value: string) => {
+			editLyricLines((state) => {
+				for (const line of state.lyricLines) {
+					if (selectedLines.has(line.id)) {
+						line.agent = value === NONE_VALUE ? undefined : value;
+					}
+				}
+				return state;
+			});
+		},
+		[editLyricLines, selectedLines],
+	);
+
+	const displayValue = currentAgent === undefined ? NONE_VALUE : currentAgent;
+
+	// 构建下拉选项（只显示 id，names 用于 Tooltip）
+	const agentOptions = useMemo(() => {
+		const options: { value: string; label: string; type: string; names: string[] }[] = [];
+
+		// Person 类型
+		for (const agent of groupedAgents.person) {
+			options.push({ value: agent.id, label: agent.id, type: "person", names: agent.names });
+		}
+
+		// Group 类型（添加分隔线标记）
+		if (groupedAgents.group.length > 0) {
+			if (options.length > 0) {
+				options.push({ value: "__sep_group__", label: "", type: "separator", names: [] });
+			}
+			for (const agent of groupedAgents.group) {
+				options.push({ value: agent.id, label: agent.id, type: "group", names: agent.names });
+			}
+		}
+
+		// Other 类型（添加分隔线标记）
+		if (groupedAgents.other.length > 0) {
+			if (options.length > 0) {
+				options.push({ value: "__sep_other__", label: "", type: "separator", names: [] });
+			}
+			for (const agent of groupedAgents.other) {
+				options.push({ value: agent.id, label: agent.id, type: "other", names: agent.names });
+			}
+		}
+
+		return options;
+	}, [groupedAgents]);
+
+	// 如果没有 agent，显示禁用状态的下拉框
+	const agentsList = lyricLines.agents ?? [];
+	const hasAgents = agentsList.length > 0;
+
+	return (
+		<>
+			<Text size="1" id={agentLabelId}>
+				{t("ribbonBar.editMode.agent", "Agent")}
+			</Text>
+			<Select.Root
+				value={displayValue}
+				onValueChange={handleAgentChange}
+				size="1"
+			>
+				<Select.Trigger
+					placeholder={
+						!hasAgents
+							? t("ribbonBar.editMode.noAgents", "No agents")
+							: selectedLines.size === 0
+								? t("ribbonBar.editMode.noSelection", "No selection")
+								: t("ribbonBar.editMode.none", "None")
+					}
+					disabled={selectedLines.size === 0 || !hasAgents}
+					aria-labelledby={agentLabelId}
+				/>
+				<Select.Content>
+					<Select.Item value={NONE_VALUE}>
+						{t("ribbonBar.editMode.none", "None")}
 					</Select.Item>
-				)}
-			</Select.Content>
-		</Select.Root>
+					<Select.Separator />
+					{agentOptions.map((option) =>
+						option.type === "separator" ? (
+							<Select.Separator key={option.value} />
+						) : (
+							<Tooltip
+							key={option.value}
+							content={option.names.join(", ") || option.value}
+							side="left"
+							align="center"
+						>
+							<Select.Item value={option.value}>
+								{option.label}
+							</Select.Item>
+						</Tooltip>
+						)
+					)}
+				</Select.Content>
+			</Select.Root>
+		</>
 	);
 };
 
@@ -1872,9 +2023,12 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					<AuxiliaryDisplayField />
 				</RibbonSection>
 				<RibbonSection
-				label={t("ribbonBar.editMode.songPart", "Song Part")}
+				label={t("ribbonBar.editMode.amllTags", "AM 标记")}
 			>
-				<SongPartField />
+				<Grid columns="auto 1fr" gap="2" gapY="1" flexGrow="1" align="center">
+					<SongPartField />
+					<AgentField />
+				</Grid>
 			</RibbonSection>
 			</RibbonFrame>
 		);
