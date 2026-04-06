@@ -1170,7 +1170,7 @@ export function calculateDuetState(
 } {
 	if (!agentId) {
 		return {
-			isDuet: false,
+			isDuet: agentId !== 'v1',
 			newCurrentAgentId: currentAgentId,
 			newDuetToggle: duetToggle,
 		};
@@ -1182,21 +1182,20 @@ export function calculateDuetState(
 		// 如果 agent 类型为 group，直接判定为对唱
 		return {
 			isDuet: true,
-			newCurrentAgentId: agentId,
-			newDuetToggle: true,
+			newCurrentAgentId: currentAgentId,
+			newDuetToggle: duetToggle,
 		};
 	}
 
 	if (agent?.type === "person" || agent?.type === "other") {
 		// 如果为 person 或 other，与 currentAgentId 比较
-		let newDuetToggle = duetToggle;
 		if (agentId !== currentAgentId) {
-			newDuetToggle = !duetToggle;
+			duetToggle = !duetToggle;
 		}
 		return {
-			isDuet: newDuetToggle,
+			isDuet: duetToggle,
 			newCurrentAgentId: agentId,
-			newDuetToggle,
+			newDuetToggle: duetToggle,
 		};
 	}
 
