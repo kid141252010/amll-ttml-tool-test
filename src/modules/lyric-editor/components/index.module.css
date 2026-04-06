@@ -387,6 +387,40 @@
 	background-color: var(--purple-a4);
 }
 
+/* Agent 警告样式（橙色边框） */
+.lyricLine.agentWarning {
+	box-shadow: 0 0 0 2px var(--orange-a10);
+}
+
+.lyricLine.agentWarning:hover {
+	background-color: var(--orange-a2);
+}
+
+.lyricLine.agentWarning.selected {
+	background-color: var(--orange-a3);
+}
+
+.lyricLine.agentWarning.selected:hover {
+	background-color: var(--orange-a4);
+}
+
+/* Agent 警告与偏旁字符同时存在（深橙色） */
+.lyricLine.radical.agentWarning {
+	box-shadow: 0 0 0 2px var(--orange-a11);
+}
+
+.lyricLine.radical.agentWarning:hover {
+	background-color: var(--orange-a3);
+}
+
+.lyricLine.radical.agentWarning.selected {
+	background-color: var(--orange-a4);
+}
+
+.lyricLine.radical.agentWarning.selected:hover {
+	background-color: var(--orange-a5);
+}
+
 :global(.radix-themes.light) .lyricWord.selected {
 	.startTime,
 	.endTime {

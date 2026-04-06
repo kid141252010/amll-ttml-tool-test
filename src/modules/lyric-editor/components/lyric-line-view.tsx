@@ -342,6 +342,16 @@ export const LyricLineView: FC<{
 		return false;
 	}, [line.startTime, line.endTime, line.words]);
 
+	// 检查是否需要 Agent 警告：如果歌词有 Agent，但该行没有设置 Agent，则显示警告
+	const hasAgentWarning = useMemo(() => {
+		// 如果歌词没有定义任何 Agent，不需要警告
+		if (!lyricLines.agents || lyricLines.agents.length === 0) {
+			return false;
+		}
+		// 如果该行没有设置 Agent，显示警告
+		return !line.agent;
+	}, [lyricLines.agents, line.agent]);
+
 	const hasRadical = useMemo(() => {
 		for (const word of line.words) {
 			if (containsRadicalChar(word.word)) {
@@ -570,6 +580,7 @@ export const LyricLineView: FC<{
 							toolMode === ToolMode.Edit && styles.edit,
 							line.ignoreSync && styles.ignoreSync,
 							hasError && toolMode === ToolMode.Edit && styles.error,
+							hasAgentWarning && toolMode === ToolMode.Edit && styles.agentWarning,
 							hasRadical && styles.radical,
 						)}
 						align="center"
