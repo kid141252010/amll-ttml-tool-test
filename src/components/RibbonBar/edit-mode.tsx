@@ -63,6 +63,7 @@ import {
 	type TTMLTranslationWord,
 	newLyricLine,
 } from "$/types/ttml";
+import { calculateDuetState } from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
@@ -532,8 +533,32 @@ function CheckboxField<
 		() => atom((get) => get(itemAtom).size === 0),
 		[itemAtom],
 	);
-	const isDisabled =
-		useAtomValue(isDisabledAtom) || !hasRuby || forceRubyPhraseStart;
+	const isDisabledBase = useAtomValue(isDisabledAtom);
+
+	// 对于 isDuet 字段，检查选中的行是否设置了 agent
+	const hasAgentAtom = useMemo(
+		() =>
+			atom((get) => {
+				if (fieldName !== "isDuet" || isWordField) return false;
+				const selectedItems = get(itemAtom);
+				const lyricLines = get(lyricLinesAtom);
+				if (selectedItems.size === 0) return false;
+				const selectedLines = selectedItems as Set<string>;
+				for (const line of lyricLines.lyricLines) {
+					if (selectedLines.has(line.id)) {
+						// 如果任何一个选中的行设置了 agent，则禁用 checkbox
+						if (line.agent) {
+							return true;
+						}
+					}
+				}
+				return false;
+			}),
+		[fieldName, isWordField, itemAtom],
+	);
+	const hasAgent = useAtomValue(hasAgentAtom);
+
+	const isDisabled = isDisabledBase || !hasRuby || forceRubyPhraseStart || hasAgent;
 	const checkboxId = useId();
 
 	return (
@@ -918,11 +943,51 @@ const AgentField: FC = () => {
 	const handleAgentChange = useCallback(
 		(value: string) => {
 			editLyricLines((state) => {
+				// 创建 agent 查找映射
+				const agentMap = new Map<string, TTMLAgent>();
+				for (const agent of state.agents) {
+					agentMap.set(agent.id, agent);
+				}
+
+				// 找到第一个 person 类型的 agent 作为主歌手
+				let mainAgentId = "v1";
+				for (const agent of state.agents) {
+					if (agent.type === "person") {
+						mainAgentId = agent.id;
+						break;
+					}
+				}
+
+				// 首先更新选中行的 agent
 				for (const line of state.lyricLines) {
 					if (selectedLines.has(line.id)) {
 						line.agent = value === NONE_VALUE ? undefined : value;
 					}
 				}
+
+				// 重新计算所有非背景行的对唱状态
+				let currentAgentId = mainAgentId;
+				let duetToggle = false;
+
+				for (const line of state.lyricLines) {
+					if (line.isBG) {
+						// 背景行继承主行的对唱状态，不修改
+						continue;
+					}
+
+					const result = calculateDuetState(
+						line.agent,
+						agentMap,
+						mainAgentId,
+						currentAgentId,
+						duetToggle,
+					);
+
+					line.isDuet = result.isDuet;
+					currentAgentId = result.newCurrentAgentId;
+					duetToggle = result.newDuetToggle;
+				}
+
 				return state;
 			});
 		},
