@@ -1411,7 +1411,10 @@ const PrimaryContentField: FC = () => {
 				disabled={languageOptions.length === 0}
 				size="1"
 			>
-				<Select.Trigger placeholder={placeholder} />
+				<Select.Trigger 
+				placeholder={placeholder} 
+				style={{ minWidth: "6ch" }}
+				/>
 				<Select.Content>
 					{languageOptions.map((lang) => (
 						<Select.Item key={lang} value={lang}>

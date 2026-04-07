@@ -70,3 +70,8 @@ body,
 	margin: 0 !important;
 	padding: 0 !important;
 }
+
+/* 隐藏 RibbonBar 最后一个竖分隔线 */
+.ribbon-frame > .rt-Separator:last-child {
+	display: none;
+}

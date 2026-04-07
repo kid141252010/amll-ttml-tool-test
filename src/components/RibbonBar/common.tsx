@@ -76,15 +76,16 @@ export const RibbonFrame = forwardRef<HTMLDivElement, PropsWithChildren>(
 				asChild
 			>
 				<motion.div
-					initial={{ x: 10, opacity: 0 }}
-					animate={{ x: 0, opacity: 1 }}
-					exit={{ x: -10, opacity: 0 }}
-					layout
-					ref={frameRef}
-					onWheel={handleWheel}
-				>
-					{children}
-				</motion.div>
+				className="ribbon-frame"
+				initial={{ x: 10, opacity: 0 }}
+				animate={{ x: 0, opacity: 1 }}
+				exit={{ x: -10, opacity: 0 }}
+				layout
+				ref={frameRef}
+				onWheel={handleWheel}
+			>
+				{children}
+			</motion.div>
 			</Flex>
 		);
 	},
