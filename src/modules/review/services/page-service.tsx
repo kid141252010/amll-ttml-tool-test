@@ -5,8 +5,10 @@ import {
 	Flex,
 	Spinner,
 	Text,
+	TextField,
 	Avatar,
 } from "@radix-ui/themes";
+import { Search20Regular } from "@fluentui/react-icons";
 import {
 	type MouseEvent,
 	useCallback,
@@ -36,6 +38,7 @@ const ReviewPage = () => {
 		phase: "opening" | "open" | "closing";
 		overlayTopInset: number;
 	} | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
 	const {
 		audioLoadPendingId,
 		error,
@@ -64,13 +67,19 @@ const ReviewPage = () => {
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
-		const itemsWithPriority = filteredItems.map((pr, index) => ({
-			pr,
-			index,
-			hasPriorityLabel: pr.labels.some(
-				(label) => label.name.trim() === priorityLabelName,
-			),
-		}));
+		const searchLower = searchQuery.trim().toLowerCase();
+		const itemsWithPriority = filteredItems
+			.filter((pr) => {
+				if (!searchLower) return true;
+				return pr.title.toLowerCase().includes(searchLower);
+			})
+			.map((pr, index) => ({
+				pr,
+				index,
+				hasPriorityLabel: pr.labels.some(
+					(label) => label.name.trim() === priorityLabelName,
+				),
+			}));
 		itemsWithPriority.sort((a, b) => {
 			if (a.hasPriorityLabel === b.hasPriorityLabel) {
 				return a.index - b.index;
@@ -78,7 +87,7 @@ const ReviewPage = () => {
 			return a.hasPriorityLabel ? -1 : 1;
 		});
 		return itemsWithPriority.map((item) => item.pr);
-	}, [filteredItems]);
+	}, [filteredItems, searchQuery]);
 
 	const closeExpanded = useCallback(() => {
 		if (!expandedCard || expandedCard.phase === "closing") return;
@@ -345,15 +354,39 @@ const ReviewPage = () => {
 						</Flex>
 					</Box>
 					<Button
-						size="1"
-						variant="soft"
-						color="gray"
-						onClick={() => setSelectedUser(null)}
-					>
-						清除
-					</Button>
-				</Flex>
-			)}
+					size="1"
+					variant="soft"
+					color="gray"
+					onClick={() => setSelectedUser(null)}
+				>
+					清除
+				</Button>
+			</Flex>
+		)}
+			<Box className={styles.searchBar}>
+				<TextField.Root
+					size="2"
+					placeholder="搜索 PR 标题..."
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
+				>
+					<TextField.Slot>
+						<Search20Regular />
+					</TextField.Slot>
+					{searchQuery && (
+						<TextField.Slot>
+							<Button
+								size="1"
+								variant="ghost"
+								color="gray"
+								onClick={() => setSearchQuery("")}
+							>
+								清除
+							</Button>
+						</TextField.Slot>
+					)}
+				</TextField.Root>
+			</Box>
 			<Box className={styles.grid}>
 				{sortedItems.map((pr) => {
 					const isExpanded = expandedCard?.pr.number === pr.number;
