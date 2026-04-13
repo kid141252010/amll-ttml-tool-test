@@ -8,7 +8,8 @@ import {
 	TextField,
 	Avatar,
 } from "@radix-ui/themes";
-import { Search20Regular } from "@fluentui/react-icons";
+import { Search20Regular, Target20Regular } from "@fluentui/react-icons";
+import { useSetAtom } from "jotai";
 import {
 	type MouseEvent,
 	useCallback,
@@ -17,12 +18,14 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useDeferredValue,
 } from "react";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import { renderCardContent, type ReviewPullRequest } from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
+import { pushNotificationAtom } from "$/states/notifications";
 import styles from "../index.module.css";
 
 const ReviewPage = () => {
@@ -39,6 +42,10 @@ const ReviewPage = () => {
 		overlayTopInset: number;
 	} | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
+	const deferredSearchQuery = useDeferredValue(searchQuery);
+	const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
+	const [targetPrNumber, setTargetPrNumber] = useState("");
+	const [flashingPrNumber, setFlashingPrNumber] = useState<number | null>(null);
 	const {
 		audioLoadPendingId,
 		error,
@@ -57,6 +64,7 @@ const ReviewPage = () => {
 		selectedUser,
 		setSelectedUser,
 	} = useReviewPageLogic();
+	const pushNotification = useSetAtom(pushNotificationAtom);
 	const {
 		user: lyricsSiteUser,
 		isLoggedIn: isLyricsSiteLoggedIn,
@@ -67,7 +75,7 @@ const ReviewPage = () => {
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
-		const searchLower = searchQuery.trim().toLowerCase();
+		const searchLower = deferredSearchQuery.trim().toLowerCase();
 		const itemsWithPriority = filteredItems
 			.filter((pr) => {
 				if (!searchLower) return true;
@@ -87,7 +95,7 @@ const ReviewPage = () => {
 			return a.hasPriorityLabel ? -1 : 1;
 		});
 		return itemsWithPriority.map((item) => item.pr);
-	}, [filteredItems, searchQuery]);
+	}, [filteredItems, deferredSearchQuery]);
 
 	const closeExpanded = useCallback(() => {
 		if (!expandedCard || expandedCard.phase === "closing") return;
@@ -100,6 +108,49 @@ const ReviewPage = () => {
 			closeTimerRef.current = null;
 		}, 200);
 	}, [expandedCard]);
+
+	const handleTargetPr = useCallback(() => {
+		const prNumber = Number.parseInt(targetPrNumber, 10);
+		if (Number.isNaN(prNumber)) return;
+
+		// 在所有项目中查找（而不仅是筛选后的）
+		const targetPr = items.find((pr) => pr.number === prNumber);
+		if (!targetPr) {
+			pushNotification({
+				title: "未找到 PR",
+				description: `编号 #${prNumber} 的 PR 不存在`,
+				level: "warning",
+				source: "审阅",
+			});
+			return;
+		}
+
+		// 清除搜索词，确保目标 PR 可见
+		setSearchQuery("");
+		setSelectedUser(null);
+
+		// 关闭对话框
+		setIsTargetDialogOpen(false);
+		setTargetPrNumber("");
+
+		// 等待渲染完成后滚动到目标位置
+		requestAnimationFrame(() => {
+			const cardNode = cardRefs.current.get(prNumber);
+			if (cardNode) {
+				cardNode.scrollIntoView({ behavior: "smooth", block: "center" });
+				// 触发闪烁效果
+				setFlashingPrNumber(prNumber);
+				setTimeout(() => setFlashingPrNumber(null), 2000);
+			} else {
+				pushNotification({
+					title: "定位失败",
+					description: `无法定位到 PR #${prNumber}，可能不在当前列表中`,
+					level: "warning",
+					source: "审阅",
+				});
+			}
+		});
+	}, [targetPrNumber, items, pushNotification, setSearchQuery, setSelectedUser]);
 
 	const setCardRef = useCallback(
 		(prNumber: number) => (node: HTMLDivElement | null) => {
@@ -365,27 +416,38 @@ const ReviewPage = () => {
 		)}
 			<Box className={styles.searchBar}>
 				<TextField.Root
-					size="2"
-					placeholder="搜索 PR 标题..."
-					value={searchQuery}
-					onChange={(e) => setSearchQuery(e.target.value)}
-				>
-					<TextField.Slot>
-						<Search20Regular />
-					</TextField.Slot>
-					{searchQuery && (
-						<TextField.Slot>
-							<Button
-								size="1"
-								variant="ghost"
-								color="gray"
-								onClick={() => setSearchQuery("")}
-							>
-								清除
-							</Button>
-						</TextField.Slot>
-					)}
-				</TextField.Root>
+				size="2"
+				placeholder="搜索 PR 标题..."
+				value={searchQuery}
+				onChange={(e) => setSearchQuery(e.target.value)}
+			>
+				<TextField.Slot>
+					<Search20Regular />
+				</TextField.Slot>
+				{searchQuery && (
+				<TextField.Slot>
+					<Button
+						size="1"
+						variant="ghost"
+						color="gray"
+						onClick={() => setSearchQuery("")}
+					>
+						清除
+					</Button>
+				</TextField.Slot>
+			)}
+				<TextField.Slot>
+					<Button
+						size="1"
+						variant="ghost"
+						color="gray"
+						onClick={() => setIsTargetDialogOpen(true)}
+						title="定位到指定 PR"
+					>
+						<Target20Regular />
+					</Button>
+				</TextField.Slot>
+			</TextField.Root>
 			</Box>
 			<Box className={styles.grid}>
 				{sortedItems.map((pr) => {
@@ -395,12 +457,15 @@ const ReviewPage = () => {
 						isPlaceholder && expandedCard
 							? { height: expandedCard.from.height }
 							: undefined;
+					const isFlashing = flashingPrNumber === pr.number;
 					return (
 						<Card
 							key={pr.number}
 							className={`${styles.card} ${
 								reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
-							} ${isPlaceholder ? styles.cardPlaceholder : ""}`}
+							} ${isPlaceholder ? styles.cardPlaceholder : ""} ${
+								isFlashing ? styles.flashingCard : ""
+							}`}
 							onClick={(event) => handleCardClick(pr, event)}
 							ref={setCardRef(pr.number)}
 							style={placeholderStyle}
@@ -475,6 +540,56 @@ const ReviewPage = () => {
 				onSelect={neteaseIdDialog.onSelect}
 				onClose={neteaseIdDialog.onClose}
 			/>
+			{/* 定位 PR 对话框 */}
+			{isTargetDialogOpen && (
+				<Box
+					className={`${styles.overlay} ${styles.overlayVisible}`}
+					style={{ inset: 0 }}
+					onClick={() => setIsTargetDialogOpen(false)}
+				>
+					<Card
+						className={styles.targetDialog}
+						onClick={(event) => event.stopPropagation()}
+					>
+						<Flex direction="column" gap="3">
+							<Text size="3" weight="medium">
+								定位到指定 PR
+							</Text>
+							<TextField.Root
+								type="number"
+								placeholder="输入 PR 编号..."
+								value={targetPrNumber}
+								onChange={(e) => setTargetPrNumber(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										handleTargetPr();
+									}
+								}}
+							>
+								<TextField.Slot>#</TextField.Slot>
+							</TextField.Root>
+							<Flex gap="2" justify="end">
+								<Button
+									variant="soft"
+									color="gray"
+									onClick={() => {
+										setIsTargetDialogOpen(false);
+										setTargetPrNumber("");
+									}}
+								>
+									取消
+								</Button>
+								<Button
+									onClick={handleTargetPr}
+									disabled={!targetPrNumber}
+								>
+									定位
+								</Button>
+							</Flex>
+						</Flex>
+					</Card>
+				</Box>
+			)}
 		</Box>
 	);
 };

@@ -394,7 +394,7 @@
 	position: sticky;
 	top: 0;
 	z-index: 30;
-	padding: var(--space-2) 0;
+	padding: var(--space-2);
 	margin-bottom: var(--space-2);
 }
 
@@ -402,4 +402,29 @@
 	background: rgba(255, 255, 255, 0.6);
 	backdrop-filter: blur(14px);
 	-webkit-backdrop-filter: blur(14px);
+}
+
+/* 定位对话框 */
+.targetDialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 320px;
+	z-index: 50;
+}
+
+/* 闪烁动画 */
+@keyframes flashCard {
+	0%, 100% {
+		box-shadow: 0 0 0 0 var(--accent-9);
+	}
+	50% {
+		box-shadow: 0 0 0 4px var(--accent-9);
+	}
+}
+
+.flashingCard {
+	animation: flashCard 0.5s ease-in-out 3;
+	outline: 2px solid var(--accent-9);
 }
