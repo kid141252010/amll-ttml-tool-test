@@ -47,6 +47,10 @@ export interface TTMLLyric {
 	 * 此时读取翻译时不应该触发自动匹配逐字翻译的逻辑
 	 */
 	autoLang?: boolean;
+	/**
+	 * @description 存储文件中出现的但不在预设列表中的自定义 song-part 值
+	 */
+	customSongParts?: string[];
 }
 
 export interface LyricWordBase {

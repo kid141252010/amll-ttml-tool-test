@@ -32,6 +32,22 @@ import { distributeRomanizationByCharCount } from "../../segmentation/utils/Tran
 import { log } from "../../../utils/logging.ts";
 import { parseTimespan } from "../../../utils/timestamp.ts";
 
+/** 预设的 song-part 列表 */
+const PREDEFINED_SONG_PARTS = new Set([
+	"Verse",
+	"Chorus",
+	"PreChorus",
+	"Bridge",
+	"Intro",
+	"Outro",
+	"Refrain",
+	"Instrumental",
+	"Hook",
+	"Reprise",
+	"Transition",
+	"FalseChorus",
+]);
+
 interface LineMetadata {
 	main: string;
 	bg: string;
@@ -1099,6 +1115,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
+	// 用于存储文件中出现的自定义 song-part 值（不在预设列表中的）
+	const customSongParts = new Set<string>();
+
 	// 先遍历所有 div，解析 song-part 属性，然后处理其中的 p 标签
 	const divElements = ttmlDoc.querySelectorAll("body div[begin][end]");
 	if (divElements.length > 0) {
@@ -1111,6 +1130,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				divEl.getAttribute("songPart") ??
 				divEl.getAttribute("song-part") ??
 				null;
+			// 如果 songPart 不在预设列表中，添加到自定义列表
+			if (songPart && !PREDEFINED_SONG_PARTS.has(songPart)) {
+				customSongParts.add(songPart);
+			}
 			// 标记是否是该 div 的第一个非背景行
 			let isFirstLineInDiv = true;
 			for (const lineEl of divEl.querySelectorAll("p[begin][end]")) {
@@ -1139,6 +1162,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		agents,
 		lyricLang,
 		autoLang,
+		customSongParts: customSongParts.size > 0 ? Array.from(customSongParts) : undefined,
 	};
 
 	// 输出整个解析后的对象到控制台

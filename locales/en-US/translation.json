@@ -104,7 +104,8 @@
 			"none": "None",
 			"noSelection": "No selection",
 			"addCustomPart": "Add custom",
-			"customPartPlaceholder": "Custom part"
+			"customPartPlaceholder": "Custom part",
+			"selectTarget": "Select target"
 		},
 		"previewMode": {
 			"lyrics": "Lyrics",
