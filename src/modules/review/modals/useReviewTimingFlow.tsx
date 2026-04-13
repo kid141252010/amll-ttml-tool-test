@@ -518,11 +518,10 @@ export const useReviewTimingFlow = () => {
 						draftMatch?.id ||
 						null,
 				});
-			}
 		}
-		setReviewSession(null);
-		setToolMode(canReview ? ToolMode.Review : ToolMode.Edit);
-	}, [
+	}
+	setToolMode(canReview ? ToolMode.Review : ToolMode.Edit);
+}, [
 		canReview,
 		lyricLines,
 		requestUpdatePush,
