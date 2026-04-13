@@ -1,9 +1,13 @@
 import {
 	Checkmark20Regular,
 	Clock20Regular,
+	Copy20Regular,
 	Person20Regular,
 } from "@fluentui/react-icons";
-import { Box, Button, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, IconButton, Text } from "@radix-ui/themes";
+import { useSetAtom } from "jotai";
+import { useState } from "react";
+import { pushNotificationAtom } from "$/states/notifications";
 
 export type ReviewLabel = {
 	name: string;
@@ -199,6 +203,59 @@ export const getLabelTextColor = (hex: string) => {
 	return luminance > 0.6 ? "#1f1f1f" : "#ffffff";
 };
 
+const MetaValueChip = ({
+	value,
+	styles,
+}: {
+	value: string;
+	styles: Record<string, string>;
+}) => {
+	const [copied, setCopied] = useState(false);
+	const pushNotification = useSetAtom(pushNotificationAtom);
+
+	const handleCopy = async () => {
+		try {
+			await navigator.clipboard.writeText(value);
+			setCopied(true);
+			pushNotification({
+				title: "已复制到剪贴板",
+				description: value,
+				level: "success",
+				source: "审阅",
+			});
+			setTimeout(() => setCopied(false), 2000);
+		} catch (e) {
+			console.error("Failed to copy:", e);
+			pushNotification({
+				title: "复制失败",
+				description: String(e),
+				level: "error",
+				source: "审阅",
+			});
+		}
+	};
+
+	return (
+		<Flex
+			align="center"
+			gap="1"
+			className={styles.metaChip}
+			style={{ display: "inline-flex" }}
+		>
+			<Text size="2">{value}</Text>
+			<IconButton
+				size="1"
+				variant="ghost"
+				color={copied ? "green" : "gray"}
+				onClick={handleCopy}
+				title={copied ? "已复制" : "复制"}
+			>
+				<Copy20Regular className={styles.icon} />
+			</IconButton>
+		</Flex>
+	);
+};
+
 export const renderMetaValues = (
 	values: string[],
 	styles: Record<string, string>,
@@ -211,9 +268,7 @@ export const renderMetaValues = (
 		);
 	}
 	return values.map((value) => (
-		<Text key={value} size="2" className={styles.metaChip}>
-			{value}
-		</Text>
+		<MetaValueChip key={value} value={value} styles={styles} />
 	));
 };
 
