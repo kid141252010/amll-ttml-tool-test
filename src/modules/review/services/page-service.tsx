@@ -150,7 +150,13 @@ const ReviewPage = () => {
 				});
 			}
 		});
-	}, [targetPrNumber, items, pushNotification, setSearchQuery, setSelectedUser]);
+	}, [
+		targetPrNumber,
+		items,
+		pushNotification,
+		setSearchQuery,
+		setSelectedUser,
+	]);
 
 	const setCardRef = useCallback(
 		(prNumber: number) => (node: HTMLDivElement | null) => {
@@ -405,49 +411,49 @@ const ReviewPage = () => {
 						</Flex>
 					</Box>
 					<Button
-					size="1"
-					variant="soft"
-					color="gray"
-					onClick={() => setSelectedUser(null)}
-				>
-					清除
-				</Button>
-			</Flex>
-		)}
-			<Box className={styles.searchBar}>
-				<TextField.Root
-				size="2"
-				placeholder="搜索 PR 标题..."
-				value={searchQuery}
-				onChange={(e) => setSearchQuery(e.target.value)}
-			>
-				<TextField.Slot>
-					<Search20Regular />
-				</TextField.Slot>
-				{searchQuery && (
-				<TextField.Slot>
-					<Button
 						size="1"
-						variant="ghost"
+						variant="soft"
 						color="gray"
-						onClick={() => setSearchQuery("")}
+						onClick={() => setSelectedUser(null)}
 					>
 						清除
 					</Button>
-				</TextField.Slot>
+				</Flex>
 			)}
-				<TextField.Slot>
-					<Button
-						size="1"
-						variant="ghost"
-						color="gray"
-						onClick={() => setIsTargetDialogOpen(true)}
-						title="定位到指定 PR"
-					>
-						<Target20Regular />
-					</Button>
-				</TextField.Slot>
-			</TextField.Root>
+			<Box className={styles.searchBar}>
+				<TextField.Root
+					size="2"
+					placeholder="搜索 PR 标题..."
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
+				>
+					<TextField.Slot>
+						<Search20Regular />
+					</TextField.Slot>
+					{searchQuery && (
+						<TextField.Slot>
+							<Button
+								size="1"
+								variant="ghost"
+								color="gray"
+								onClick={() => setSearchQuery("")}
+							>
+								清除
+							</Button>
+						</TextField.Slot>
+					)}
+					<TextField.Slot>
+						<Button
+							size="1"
+							variant="ghost"
+							color="gray"
+							onClick={() => setIsTargetDialogOpen(true)}
+							title="定位到指定 PR"
+						>
+							<Target20Regular />
+						</Button>
+					</TextField.Slot>
+				</TextField.Root>
 			</Box>
 			<Box className={styles.grid}>
 				{sortedItems.map((pr) => {
@@ -579,10 +585,7 @@ const ReviewPage = () => {
 								>
 									取消
 								</Button>
-								<Button
-									onClick={handleTargetPr}
-									disabled={!targetPrNumber}
-								>
+								<Button onClick={handleTargetPr} disabled={!targetPrNumber}>
 									定位
 								</Button>
 							</Flex>

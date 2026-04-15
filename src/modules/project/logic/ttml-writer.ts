@@ -348,8 +348,8 @@ export default function exportTTMLText(
 			lineP.setAttribute("end", msToTimestamp(endTime));
 
 			// 优先使用 line.agent，如果没有则根据 isDuet 判断
-		const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
-		lineP.setAttribute("ttm:agent", agentId);
+			const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
+			lineP.setAttribute("ttm:agent", agentId);
 			const normalizedVocal = normalizeVocalValue(line.vocal);
 			if (normalizedVocal.length > 0) {
 				lineP.setAttribute("amll:vocal", normalizedVocal);
@@ -605,8 +605,6 @@ export default function exportTTMLText(
 				translationCache.set(cacheKey, translation);
 				return translation;
 			};
-
-
 
 			// 2.1 处理逐行翻译（translationByLangMap）- type="subtitle"
 			for (const [lang, entries] of translationByLangMap.entries()) {

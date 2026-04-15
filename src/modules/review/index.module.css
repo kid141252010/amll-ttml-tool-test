@@ -416,7 +416,8 @@
 
 /* 闪烁动画 */
 @keyframes flashCard {
-	0%, 100% {
+	0%,
+	100% {
 		box-shadow: 0 0 0 0 var(--accent-9);
 	}
 	50% {

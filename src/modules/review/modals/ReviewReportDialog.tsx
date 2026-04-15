@@ -719,33 +719,33 @@ export const ReviewReportDialog = () => {
 									style={{ minHeight: "120px" }}
 								/>
 								<Flex justify="end" gap="2">
-								<Button
-									size="2"
-									variant="soft"
-									color="gray"
-									onClick={() => {
-										setTemplateTitle("");
-										setTemplateContent("");
-										setEditingTemplateId(null);
-										setShowTemplateEditor(false);
-									}}
-									disabled={templateSaving}
-								>
-									取消
-								</Button>
-								<Button
-									size="2"
-									variant="soft"
-									onClick={
-										editingTemplateId
-											? handleUpdateTemplate
-											: handleSaveTemplate
-									}
-									disabled={templateSaving}
-								>
-									{editingTemplateId ? "更新模板" : "保存模板"}
-								</Button>
-							</Flex>
+									<Button
+										size="2"
+										variant="soft"
+										color="gray"
+										onClick={() => {
+											setTemplateTitle("");
+											setTemplateContent("");
+											setEditingTemplateId(null);
+											setShowTemplateEditor(false);
+										}}
+										disabled={templateSaving}
+									>
+										取消
+									</Button>
+									<Button
+										size="2"
+										variant="soft"
+										onClick={
+											editingTemplateId
+												? handleUpdateTemplate
+												: handleSaveTemplate
+										}
+										disabled={templateSaving}
+									>
+										{editingTemplateId ? "更新模板" : "保存模板"}
+									</Button>
+								</Flex>
 							</Flex>
 						) : (
 							<Flex justify="end">
@@ -788,7 +788,10 @@ export const ReviewReportDialog = () => {
 								}}
 							>
 								{dialog.report ? (
-									<ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+									<ReactMarkdown
+										remarkPlugins={[remarkGfm]}
+										rehypePlugins={[rehypeRaw]}
+									>
 										{dialog.report}
 									</ReactMarkdown>
 								) : (
@@ -813,71 +816,71 @@ export const ReviewReportDialog = () => {
 							</Flex>
 						</Button>
 						<Flex align="center" justify="end" gap="2">
-						<Button
-							size="2"
-							variant="soft"
-							color="red"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认需要修改",
-									description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
-									onConfirm: () => submitReview("REQUEST_CHANGES"),
-								})
-							}
-							disabled={
-								submitPending !== null || getCleanReport().length === 0
-							}
-						>
-							<Flex align="center" gap="2">
-								<Dismiss20Regular />
-								<Text size="2">需要修改</Text>
-							</Flex>
-						</Button>
-						<Button
-							size="2"
-							variant="soft"
-							color="blue"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认接受",
-									description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-									onConfirm: () => submitReview("APPROVE"),
-								})
-							}
-							disabled={approvedByUser || submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Checkmark20Regular />
-								<Text size="2">接受</Text>
-							</Flex>
-						</Button>
-						<Button
-							size="2"
-							variant="soft"
-							color="green"
-							onClick={() =>
-								setConfirmDialog({
-									open: true,
-									title: "确认合并",
-									description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
-									onConfirm: submitMerge,
-								})
-							}
-							disabled={submitPending !== null}
-						>
-							<Flex align="center" gap="2">
-								<Merge20Regular />
-								<Text size="2">合并</Text>
-							</Flex>
-						</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="red"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认需要修改",
+										description: `确定要标记 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 为需要修改吗？`,
+										onConfirm: () => submitReview("REQUEST_CHANGES"),
+									})
+								}
+								disabled={
+									submitPending !== null || getCleanReport().length === 0
+								}
+							>
+								<Flex align="center" gap="2">
+									<Dismiss20Regular />
+									<Text size="2">需要修改</Text>
+								</Flex>
+							</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="blue"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认接受",
+										description: `确定要接受 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+										onConfirm: () => submitReview("APPROVE"),
+									})
+								}
+								disabled={approvedByUser || submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<Checkmark20Regular />
+									<Text size="2">接受</Text>
+								</Flex>
+							</Button>
+							<Button
+								size="2"
+								variant="soft"
+								color="green"
+								onClick={() =>
+									setConfirmDialog({
+										open: true,
+										title: "确认合并",
+										description: `确定要合并 PR#${dialog.prNumber}${dialog.prTitle ? ` ${dialog.prTitle}` : ""} 吗？`,
+										onConfirm: submitMerge,
+									})
+								}
+								disabled={submitPending !== null}
+							>
+								<Flex align="center" gap="2">
+									<Merge20Regular />
+									<Text size="2">合并</Text>
+								</Flex>
+							</Button>
+						</Flex>
 					</Flex>
 				</Flex>
-			</Flex>
-		</Dialog.Content>
-	</Dialog.Root>
-);
+			</Dialog.Content>
+		</Dialog.Root>
+	);
 };
 
 export default ReviewReportDialog;

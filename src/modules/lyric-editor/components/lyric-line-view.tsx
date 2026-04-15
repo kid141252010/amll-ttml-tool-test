@@ -584,7 +584,9 @@ export const LyricLineView: FC<{
 							toolMode === ToolMode.Edit && styles.edit,
 							line.ignoreSync && styles.ignoreSync,
 							hasError && toolMode === ToolMode.Edit && styles.error,
-							hasAgentWarning && toolMode === ToolMode.Edit && styles.agentWarning,
+							hasAgentWarning &&
+								toolMode === ToolMode.Edit &&
+								styles.agentWarning,
 							hasRadical && styles.radical,
 						)}
 						align="center"

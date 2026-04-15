@@ -682,31 +682,31 @@ export const useReviewPageLogic = () => {
 				}
 
 				setReviewSession({
-				prNumber: pr.number,
-				prTitle: pr.title,
-				fileName: fileResult.fileName,
-				source: "review",
-			});
-			// 等待用户确认打开文件（如果有确认对话框）
-			await openFile(fileResult.file);
-			const cleanedIds = ids.map((id) => id.trim()).filter(Boolean);
-			if (cleanedIds.length > 0) {
-				if (cleanedIds.length > 1) {
-					pendingReviewModeSwitchRef.current = true;
-				}
-				// 显示确认弹框询问是否加载网易云音乐音频
-				setConfirmDialog({
-					open: true,
-					title: "加载网易云音乐音频",
-					description: `检测到网易云音乐 ID，是否加载音频？\nID: ${cleanedIds.join(", ")}`,
-					onConfirm: () => {
-						handleLoadNeteaseAudio(pr.number, cleanedIds);
-					},
+					prNumber: pr.number,
+					prTitle: pr.title,
+					fileName: fileResult.fileName,
+					source: "review",
 				});
-			}
-			if (!pendingReviewModeSwitchRef.current) {
-				setToolMode(ToolMode.Edit);
-			}
+				// 等待用户确认打开文件（如果有确认对话框）
+				await openFile(fileResult.file);
+				const cleanedIds = ids.map((id) => id.trim()).filter(Boolean);
+				if (cleanedIds.length > 0) {
+					if (cleanedIds.length > 1) {
+						pendingReviewModeSwitchRef.current = true;
+					}
+					// 显示确认弹框询问是否加载网易云音乐音频
+					setConfirmDialog({
+						open: true,
+						title: "加载网易云音乐音频",
+						description: `检测到网易云音乐 ID，是否加载音频？\nID: ${cleanedIds.join(", ")}`,
+						onConfirm: () => {
+							handleLoadNeteaseAudio(pr.number, cleanedIds);
+						},
+					});
+				}
+				if (!pendingReviewModeSwitchRef.current) {
+					setToolMode(ToolMode.Edit);
+				}
 			} catch {
 				setPushNotification({
 					title: "打开 PR 文件失败",

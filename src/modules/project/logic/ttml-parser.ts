@@ -788,7 +788,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const names: string[] = [];
 		for (const child of el.getElementsByTagName("*")) {
 			const childTagName = child.tagName;
-			if (childTagName !== "ttm:name" && !childTagName.endsWith(":name")) continue;
+			if (childTagName !== "ttm:name" && !childTagName.endsWith(":name"))
+				continue;
 			const name = child.textContent?.trim();
 			if (name) {
 				names.push(name);
@@ -810,13 +811,13 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		agentMap,
 		isGroup: false,
 		single: {
-			lastAgentId: agents.find(a => a.type === "person")?.id ?? "v1",
-			currentAgentId: agents.find(a => a.type === "person")?.id ?? "v1",
+			lastAgentId: agents.find((a) => a.type === "person")?.id ?? "v1",
+			currentAgentId: agents.find((a) => a.type === "person")?.id ?? "v1",
 			duetToggle: false,
 		},
 		group: {
-			lastAgentId: agents.find(a => a.type === "group")?.id ?? "v2",
-			currentAgentId: agents.find(a => a.type === "group")?.id ?? "v2",
+			lastAgentId: agents.find((a) => a.type === "group")?.id ?? "v2",
+			currentAgentId: agents.find((a) => a.type === "group")?.id ?? "v2",
 			duetToggle: true,
 		},
 	};
@@ -855,8 +856,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		if (!isBG) {
 			// 设置 agent id 并判断类型
 			duetContext.agentId = lineAgentId ?? undefined;
-			duetContext.isGroup = lineAgentId 
-				? agentMap.get(lineAgentId)?.type === "group" 
+			duetContext.isGroup = lineAgentId
+				? agentMap.get(lineAgentId)?.type === "group"
 				: false;
 
 			// 使用可复用的对唱状态计算函数（内部会更新上下文）
@@ -1141,7 +1142,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				const songPartToPass = isFirstLineInDiv ? songPart : null;
 				parseLineElement(lineEl, false, false, null, null, songPartToPass);
 				// 如果当前行不是背景行，则后续行不再传递 songPart
-				if (!lineEl.getAttribute("ttm:role") || lineEl.getAttribute("ttm:role") !== "x-bg") {
+				if (
+					!lineEl.getAttribute("ttm:role") ||
+					lineEl.getAttribute("ttm:role") !== "x-bg"
+				) {
 					isFirstLineInDiv = false;
 				}
 			}
@@ -1162,7 +1166,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		agents,
 		lyricLang,
 		autoLang,
-		customSongParts: customSongParts.size > 0 ? Array.from(customSongParts) : undefined,
+		customSongParts:
+			customSongParts.size > 0 ? Array.from(customSongParts) : undefined,
 	};
 
 	// 输出整个解析后的对象到控制台
@@ -1208,7 +1213,7 @@ export interface DuetStateContext {
  */
 export function calculateDuetState(ctx: DuetStateContext): boolean {
 	if (!ctx.agentId) {
-		return ctx.agentId !== 'v1';
+		return ctx.agentId !== "v1";
 	}
 
 	const agent = ctx.agentMap.get(ctx.agentId);

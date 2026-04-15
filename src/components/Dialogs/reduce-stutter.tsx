@@ -38,9 +38,7 @@ export const ReduceStutterDialog = () => {
 		const pairs: StutterPair[] = [];
 		lyricLines.lyricLines.forEach((line, lineIndex) => {
 			// 过滤掉空格单词，只保留有实际内容的单词
-			const nonSpaceWords = line.words.filter(
-				(w) => w.word.trim().length > 0,
-			);
+			const nonSpaceWords = line.words.filter((w) => w.word.trim().length > 0);
 			for (let i = 0; i < nonSpaceWords.length - 1; i++) {
 				const currentWord = nonSpaceWords[i];
 				const nextWord = nonSpaceWords[i + 1];
@@ -136,19 +134,21 @@ export const ReduceStutterDialog = () => {
 
 				// 同步更新逐字音译的时间戳
 				if (line.wordRomanizationByLang) {
-					Object.values(line.wordRomanizationByLang).forEach((romanizations) => {
-						// 找到与 prevWord 和 nextWord 时间匹配的音译项
-						romanizations.forEach((roman) => {
-							// 如果音译项的结束时间等于 prevWord 的原始结束时间，则更新
-							if (roman.endTime === prevEndTime) {
-								roman.endTime = middleTime;
-							}
-							// 如果音译项的开始时间等于 nextWord 的原始开始时间，则更新
-							if (roman.startTime === nextStartTime) {
-								roman.startTime = middleTime;
-							}
-						});
-					});
+					Object.values(line.wordRomanizationByLang).forEach(
+						(romanizations) => {
+							// 找到与 prevWord 和 nextWord 时间匹配的音译项
+							romanizations.forEach((roman) => {
+								// 如果音译项的结束时间等于 prevWord 的原始结束时间，则更新
+								if (roman.endTime === prevEndTime) {
+									roman.endTime = middleTime;
+								}
+								// 如果音译项的开始时间等于 nextWord 的原始开始时间，则更新
+								if (roman.startTime === nextStartTime) {
+									roman.startTime = middleTime;
+								}
+							});
+						},
+					);
 				}
 			});
 		});
@@ -219,8 +219,7 @@ export const ReduceStutterDialog = () => {
 											{msToTimestamp(pair.prevWord.endTime)}] -{" "}
 											{pair.nextWord.word} [
 											{msToTimestamp(pair.nextWord.startTime)}~
-											{msToTimestamp(pair.nextWord.endTime)}] :{" "}
-											{pair.gap} ms
+											{msToTimestamp(pair.nextWord.endTime)}] : {pair.gap} ms
 										</Text>
 									</Flex>
 								</Flex>

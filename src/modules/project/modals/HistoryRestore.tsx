@@ -304,30 +304,32 @@ export const HistoryRestoreDialog = () => {
 												}}
 											>
 												<Flex justify="between" align="start">
-												<Flex
-													direction="column"
-													gap="1"
-													style={{ overflow: "hidden" }}
-												>
-													<Text weight="bold" size="2" truncate>
-														{getProjectDisplayName(project)}
-													</Text>
-													<Flex gap="2" align="center">
-														<IconButton
-															size="1"
-															variant="ghost"
-															color="red"
-															onClick={(e) => handleDeleteProject(e, project.id)}
-														>
-															<DeleteRegular />
-														</IconButton>
-														<ClockRegular fontSize={12} />
-														<Text size="1" color="gray">
-															{formatRelativeTime(project.lastModified)}
+													<Flex
+														direction="column"
+														gap="1"
+														style={{ overflow: "hidden" }}
+													>
+														<Text weight="bold" size="2" truncate>
+															{getProjectDisplayName(project)}
 														</Text>
+														<Flex gap="2" align="center">
+															<IconButton
+																size="1"
+																variant="ghost"
+																color="red"
+																onClick={(e) =>
+																	handleDeleteProject(e, project.id)
+																}
+															>
+																<DeleteRegular />
+															</IconButton>
+															<ClockRegular fontSize={12} />
+															<Text size="1" color="gray">
+																{formatRelativeTime(project.lastModified)}
+															</Text>
+														</Flex>
 													</Flex>
 												</Flex>
-											</Flex>
 											</Box>
 										))
 									)}
@@ -364,19 +366,22 @@ export const HistoryRestoreDialog = () => {
 												</Text>
 											</Flex>
 											<Flex gap="2">
-											<Button
-												variant="soft"
-												color="red"
-												onClick={handleDeleteLatestVersion}
-											>
-												{t("historyRestoreDialog.deleteLatest", "删除此版本")}
-											</Button>
-											<Button
-												onClick={() => handleRestoreLatest(currentProject)}
-											>
-												{t("historyRestoreDialog.restoreLatest", "恢复此版本")}
-											</Button>
-										</Flex>
+												<Button
+													variant="soft"
+													color="red"
+													onClick={handleDeleteLatestVersion}
+												>
+													{t("historyRestoreDialog.deleteLatest", "删除此版本")}
+												</Button>
+												<Button
+													onClick={() => handleRestoreLatest(currentProject)}
+												>
+													{t(
+														"historyRestoreDialog.restoreLatest",
+														"恢复此版本",
+													)}
+												</Button>
+											</Flex>
 										</Flex>
 									</Card>
 									{currentProject.latestState.metadata &&
@@ -450,24 +455,26 @@ export const HistoryRestoreDialog = () => {
 																</Flex>
 															</Table.RowHeaderCell>
 															<Table.Cell justify="end">
-														<Flex gap="2">
-															<Button
-																size="2"
-																variant="soft"
-																color="red"
-																onClick={() => handleDeleteVersion(version)}
-															>
-																{t("common.delete", "删除")}
-															</Button>
-															<Button
-																size="2"
-																variant="soft"
-																onClick={() => handleRestoreVersion(version)}
-															>
-																{t("common.restore", "恢复")}
-															</Button>
-														</Flex>
-													</Table.Cell>
+																<Flex gap="2">
+																	<Button
+																		size="2"
+																		variant="soft"
+																		color="red"
+																		onClick={() => handleDeleteVersion(version)}
+																	>
+																		{t("common.delete", "删除")}
+																	</Button>
+																	<Button
+																		size="2"
+																		variant="soft"
+																		onClick={() =>
+																			handleRestoreVersion(version)
+																		}
+																	>
+																		{t("common.restore", "恢复")}
+																	</Button>
+																</Flex>
+															</Table.Cell>
 														</Table.Row>
 													))
 												)}

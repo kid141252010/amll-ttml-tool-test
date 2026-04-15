@@ -10,7 +10,15 @@
  */
 
 import { Add16Regular, Delete16Regular } from "@fluentui/react-icons";
-import { Button, Dialog, Flex, IconButton, Select, Text, TextField } from "@radix-ui/themes";
+import {
+	Button,
+	Dialog,
+	Flex,
+	IconButton,
+	Select,
+	Text,
+	TextField,
+} from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import { useImmerAtom } from "jotai-immer";
 import { useState } from "react";
@@ -283,12 +291,17 @@ export const AgentManager = () => {
 											</Select.Root>
 										</Flex>
 										<Flex gap="2" align="flex-start">
-											<Text size="2" style={{ minWidth: "60px", marginTop: "4px" }}>
+											<Text
+												size="2"
+												style={{ minWidth: "60px", marginTop: "4px" }}
+											>
 												Names:
 											</Text>
 											<NamesEditor
 												names={newAgent.names ?? []}
-												onChange={(names) => setNewAgent({ ...newAgent, names })}
+												onChange={(names) =>
+													setNewAgent({ ...newAgent, names })
+												}
 											/>
 										</Flex>
 										<Flex gap="2" justify="end">
@@ -356,12 +369,17 @@ export const AgentManager = () => {
 												</Select.Root>
 											</Flex>
 											<Flex gap="2" align="flex-start">
-												<Text size="2" style={{ minWidth: "60px", marginTop: "4px" }}>
+												<Text
+													size="2"
+													style={{ minWidth: "60px", marginTop: "4px" }}
+												>
 													Names:
 												</Text>
 												<NamesEditor
 													names={editingAgent.names ?? []}
-													onChange={(names) => setEditingAgent({ ...editingAgent, names })}
+													onChange={(names) =>
+														setEditingAgent({ ...editingAgent, names })
+													}
 												/>
 											</Flex>
 											<Flex gap="2" justify="end">
