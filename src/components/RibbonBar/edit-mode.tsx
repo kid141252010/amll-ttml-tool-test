@@ -1595,9 +1595,54 @@ const PrimaryContentField: FC = () => {
 				<Select.Trigger placeholder={placeholder} style={{ minWidth: "6ch" }} />
 				<Select.Content>
 					{languageOptions.map((lang) => (
-						<Select.Item key={lang} value={lang}>
-							{lang}
-						</Select.Item>
+						<Box key={lang} position="relative">
+							<Select.Item value={lang}>
+								<Text style={{ paddingRight: languageOptions.length > 1 ? "2rem" : undefined }}>{lang}</Text>
+							</Select.Item>
+							{languageOptions.length > 1 && (
+								<Box
+									position="absolute"
+									right="6px"
+									top="50%"
+									style={{
+										transform: "translateY(-50%)",
+										zIndex: 10,
+									}}
+								>
+									<IconButton
+										size="1"
+										variant="soft"
+										color="red"
+										onClick={() => {
+											// 删除该语言的逐字翻译数据
+											editLyricLines((state) => {
+												for (const line of state.lyricLines) {
+													if (line.wordTranslationByLang?.[lang]) {
+														delete line.wordTranslationByLang[lang];
+														if (Object.keys(line.wordTranslationByLang).length === 0) {
+															delete line.wordTranslationByLang;
+														}
+													}
+												}
+												// 如果删除的是当前歌词语言，需要特殊处理
+												if (state.lyricLang === lang) {
+													// 尝试切换到其他可用语言
+													const remainingLangs = Object.keys(
+														state.lyricLines[0]?.wordTranslationByLang || {},
+													);
+													if (remainingLangs.length > 0) {
+														state.lyricLang = remainingLangs[0];
+													}
+												}
+											});
+										}}
+										aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+									>
+										<Delete16Regular />
+									</IconButton>
+								</Box>
+							)}
+						</Box>
 					))}
 				</Select.Content>
 			</Select.Root>
@@ -2078,9 +2123,46 @@ const MultilingualField: FC = () => {
 				<Select.Trigger placeholder={placeholder} />
 				<Select.Content>
 					{translationLanguages.map((lang) => (
-						<Select.Item key={lang} value={lang}>
-							{lang}
-						</Select.Item>
+						<Box key={lang} position="relative">
+							<Select.Item value={lang}>
+								<Text style={{ paddingRight: "2rem" }}>{lang}</Text>
+							</Select.Item>
+							<Box
+								position="absolute"
+								right="6px"
+								top="50%"
+								style={{
+									transform: "translateY(-50%)",
+									zIndex: 10,
+								}}
+							>
+								<IconButton
+									size="1"
+									variant="soft"
+									color="red"
+									onClick={() => {
+										// 删除该语言的翻译数据
+										editLyricLines((state) => {
+											for (const line of state.lyricLines) {
+												if (line.translatedLyricByLang?.[lang]) {
+													delete line.translatedLyricByLang[lang];
+													if (Object.keys(line.translatedLyricByLang).length === 0) {
+														delete line.translatedLyricByLang;
+													}
+													// 如果当前显示的翻译是该语言，清空显示
+													if (line.translatedLyric === line.translatedLyricByLang?.[lang]) {
+														line.translatedLyric = "";
+													}
+												}
+											}
+										});
+									}}
+									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+								>
+									<Delete16Regular />
+								</IconButton>
+							</Box>
+						</Box>
 					))}
 				</Select.Content>
 			</Select.Root>
@@ -2116,9 +2198,46 @@ const MultilingualField: FC = () => {
 				<Select.Trigger placeholder={placeholder} />
 				<Select.Content>
 					{romanizationLanguages.map((lang) => (
-						<Select.Item key={lang} value={lang}>
-							{lang}
-						</Select.Item>
+						<Box key={lang} position="relative">
+							<Select.Item value={lang}>
+								<Text style={{ paddingRight: "2rem" }}>{lang}</Text>
+							</Select.Item>
+							<Box
+								position="absolute"
+								right="6px"
+								top="50%"
+								style={{
+									transform: "translateY(-50%)",
+									zIndex: 10,
+								}}
+							>
+								<IconButton
+									size="1"
+									variant="soft"
+									color="red"
+									onClick={() => {
+										// 删除该语言的音译数据
+										editLyricLines((state) => {
+											for (const line of state.lyricLines) {
+												if (line.romanLyricByLang?.[lang]) {
+													delete line.romanLyricByLang[lang];
+													if (Object.keys(line.romanLyricByLang).length === 0) {
+														delete line.romanLyricByLang;
+													}
+													// 如果当前显示的音译是该语言，清空显示
+													if (line.romanLyric === line.romanLyricByLang?.[lang]) {
+														line.romanLyric = "";
+													}
+												}
+											}
+										});
+									}}
+									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+								>
+									<Delete16Regular />
+								</IconButton>
+							</Box>
+						</Box>
 					))}
 				</Select.Content>
 			</Select.Root>
@@ -2154,9 +2273,48 @@ const MultilingualField: FC = () => {
 				<Select.Trigger placeholder={placeholder} />
 				<Select.Content>
 					{wordRomanizationLanguages.map((lang) => (
-						<Select.Item key={lang} value={lang}>
-							{lang}
-						</Select.Item>
+						<Box key={lang} position="relative">
+							<Select.Item value={lang}>
+								<Text style={{ paddingRight: "2rem" }}>{lang}</Text>
+							</Select.Item>
+							<Box
+								position="absolute"
+								right="6px"
+								top="50%"
+								style={{
+									transform: "translateY(-50%)",
+									zIndex: 10,
+								}}
+							>
+								<IconButton
+									size="1"
+									variant="soft"
+									color="red"
+									onClick={() => {
+										// 删除该语言的逐字音译数据
+										editLyricLines((state) => {
+											for (const line of state.lyricLines) {
+												if (line.wordRomanizationByLang?.[lang]) {
+													delete line.wordRomanizationByLang[lang];
+													if (Object.keys(line.wordRomanizationByLang).length === 0) {
+														delete line.wordRomanizationByLang;
+													}
+													// 如果当前显示的是该语言的逐字音译，清空显示
+													for (const word of line.words) {
+														if (word.romanWord) {
+															word.romanWord = "";
+														}
+													}
+												}
+											}
+										});
+									}}
+									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+								>
+									<Delete16Regular />
+								</IconButton>
+							</Box>
+						</Box>
 					))}
 				</Select.Content>
 			</Select.Root>
