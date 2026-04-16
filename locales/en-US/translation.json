@@ -572,7 +572,8 @@
 		"insertLine": "Insert new line here",
 		"insertWord": "Insert word here…",
 		"vocalTagsLabel": "Vocalists:",
-		"vocalTagsAll": "All members"
+		"vocalTagsAll": "All members",
+		"songPartLabel": "Part:"
 	},
 	"lyricWordView": {
 		"empty": "Empty",

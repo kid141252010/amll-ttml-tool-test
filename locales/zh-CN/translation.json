@@ -594,7 +594,8 @@
 		"insertLine": "在此插入新行",
 		"insertWord": "插入单词…",
 		"vocalTagsLabel": "演唱者：",
-		"vocalTagsAll": "全体成员"
+		"vocalTagsAll": "全体成员",
+		"songPartLabel": "分段："
 	},
 	"lyricWordView": {
 		"empty": "空白",

@@ -11,12 +11,14 @@
 
 import {
 	AddFilled,
-	People24Regular,
+	MusicNote1Regular,
+	People16Regular,
 	LinkMultiple20Regular,
 	TextAlignRightFilled,
 	VideoBackgroundEffectFilled,
 } from "@fluentui/react-icons";
 import {
+	Badge,
 	Button,
 	ContextMenu,
 	Flex,
@@ -859,13 +861,41 @@ export const LyricLineView: FC<{
 											/>
 										)}
 										{showRomanization && (
-											<SubLineEdit
-												lineAtom={lineAtom}
-												lineIndex={lineIndex}
-												type="romanLyric"
-											/>
-										)}
-										{vocalTagIds.length > 0 && (
+										<SubLineEdit
+											lineAtom={lineAtom}
+											lineIndex={lineIndex}
+											type="romanLyric"
+										/>
+									)}
+									{(line.songPart || line.agent) && (
+										<Flex align="center" gap="2">
+											{line.songPart && (
+												<Badge color="blue" size="2">
+													<Flex align="center" gap="1">
+														<MusicNote1Regular />
+														{line.songPart}
+													</Flex>
+												</Badge>
+											)}
+											{line.agent && (
+												(() => {
+													const agent = lyricState.agents?.find(
+														(a) => a.id === line.agent,
+													);
+													if (!agent) return null;
+													return agent.names.map((name) => (
+														<Badge key={name} color="amber" size="2">
+															<Flex align="center" gap="1">
+																<People16Regular />
+																{name}
+															</Flex>
+														</Badge>
+													));
+												})()
+											)}
+										</Flex>
+									)}
+									{vocalTagIds.length > 0 && (
 											<Flex
 												align="center"
 												gap="2"
@@ -946,7 +976,7 @@ export const LyricLineView: FC<{
 																}}
 															>
 																<Flex align="center" gap="1">
-																	<People24Regular />
+																	<People16Regular />
 																	{t("lyricLineView.vocalTagsAll", "全体成员")}
 																</Flex>
 															</Button>,
