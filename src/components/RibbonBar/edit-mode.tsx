@@ -1072,23 +1072,13 @@ const AgentField: FC = () => {
 		return { person, group, other };
 	}, [lyricLines.agents]);
 
-	// 检查选中的行是否包含背景行
-	const hasSelectedBGLine = useMemo(() => {
-		for (const line of lyricLines.lyricLines) {
-			if (selectedLines.has(line.id) && line.isBG) {
-				return true;
-			}
-		}
-		return false;
-	}, [selectedLines, lyricLines]);
-
-	// 获取当前选中行的 agent 值（只检查非背景行）
+	// 获取当前选中行的 agent 值（包括背景行）
 	const currentAgent = useMemo(() => {
 		if (selectedLines.size === 0) return undefined;
 		const values = new Set<string | undefined>();
 		for (const line of lyricLines.lyricLines) {
-			if (selectedLines.has(line.id) && !line.isBG) {
-				// 从行的 agent 字段获取值（背景行不参与）
+			if (selectedLines.has(line.id)) {
+				// 从行的 agent 字段获取值（包括背景行）
 				values.add(line.agent);
 			}
 		}
@@ -1124,9 +1114,9 @@ const AgentField: FC = () => {
 					}
 				}
 
-				// 首先更新选中行的 agent（跳过背景行）
+				// 首先更新选中行的 agent（包括背景行）
 				for (const line of state.lyricLines) {
-					if (selectedLines.has(line.id) && !line.isBG) {
+					if (selectedLines.has(line.id)) {
 						line.agent = value === NONE_VALUE ? undefined : value;
 					}
 				}
@@ -1286,8 +1276,7 @@ const AgentField: FC = () => {
 	const agentsList = lyricLines.agents ?? [];
 	const hasAgents = agentsList.length > 0;
 
-	const isAgentSelectDisabled =
-		selectedLines.size === 0 || !hasAgents || hasSelectedBGLine;
+	const isAgentSelectDisabled = selectedLines.size === 0 || !hasAgents;
 
 	return (
 		<>
@@ -1301,17 +1290,15 @@ const AgentField: FC = () => {
 				disabled={isAgentSelectDisabled}
 			>
 				<Select.Trigger
-					placeholder={
-						!hasAgents
-							? t("ribbonBar.editMode.noAgents", "No agents")
-							: selectedLines.size === 0
-								? t("ribbonBar.editMode.noSelection", "No selection")
-								: hasSelectedBGLine
-									? t("ribbonBar.editMode.bgLineDisabled", "BG line selected")
-									: t("ribbonBar.editMode.none", "None")
-					}
-					aria-labelledby={agentLabelId}
-				/>
+				placeholder={
+					!hasAgents
+						? t("ribbonBar.editMode.noAgents", "No agents")
+						: selectedLines.size === 0
+							? t("ribbonBar.editMode.noSelection", "No selection")
+							: t("ribbonBar.editMode.none", "None")
+				}
+				aria-labelledby={agentLabelId}
+			/>
 				<Select.Content>
 					{agentOptions.map((option) =>
 						option.type === "separator" ? (

@@ -33,6 +33,7 @@ import {
 	annotationFontAtom,
 	bgLineOpacityAtom,
 	fontScaleAtom,
+	hideInvalidRomanizationAtom,
 	hideObsceneWordsAtom,
 	languageFontsAtom,
 	lyricWordFadeWidthAtom,
@@ -63,6 +64,9 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		);
 		const [hideObsceneWords, setHideObsceneWords] =
 			useAtom(hideObsceneWordsAtom);
+		const [hideInvalidRomanization, setHideInvalidRomanization] = useAtom(
+			hideInvalidRomanizationAtom,
+		);
 		const [lyricWordFadeWidth, setLyricWordFadeWidth] = useAtom(
 			lyricWordFadeWidthAtom,
 		);
@@ -187,7 +191,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 			<RibbonFrame ref={ref}>
 				<RibbonSection label={t("ribbonBar.previewMode.lyrics", "歌词")}>
 					<Grid
-						columns="0fr 0fr 0fr 0fr"
+						columns="0fr 0fr 0fr 0fr 0fr 0fr"
 						gap="2"
 						gapY="1"
 						flexGrow="1"
@@ -220,6 +224,13 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 						<Checkbox
 							checked={hideObsceneWords}
 							onCheckedChange={(v) => setHideObsceneWords(!!v)}
+						/>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.hideInvalidRoman", "屏蔽无效音译")}
+						</Text>
+						<Checkbox
+							checked={hideInvalidRomanization}
+							onCheckedChange={(v) => setHideInvalidRomanization(!!v)}
 						/>
 					</Grid>
 				</RibbonSection>
