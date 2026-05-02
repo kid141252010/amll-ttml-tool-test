@@ -263,7 +263,7 @@ packages:
       ajv: '>=8'
 
   '@applemusic-like-lyrics/core@file:vendor/applemusic-like-lyrics-core-0.2.1.tgz':
-    resolution: {integrity: sha512-RSjyGTbeGG/bYKrfx29SZmiZG7o9D+fW6LCkIIae9U3TSD6oitdh9yEtG6G2uRHfj0bEBHB41K/2Do8uNQmODA==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
+    resolution: {integrity: sha512-ioB98CAQp4wAhMFh3jSnHdRkazsifLJf9FcoIMitZfUa736f2UZ4GnEbVJqcrv67DrhwvwZOVl3zgaQtLsGuag==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
     version: 0.2.1
     peerDependencies:
       '@pixi/app': '*'
