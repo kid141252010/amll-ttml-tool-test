@@ -1,11 +1,12 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import React, { type FC, useCallback, useContext } from "react";
 import type { ProcessedLyricLine } from "$/modules/segmentation/utils/segment-processing.ts";
+import { previewLineAtom } from "$/modules/spectrogram/states/dnd.ts";
 import {
-	previewLineAtom,
-	selectedWordIdAtom,
-} from "$/modules/spectrogram/states/dnd.ts";
-import { editingTimeFieldAtom, selectedLinesAtom } from "$/states/main.ts";
+	editingTimeFieldAtom,
+	selectedLinesAtom,
+	selectedWordsAtom,
+} from "$/states/main.ts";
 import { DividerSegment } from "./DividerSegment.tsx";
 import { GapSegment } from "./GapSegment.tsx";
 import styles from "./LyricLineSegment.module.css";
@@ -23,7 +24,7 @@ export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 }) => {
 	const previewLine = useAtomValue(previewLineAtom);
 	const setSelectedLines = useSetAtom(selectedLinesAtom);
-	const setSelectedWordId = useSetAtom(selectedWordIdAtom);
+	const setSelectedWords = useSetAtom(selectedWordsAtom);
 	const { zoom } = useContext(SpectrogramContext);
 	const editingTimeField = useAtomValue(editingTimeFieldAtom);
 
@@ -44,9 +45,9 @@ export const LyricLineSegment: FC<LyricLineSegmentProps> = ({
 			const { id } = displayLine;
 
 			setSelectedLines(new Set([id]));
-			setSelectedWordId(null);
+			setSelectedWords(new Set());
 		},
-		[editingTimeField, displayLine, setSelectedLines, setSelectedWordId],
+		[editingTimeField, displayLine, setSelectedLines, setSelectedWords],
 	);
 
 	if (!displayLine) {

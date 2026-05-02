@@ -25,5 +25,3 @@ export const timelineDragAtom = atom<TimelineDragOperation | null>(null);
 export const previewLineAtom = atom<ProcessedLyricLine | null>(null);
 
 export const isDraggingAtom = atom((get) => get(timelineDragAtom) !== null);
-
-export const selectedWordIdAtom = atom<string | null>(null);

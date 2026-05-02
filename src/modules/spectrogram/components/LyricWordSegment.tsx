@@ -1,4 +1,4 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import {
 	type FC,
 	type KeyboardEvent,
@@ -8,11 +8,8 @@ import {
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import type { WordSegment } from "$/modules/segmentation/utils/segment-processing.ts";
 import { displayRomanizationInSyncAtom } from "$/modules/settings/states/index.ts";
-import {
-	selectedWordIdAtom,
-	timelineDragAtom,
-} from "$/modules/spectrogram/states/dnd.ts";
-import { editingTimeFieldAtom } from "$/states/main.ts";
+import { timelineDragAtom } from "$/modules/spectrogram/states/dnd.ts";
+import { editingTimeFieldAtom, selectedWordsAtom } from "$/states/main.ts";
 import styles from "./LyricWordSegment.module.css";
 import { SpectrogramContext } from "./SpectrogramContext.ts";
 
@@ -27,7 +24,8 @@ export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 	segment,
 	lineStartTime,
 }) => {
-	const [selectedWordId, setSelectedWordId] = useAtom(selectedWordIdAtom);
+	const selectedWords = useAtomValue(selectedWordsAtom);
+	const setSelectedWords = useSetAtom(selectedWordsAtom);
 	const setTimelineDrag = useSetAtom(timelineDragAtom);
 	const { zoom, scrollLeft, scrollContainerRef } =
 		useContext(SpectrogramContext);
@@ -43,12 +41,12 @@ export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 	const left = ((startTime - lineStartTime) / 1000) * zoom;
 	const width = ((endTime - startTime) / 1000) * zoom;
 
-	const isSelected = selectedWordId === segment.id;
+	const isSelected = selectedWords.has(segment.id);
 
 	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
 		if (editingTimeField) return;
 		e.stopPropagation();
-		setSelectedWordId(segment.id);
+		setSelectedWords(new Set([segment.id]));
 	};
 
 	const handlePanStart = (e: MouseEvent<HTMLDivElement>) => {
@@ -73,14 +71,14 @@ export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 			initialWordStartMS: segment.startTime,
 		});
 
-		setSelectedWordId(segment.id);
+		setSelectedWords(new Set([segment.id]));
 	};
 
 	const handleContextMenu = (e: MouseEvent<HTMLDivElement>) => {
 		if (editingTimeField) return;
 		e.preventDefault();
 		e.stopPropagation();
-		setSelectedWordId(segment.id);
+		setSelectedWords(new Set([segment.id]));
 		if (startTime != null && endTime != null) {
 			audioEngine.auditionRange(startTime / 1000, endTime / 1000);
 		}
@@ -90,7 +88,7 @@ export const LyricWordSegment: FC<LyricWordSegmentProps> = ({
 		if (e.key === "Enter") {
 			e.preventDefault();
 			e.stopPropagation();
-			setSelectedWordId(segment.id);
+			setSelectedWords(new Set([segment.id]));
 			if (startTime != null && endTime != null) {
 				audioEngine.auditionRange(startTime / 1000, endTime / 1000);
 			}
