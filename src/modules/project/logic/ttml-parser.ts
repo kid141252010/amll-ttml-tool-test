@@ -882,8 +882,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			line.songPart = songPart;
 		}
 
-		// 保存行的 agent 信息
-		if (lineAgentId && !isBG) {
+		// 保存行的 agent 信息（包括 bg 行）
+		if (lineAgentId) {
 			line.agent = lineAgentId;
 		}
 		let haveBg = false;

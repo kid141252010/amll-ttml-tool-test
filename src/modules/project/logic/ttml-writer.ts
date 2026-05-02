@@ -402,6 +402,11 @@ export default function exportTTMLText(
 				);
 				bgLineSpan.setAttribute("ttm:role", "x-bg");
 
+				// 为 bg 行导出 agent 属性（如果有的话）
+				if (bgLine.agent) {
+					bgLineSpan.setAttribute("ttm:agent", bgLine.agent);
+				}
+
 				if (isDynamicLyric) {
 					let beginTime = Number.POSITIVE_INFINITY;
 					let endTime = 0;
