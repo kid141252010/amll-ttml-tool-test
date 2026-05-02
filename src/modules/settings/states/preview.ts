@@ -10,6 +10,10 @@ export const showAnnotationLinesAtom = atomWithStorage(
 	false,
 );
 export const hideObsceneWordsAtom = atomWithStorage("hideObsceneWords", false);
+export const hideInvalidRomanizationAtom = atomWithStorage(
+	"hideInvalidRomanization",
+	false,
+);
 export const lyricWordFadeWidthAtom = atomWithStorage(
 	"lyricWordFadeWidth",
 	0.5,

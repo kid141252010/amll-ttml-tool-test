@@ -114,6 +114,7 @@
 			"showTranslation": "Show Translation",
 			"showRoman": "Show Romanization",
 			"maskObsceneWords": "Mask Obscene Words",
+			"hideInvalidRoman": "Hide Invalid Romanization",
 			"word": "Word",
 			"fadeWidth": "Fade Width"
 		},

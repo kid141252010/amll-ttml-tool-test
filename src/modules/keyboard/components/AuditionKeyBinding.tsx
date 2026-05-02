@@ -8,7 +8,7 @@ import {
 } from "$/modules/keyboard/commands";
 import { useCommand } from "$/modules/keyboard/hooks";
 import { processedLyricLinesAtom } from "$/modules/segmentation/utils/segment-processing";
-import { selectedWordIdAtom } from "$/modules/spectrogram/states/dnd";
+import { selectedWordsAtom } from "$/states/main";
 
 /**
  * 试听片段前后的时长 (毫秒)
@@ -16,11 +16,12 @@ import { selectedWordIdAtom } from "$/modules/spectrogram/states/dnd";
 const AUDITION_PADDING_MS = 500;
 
 export const AuditionKeyBinding = () => {
-	const selectedWordId = useAtomValue(selectedWordIdAtom);
+	const selectedWords = useAtomValue(selectedWordsAtom);
 	const processedLines = useAtomValue(processedLyricLinesAtom);
 
 	const selectedSegment = useMemo(() => {
-		if (!selectedWordId) return null;
+		if (selectedWords.size === 0) return null;
+		const selectedWordId = [...selectedWords][0];
 
 		for (const line of processedLines) {
 			const segment = line.segments.find(
@@ -29,7 +30,7 @@ export const AuditionKeyBinding = () => {
 			if (segment) return segment;
 		}
 		return null;
-	}, [selectedWordId, processedLines]);
+	}, [selectedWords, processedLines]);
 
 	// 播放选中片段前 500ms
 	useCommand(cmdAuditionSelectionBefore, () => {

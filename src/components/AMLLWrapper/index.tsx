@@ -23,6 +23,7 @@ import {
 	annotationFontAtom,
 	bgLineOpacityAtom,
 	fontScaleAtom,
+	hideInvalidRomanizationAtom,
 	languageFontsAtom,
 	lyricWordFadeWidthAtom,
 	lyricWidthAtom,
@@ -92,6 +93,7 @@ export const AMLLWrapper = memo(() => {
 	const showRomanLines = useAtomValue(showRomanLinesAtom);
 	const showAnnotationLines = useAtomValue(showAnnotationLinesAtom);
 	// const hideObsceneWords = useAtomValue(hideObsceneWordsAtom);
+	const hideInvalidRomanization = useAtomValue(hideInvalidRomanizationAtom);
 	const wordFadeWidth = useAtomValue(lyricWordFadeWidthAtom);
 	const normalizeSpaces = useAtomValue(amllNormalizeSpacesAtom);
 	const resetLineTimestamps = useAtomValue(amllResetLineTimestampsAtom);
@@ -147,11 +149,22 @@ export const AMLLWrapper = memo(() => {
 				...line,
 				translatedLyric: showTranslationLines ? line.translatedLyric : "",
 				romanLyric: showRomanLines ? line.romanLyric : "",
-				words: line.words.map((word) => ({
-					...word,
-					romanWord: showRomanLines ? word.romanWord : "",
-					ruby: showAnnotationLines ? word.ruby : undefined,
-				})),
+				words: line.words.map((word) => {
+					let romanWord = showRomanLines ? word.romanWord : "";
+					// 如果启用了屏蔽无效音译，检查原文和逐字音译是否相同
+					if (hideInvalidRomanization && romanWord) {
+						const originalText = word.word?.toUpperCase().trim() ?? "";
+						const romanText = romanWord.toUpperCase().trim();
+						if (originalText === romanText) {
+							romanWord = "";
+						}
+					}
+					return {
+						...word,
+						romanWord,
+						ruby: showAnnotationLines ? word.ruby : undefined,
+					};
+				}),
 				vocal: mapVocalTagsForPreview(line.vocal, vocalTagMap),
 			})),
 		);
@@ -160,6 +173,7 @@ export const AMLLWrapper = memo(() => {
 		showTranslationLines,
 		showRomanLines,
 		showAnnotationLines,
+		hideInvalidRomanization,
 	]);
 
 	const optimizeOptions = useMemo(

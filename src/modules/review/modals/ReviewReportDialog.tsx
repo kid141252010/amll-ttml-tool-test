@@ -34,6 +34,7 @@ import { confirmDialogAtom, reviewReportDialogAtom } from "$/states/dialogs";
 import {
 	reviewReportDraftsAtom,
 	reviewReviewedPrsAtom,
+	reviewSessionAtom,
 	reviewSingleRefreshAtom,
 } from "$/states/main";
 import {
@@ -126,6 +127,7 @@ export const ReviewReportDialog = () => {
 	const setUpsertNotification = useSetAtom(upsertNotificationAtom);
 	const removeNotification = useSetAtom(removeNotificationAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const submittedRef = useRef(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
@@ -268,6 +270,7 @@ export const ReviewReportDialog = () => {
 	const submitAndClose = () => {
 		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
+		setReviewSession(null);
 		closeDialog();
 	};
 	const getCleanReport = () => {

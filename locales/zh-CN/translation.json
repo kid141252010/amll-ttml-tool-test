@@ -120,6 +120,7 @@
 			"showAnnotation": "显示标注",
 			"showRoman": "显示音译",
 			"maskObsceneWords": "屏蔽脏字",
+			"hideInvalidRoman": "屏蔽无效音译",
 			"word": "单词",
 			"fadeWidth": "过渡宽度",
 			"font": "默认字体",
