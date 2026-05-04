@@ -805,21 +805,12 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		agentMap.set(agent.id, agent);
 	}
 
-	// 对唱状态计算上下文
-	const duetContext: DuetStateContext = {
-		agentId: undefined,
-		agentMap,
-		isGroup: false,
-		single: {
-			lastAgentId: agents.find((a) => a.type === "person")?.id ?? "v1",
-			currentAgentId: agents.find((a) => a.type === "person")?.id ?? "v1",
-			duetToggle: false,
-		},
-		group: {
-			lastAgentId: agents.find((a) => a.type === "group")?.id ?? "v2",
-			currentAgentId: agents.find((a) => a.type === "group")?.id ?? "v2",
-			duetToggle: true,
-		},
+	// 初始化对唱处理选项
+	const duetOptionsBase = calculateDuetOptions(agents);
+	const duetState: DuetProcessOptions = {
+		...duetOptionsBase,
+		currentAgentId: duetOptionsBase.mainAgentId,
+		duetToggle: false,
 	};
 
 	const lyricLines: LyricLine[] = [];
@@ -854,14 +845,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		// 计算当前行的对唱状态
 		let lineIsDuet = isDuet;
 		if (!isBG) {
-			// 设置 agent id 并判断类型
-			duetContext.agentId = lineAgentId ?? undefined;
-			duetContext.isGroup = lineAgentId
-				? agentMap.get(lineAgentId)?.type === "group"
-				: false;
-
-			// 使用可复用的对唱状态计算函数（内部会更新上下文）
-			lineIsDuet = calculateDuetState(duetContext);
+			// 使用新的对唱状态计算函数
+			const result = calculateDuetState(lineAgentId ?? undefined, duetState);
+			lineIsDuet = result.isDuet;
+			duetState.currentAgentId = result.newCurrentAgentId;
+			duetState.duetToggle = result.newDuetToggle;
 		}
 
 		const line: LyricLine = {
@@ -1177,78 +1165,125 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 }
 
 /**
- * 对唱状态计算上下文
+ * 对唱处理选项
  */
-export interface DuetStateContext {
-	/** 当前行的 agent ID */
-	agentId: string | undefined;
-	/** agent 查找映射 */
-	agentMap: Map<string, TTMLAgent>;
-	/** 是否为 group 类型的行 */
-	isGroup: boolean;
-	/** Single 类型参数组 */
-	single: {
-		/** 主歌手 agent ID */
-		lastAgentId: string;
-		/** 当前 agent ID（用于切换判断） */
-		currentAgentId: string;
-		/** 当前对唱切换状态 */
-		duetToggle: boolean;
-	};
-	/** Group 类型参数组 */
-	group: {
-		/** 主歌手 agent ID */
-		lastAgentId: string;
-		/** 当前 agent ID（用于切换判断） */
-		currentAgentId: string;
-		/** 当前对唱切换状态 */
-		duetToggle: boolean;
+export interface DuetProcessOptions {
+	/** agent 列表 */
+	agents: TTMLAgent[];
+	/** 是否使用复杂对唱模式（group 数量 >= 2） */
+	isComplexMode: boolean;
+	/** 主歌手 agent ID */
+	mainAgentId: string;
+	/** 当前 agent ID（用于切换判断） */
+	currentAgentId: string;
+	/** 当前对唱状态 */
+	duetToggle: boolean;
+}
+
+/**
+ * 对唱处理结果
+ */
+export interface DuetProcessResult {
+	/** 当前行是否为对唱 */
+	isDuet: boolean;
+	/** 新的当前 agent ID */
+	newCurrentAgentId: string;
+	/** 新的对唱状态 */
+	newDuetToggle: boolean;
+}
+
+/**
+ * 计算对唱处理选项
+ * @param agents - agent 列表
+ * @returns 对唱处理选项
+ */
+export function calculateDuetOptions(agents: TTMLAgent[]): Omit<DuetProcessOptions, "currentAgentId" | "duetToggle"> {
+	// 统计 group 数量
+	const groupCount = agents.filter((a) => a.type === "group").length;
+
+	// 找到第一个 person 类型 agent，如果没有则找第一个 group
+	const firstPerson = agents.find((a) => a.type === "person");
+	const firstGroup = agents.find((a) => a.type === "group");
+	const mainAgentId = firstPerson?.id ?? firstGroup?.id ?? "";
+
+	return {
+		agents,
+		isComplexMode: groupCount >= 2,
+		mainAgentId,
 	};
 }
 
 /**
- * 计算行的对唱状态，并更新上下文中的状态
- * @param ctx - 对唱状态计算上下文
- * @returns 当前行的 isDuet 值
+ * 计算行的对唱状态（参考 C++ 实现）
+ * @param lineAgentId - 当前行的 agent ID
+ * @param options - 对唱处理选项
+ * @returns 对唱处理结果
  */
-export function calculateDuetState(ctx: DuetStateContext): boolean {
-	if (!ctx.agentId) {
-		return ctx.agentId !== "v1";
+export function calculateDuetState(
+	lineAgentId: string | undefined,
+	options: DuetProcessOptions,
+): DuetProcessResult {
+	const { agents, isComplexMode, mainAgentId, currentAgentId, duetToggle } = options;
+
+	// 如果没有 agent ID，返回默认值
+	if (!lineAgentId) {
+		return {
+			isDuet: false,
+			newCurrentAgentId: currentAgentId,
+			newDuetToggle: duetToggle,
+		};
 	}
 
-	const agent = ctx.agentMap.get(ctx.agentId);
+	// 查找行的 agent 信息
+	const lineAgent = agents.find((a) => a.id === lineAgentId);
 
-	if (!agent) {
-		// 找不到 agent 信息，使用原来的逻辑
-		const newDuetToggle = ctx.agentId !== ctx.single.lastAgentId;
-		// 更新上下文中的状态
-		if (ctx.isGroup) {
-			ctx.group.currentAgentId = ctx.agentId;
-			ctx.group.duetToggle = newDuetToggle;
-		} else {
-			ctx.single.currentAgentId = ctx.agentId;
-			ctx.single.duetToggle = newDuetToggle;
+	// 经典对唱模式（group 数量 < 2）
+	if (!isComplexMode) {
+		// 如果找不到 agent 或者是 group 类型，不对唱
+		if (!lineAgent || lineAgent.type === "group") {
+			return {
+				isDuet: false,
+				newCurrentAgentId: currentAgentId,
+				newDuetToggle: duetToggle,
+			};
 		}
-		return newDuetToggle;
+
+		// person/other 类型：agent 切换时翻转对唱状态
+		let newDuetToggle = duetToggle;
+		let newCurrentAgentId = currentAgentId;
+
+		if (mainAgentId !== lineAgentId) {
+			if (currentAgentId !== lineAgentId) {
+				newDuetToggle = !duetToggle;
+				newCurrentAgentId = lineAgentId;
+			}
+			return {
+				isDuet: newDuetToggle,
+				newCurrentAgentId,
+				newDuetToggle,
+			};
+		}
+
+		// 主歌手，不对唱
+		return {
+			isDuet: false,
+			newCurrentAgentId: lineAgentId,
+			newDuetToggle: false,
+		};
 	}
 
-	if (ctx.isGroup) {
-		// 如果为 group，与 currentAgentId 比较
-		if (ctx.agentId !== ctx.group.currentAgentId) {
-			ctx.group.duetToggle = !ctx.group.duetToggle;
-		}
-		// 更新上下文中的状态
-		ctx.group.currentAgentId = ctx.agentId;
-		ctx.group.lastAgentId = ctx.agentId;
-		return ctx.group.duetToggle;
-	} else {
-		// 如果为 person 或 other，与 currentAgentId 比较
-		if (ctx.agentId !== ctx.single.currentAgentId) {
-			ctx.single.duetToggle = !ctx.single.duetToggle;
-		}
-		// 更新上下文中的状态
-		ctx.single.currentAgentId = ctx.agentId;
-		ctx.single.lastAgentId = ctx.agentId;
-		return ctx.single.duetToggle;
+	// 复杂对唱模式（group 数量 >= 2）：所有行都参与对唱切换
+	let newDuetToggle = duetToggle;
+	let newCurrentAgentId = currentAgentId;
+
+	if (currentAgentId !== lineAgentId) {
+		newDuetToggle = !duetToggle;
+		newCurrentAgentId = lineAgentId;
 	}
+
+	return {
+		isDuet: newDuetToggle,
+		newCurrentAgentId,
+		newDuetToggle,
+	};
 }
