@@ -10,6 +10,12 @@
  */
 
 import {
+	Add16Regular,
+	ArrowSwap16Regular,
+	Delete16Regular,
+	Edit16Regular,
+} from "@fluentui/react-icons";
+import {
 	Box,
 	Button,
 	Checkbox,
@@ -22,12 +28,6 @@ import {
 	TextField,
 	Tooltip,
 } from "@radix-ui/themes";
-import {
-	Add16Regular,
-	ArrowSwap16Regular,
-	Delete16Regular,
-	Edit16Regular,
-} from "@fluentui/react-icons";
 import { atom, useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
@@ -42,6 +42,15 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import {
+	buildWordRomanizationAutoApplyKey,
+	shouldAutoApplyWordRomanizationLanguage,
+} from "$/modules/lyric-editor/utils/word-romanization";
+import {
+	calculateDuetState,
+	type DuetStateContext,
+} from "$/modules/project/logic/ttml-parser";
 import {
 	LayoutMode,
 	layoutModeAtom,
@@ -49,36 +58,34 @@ import {
 	showLineTranslationAtom,
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
-import {
-	customSongPartPresetsAtom,
-	editingTimeFieldAtom,
-	lyricLinesAtom,
-	requestFocusAtom,
-	selectedLinesAtom,
-	selectedWordsAtom,
-	showEndTimeAsDurationAtom,
-} from "$/states/main.ts";
+import { amllAutoGenerateRubyFromRomanizationAtom } from "$/modules/settings/states/amll";
 import {
 	addLanguageDialogAtom,
 	confirmDialogAtom,
 	editLanguageDialogAtom,
 } from "$/states/dialogs";
 import {
+	customSongPartPresetsAtom,
+	editingTimeFieldAtom,
+	lyricLinesAtom,
+	projectIdAtom,
+	requestFocusAtom,
+	selectedLinesAtom,
+	selectedWordsAtom,
+	showEndTimeAsDurationAtom,
+} from "$/states/main.ts";
+import {
 	type LyricLine,
 	type LyricWord,
+	newLyricLine,
 	type TTMLAgent,
 	type TTMLTranslationWord,
-	newLyricLine,
 } from "$/types/ttml";
-import {
-	calculateDuetState,
-	type DuetStateContext,
-} from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import {
 	getActiveWordRomanizationLang,
 	getPreferredWordRomanizationLang,
+	syncTimedWordTracksForWordTiming,
 	syncWordRomanizationForWord,
 } from "$/modules/lyric-editor/utils/word-romanization-language";
 import { RibbonFrame, RibbonSection } from "./common";
@@ -116,6 +123,9 @@ function EditField<
 	);
 
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const autoGenerateRubyFromRomanization = useAtomValue(
+		amllAutoGenerateRubyFromRomanizationAtom,
+	);
 	const { t } = useTranslation();
 	const setEditingTimeField = useSetAtom(editingTimeFieldAtom);
 
@@ -276,6 +286,7 @@ function EditField<
 		(rawValue: string) => {
 			try {
 				const selectedItems = store.get(itemAtom);
+				const fieldKey = String(fieldName);
 				if (fieldName === "endTime" && showDurationInput) {
 					const trimmedValue = rawValue.trim();
 					if (!/^\d+$/.test(trimmedValue)) {
@@ -306,7 +317,16 @@ function EditField<
 									) {
 										continue;
 									}
+									const previousTiming = {
+										startTime: word.startTime,
+										endTime: word.endTime,
+									};
 									word.endTime = newEndTime;
+									syncTimedWordTracksForWordTiming(
+										line,
+										previousTiming,
+										word,
+									);
 								}
 							} else if (selectedItems.has(line.id)) {
 								line.endTime = line.startTime + durationValue;
@@ -338,10 +358,26 @@ function EditField<
 											String(value ?? ""),
 											targetRomanizationLang,
 										);
-										applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+										if (autoGenerateRubyFromRomanization) {
+											applyGeneratedRuby(word, {
+												lineWords: line.words,
+												wordIndex,
+											});
+										}
 										continue;
 									}
+									const previousTiming = {
+										startTime: word.startTime,
+										endTime: word.endTime,
+									};
 									(word as L)[fieldName] = value;
+									if (fieldKey === "startTime" || fieldKey === "endTime") {
+										syncTimedWordTracksForWordTiming(
+											line,
+											previousTiming,
+											word,
+										);
+									}
 								}
 							}
 						} else {
@@ -366,6 +402,7 @@ function EditField<
 			parser,
 			showDurationInput,
 			flashInvalidDurationInput,
+			autoGenerateRubyFromRomanization,
 		],
 	);
 
@@ -1664,9 +1701,14 @@ const PrimaryContentField: FC = () => {
 const MultilingualField: FC = () => {
 	const { t } = useTranslation();
 	const lyricLines = useAtomValue(lyricLinesAtom);
+	const projectId = useAtomValue(projectIdAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
 	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
+	const autoGenerateRubyFromRomanization = useAtomValue(
+		amllAutoGenerateRubyFromRomanizationAtom,
+	);
+	const wordRomanizationAutoApplyKeyRef = useRef<string | undefined>(undefined);
 	const placeholder = t(
 		"ribbonBar.editMode.multilingualPlaceholder",
 		"请选择语言",
@@ -1876,12 +1918,18 @@ const MultilingualField: FC = () => {
 								r.startTime === word.startTime && r.endTime === word.endTime,
 						);
 						word.romanWord = match?.text ?? "";
-						applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+						if (autoGenerateRubyFromRomanization) {
+							applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+						}
 					}
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog],
+		[
+			editLyricLines,
+			setAddLanguageDialog,
+			autoGenerateRubyFromRomanization,
+		],
 	);
 
 	const openAddTranslationDialog = useCallback(() => {
@@ -1958,10 +2006,22 @@ const MultilingualField: FC = () => {
 
 	useEffect(() => {
 		// 自动选择第一个逐字音译语言
-		if (wordRomanizationLanguages.length > 0 && !currentWordRomanizationLang) {
+		const autoApplyKey = buildWordRomanizationAutoApplyKey(
+			projectId,
+			wordRomanizationLanguages,
+		);
+		const shouldApply = shouldAutoApplyWordRomanizationLanguage({
+			availableLanguages: wordRomanizationLanguages,
+			currentLanguage: currentWordRomanizationLang,
+			currentAutoApplyKey: autoApplyKey,
+			previousAutoApplyKey: wordRomanizationAutoApplyKeyRef.current,
+		});
+		wordRomanizationAutoApplyKeyRef.current = autoApplyKey;
+		if (shouldApply) {
 			applyWordRomanizationLang(wordRomanizationLanguages[0]);
 		}
 	}, [
+		projectId,
 		wordRomanizationLanguages,
 		currentWordRomanizationLang,
 		applyWordRomanizationLang,
@@ -2069,13 +2129,20 @@ const MultilingualField: FC = () => {
 									r.startTime === word.startTime && r.endTime === word.endTime,
 							);
 							word.romanWord = match?.text ?? "";
-							applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+							if (autoGenerateRubyFromRomanization) {
+								applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+							}
 						}
 					}
 				});
 			},
 		});
-	}, [currentWordRomanizationLang, setEditLanguageDialog, editLyricLines]);
+	}, [
+		currentWordRomanizationLang,
+		setEditLanguageDialog,
+		editLyricLines,
+		autoGenerateRubyFromRomanization,
+	]);
 
 	return (
 		<Grid

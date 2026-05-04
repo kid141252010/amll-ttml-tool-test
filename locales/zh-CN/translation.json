@@ -245,6 +245,17 @@
 				"action": "打开管理器"
 			}
 		},
+		"amll": {
+			"title": "AMLL",
+			"subtitle": "歌词优化选项",
+			"normalizeSpaces": "规范化空格",
+			"resetLineTimestamps": "重置行时间戳",
+			"convertExcessiveBackgroundLines": "合并多行背景人声",
+			"syncMainAndBackgroundLines": "同步主/背景人声时间",
+			"cleanUnintentionalOverlaps": "清理非刻意重叠",
+			"tryAdvanceStartTime": "尝试提前开始",
+			"autoGenerateRubyFromRomanization": "逐字音译自动生成 Ruby"
+		},
 		"connect": {
 			"title": "连接",
 			"checking": "验证中...",

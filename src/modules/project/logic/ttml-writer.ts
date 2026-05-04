@@ -40,6 +40,8 @@ type LineMetadata = {
 	bg: string;
 };
 
+const TTML_NAMESPACE = "http://www.w3.org/ns/ttml";
+
 export function stripXmlDeclaration(xml: string): string {
 	return xml.replace(/^\uFEFF/, "").replace(/^<\?xml\b[^?]*\?>\s*/i, "");
 }
@@ -84,22 +86,26 @@ export default function exportTTMLText(
 
 	const doc = new Document();
 
+	function createTtmlElement(tagName: string): Element {
+		return doc.createElementNS(TTML_NAMESPACE, tagName);
+	}
+
 	function createRubyWordElement(word: LyricWord): Element {
-		const container = doc.createElement("span");
+		const container = createTtmlElement("span");
 		container.setAttribute("tts:ruby", "container");
 		if (word.obscene) container.setAttribute("amll:obscene", "true");
 		if (word.emptyBeat)
 			container.setAttribute("amll:empty-beat", `${word.emptyBeat}`);
 		if (word.rubyPhraseStart)
 			container.setAttribute("amll:rubyPhraseStart", "true");
-		const base = doc.createElement("span");
+		const base = createTtmlElement("span");
 		base.setAttribute("tts:ruby", "base");
 		base.appendChild(doc.createTextNode(word.word));
 		container.appendChild(base);
-		const textContainer = doc.createElement("span");
+		const textContainer = createTtmlElement("span");
 		textContainer.setAttribute("tts:ruby", "textContainer");
 		for (const rubyWord of word.ruby ?? []) {
-			const rubySpan = doc.createElement("span");
+			const rubySpan = createTtmlElement("span");
 			rubySpan.setAttribute("tts:ruby", "text");
 			rubySpan.setAttribute("begin", msToTimestamp(rubyWord.startTime));
 			rubySpan.setAttribute("end", msToTimestamp(rubyWord.endTime));
@@ -118,7 +124,7 @@ export default function exportTTMLText(
 		if (Array.isArray(word.ruby) && word.ruby.length > 0) {
 			return createRubyWordElement(word);
 		}
-		const span = doc.createElement("span");
+		const span = createTtmlElement("span");
 		span.setAttribute("begin", msToTimestamp(word.startTime));
 		span.setAttribute("end", msToTimestamp(word.endTime));
 		if (word.obscene) span.setAttribute("amll:obscene", "true");
@@ -192,7 +198,7 @@ export default function exportTTMLText(
 			.join(",");
 	}
 
-	const ttRoot = doc.createElement("tt");
+	const ttRoot = createTtmlElement("tt");
 
 	ttRoot.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
 	ttRoot.setAttribute("xmlns:ttm", "http://www.w3.org/ns/ttml#metadata");
@@ -226,14 +232,14 @@ export default function exportTTMLText(
 
 	doc.appendChild(ttRoot);
 
-	const head = doc.createElement("head");
+	const head = createTtmlElement("head");
 
 	ttRoot.appendChild(head);
 
-	const body = doc.createElement("body");
+	const body = createTtmlElement("body");
 	const hasOtherPerson = !!lyric.find((v) => v.isDuet);
 
-	const metadataEl = doc.createElement("metadata");
+	const metadataEl = createTtmlElement("metadata");
 
 	// 导出 agents 数组
 	const agents = ttmlLyric.agents ?? [];
@@ -334,7 +340,7 @@ export default function exportTTMLText(
 	);
 
 	for (const param of params) {
-		const paramDiv = doc.createElement("div");
+		const paramDiv = createTtmlElement("div");
 		const { beginTime, endTime } = getLinesTimingBounds(param);
 
 		paramDiv.setAttribute("begin", msToTimestamp(beginTime));
@@ -353,7 +359,7 @@ export default function exportTTMLText(
 			const nextLine = param[lineIndex + 1];
 			const bgLine = nextLine?.isBG ? nextLine : undefined;
 			const lineBounds = getLinesTimingBounds(bgLine ? [line, bgLine] : [line]);
-			const lineP = doc.createElement("p");
+			const lineP = createTtmlElement("p");
 
 			lineP.setAttribute("begin", msToTimestamp(lineBounds.beginTime));
 			lineP.setAttribute("end", msToTimestamp(lineBounds.endTime));
@@ -393,7 +399,7 @@ export default function exportTTMLText(
 			if (bgLine) {
 				lineIndex++;
 
-				const bgLineSpan = doc.createElement("span");
+				const bgLineSpan = createTtmlElement("span");
 				bgLineSpan.setAttribute("ttm:role", "x-bg");
 
 				// 为 bg 行导出 agent 属性（如果有的话）

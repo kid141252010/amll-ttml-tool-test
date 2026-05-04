@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
 import {
 	getPreferredWordRomanizationLang,
+	syncTimedWordTracksForWordTiming,
 	syncWordRomanizationForWord,
 } from "./word-romanization-language";
 
@@ -113,6 +114,36 @@ describe("word romanization language synchronization", () => {
 		expect(targetLine.words[0].romanWord).toBe("");
 		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
 			{ startTime: 1200, endTime: 1400, text: "de" },
+		]);
+	});
+
+	test("updates timed word tracks when a word timing changes", () => {
+		const targetLine = line([word("顔", 1000, 1200, "kao")], {
+			wordRomanizationByLang: {
+				"ja-Latn": [{ startTime: 1000, endTime: 1200, text: "kao" }],
+				"en-Latn": [{ startTime: 1000, endTime: 1200, text: "face" }],
+			},
+			wordTranslationByLang: {
+				en: [{ startTime: 1000, endTime: 1200, text: "face" }],
+			},
+		});
+
+		targetLine.words[0].startTime = 1050;
+		targetLine.words[0].endTime = 1250;
+		syncTimedWordTracksForWordTiming(
+			targetLine,
+			{ startTime: 1000, endTime: 1200 },
+			{ startTime: 1050, endTime: 1250 },
+		);
+
+		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
+			{ startTime: 1050, endTime: 1250, text: "kao" },
+		]);
+		expect(targetLine.wordRomanizationByLang?.["en-Latn"]).toEqual([
+			{ startTime: 1050, endTime: 1250, text: "face" },
+		]);
+		expect(targetLine.wordTranslationByLang?.en).toEqual([
+			{ startTime: 1050, endTime: 1250, text: "face" },
 		]);
 	});
 });

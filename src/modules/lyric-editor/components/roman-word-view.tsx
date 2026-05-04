@@ -9,13 +9,15 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { lyricLinesAtom } from "$/states/main";
-import type { LyricWord } from "$/types/ttml";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { getRomanWordEditState } from "$/modules/lyric-editor/utils/word-romanization";
 import {
 	getPreferredWordRomanizationLang,
 	syncWordRomanizationForWord,
 } from "$/modules/lyric-editor/utils/word-romanization-language";
+import { amllAutoGenerateRubyFromRomanizationAtom } from "$/modules/settings/states/amll";
+import { lyricLinesAtom } from "$/states/main";
+import type { LyricWord } from "$/types/ttml";
 import styles from "./roman-word-view.module.css";
 
 interface RomanWordViewProps {
@@ -34,6 +36,9 @@ export const RomanWordView = ({
 	const word = useAtomValue(wordAtom);
 	const [editingIndex, setEditingIndex] = useAtom(editingIndexAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const autoGenerateRubyFromRomanization = useAtomValue(
+		amllAutoGenerateRubyFromRomanizationAtom,
+	);
 	const [inputValue, setInputValue] = useState(word.romanWord);
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,22 +59,32 @@ export const RomanWordView = ({
 							newValue,
 							targetLang,
 						);
-						applyGeneratedRuby(targetWord, {
-							lineWords: line.words,
-							wordIndex,
-						});
+						if (autoGenerateRubyFromRomanization) {
+							applyGeneratedRuby(targetWord, {
+								lineWords: line.words,
+								wordIndex,
+							});
+						}
 						break;
 					}
 				});
 			}
 			setEditingIndex(null);
 		},
-		[word.id, word.romanWord, editLyricLines, setEditingIndex],
+		[
+			word.id,
+			word.romanWord,
+			editLyricLines,
+			setEditingIndex,
+			autoGenerateRubyFromRomanization,
+		],
 	);
 
 	useEffect(() => {
 		if (isEditing) {
-			setInputValue(word.romanWord || suggestedRoman || "");
+			setInputValue(
+				getRomanWordEditState(word.romanWord, suggestedRoman).value,
+			);
 		}
 	}, [isEditing, word.romanWord, suggestedRoman]);
 
@@ -115,6 +130,9 @@ export const RomanWordView = ({
 					word.romanWarning && styles.warning,
 				)}
 				value={inputValue}
+				placeholder={
+					getRomanWordEditState(word.romanWord, suggestedRoman).placeholder
+				}
 				onChange={(e) => setInputValue(e.currentTarget.value)}
 				onBlur={(e) => saveAndStopEditing(e.currentTarget.value)}
 				onKeyDown={handleKeyDown}

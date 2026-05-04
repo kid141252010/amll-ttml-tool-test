@@ -19,7 +19,10 @@ class MinimalElement {
 	readonly childNodes: MinimalXmlNode[] = [];
 	private readonly attributes = new Map<string, string>();
 
-	constructor(private readonly tagName: string) {}
+	constructor(
+		private readonly tagName: string,
+		private readonly namespaceURI: string | null = null,
+	) {}
 
 	get firstChild(): MinimalXmlNode | null {
 		return this.childNodes[0] ?? null;
@@ -38,11 +41,29 @@ class MinimalElement {
 		this.attributes.set(name, value);
 	}
 
-	serialize(): string {
-		const attrs = Array.from(this.attributes.entries())
+	serialize(inheritedDefaultNamespace?: string): string {
+		const attributes = Array.from(this.attributes.entries());
+		const explicitDefaultNamespace = this.attributes.get("xmlns");
+		let childDefaultNamespace = inheritedDefaultNamespace;
+
+		if (explicitDefaultNamespace !== undefined) {
+			childDefaultNamespace = explicitDefaultNamespace;
+		} else if (this.namespaceURI) {
+			childDefaultNamespace = this.namespaceURI;
+			if (this.namespaceURI !== inheritedDefaultNamespace) {
+				attributes.unshift(["xmlns", this.namespaceURI]);
+			}
+		} else if (inheritedDefaultNamespace) {
+			childDefaultNamespace = "";
+			attributes.unshift(["xmlns", ""]);
+		}
+
+		const attrs = attributes
 			.map(([name, value]) => ` ${name}="${escapeAttribute(value)}"`)
 			.join("");
-		const children = this.childNodes.map(serializeNode).join("");
+		const children = this.childNodes
+			.map((child) => serializeNode(child, childDefaultNamespace))
+			.join("");
 		return `<${this.tagName}${attrs}>${children}</${this.tagName}>`;
 	}
 }
@@ -60,12 +81,16 @@ class MinimalDocument {
 		return new MinimalElement(tagName);
 	}
 
+	createElementNS(namespaceURI: string, tagName: string): MinimalElement {
+		return new MinimalElement(tagName, namespaceURI);
+	}
+
 	createTextNode(value: string): MinimalTextNode {
 		return new MinimalTextNode(value);
 	}
 
 	serialize(): string {
-		return this.childNodes.map(serializeNode).join("");
+		return this.childNodes.map((child) => serializeNode(child)).join("");
 	}
 }
 
@@ -93,9 +118,15 @@ class MinimalXsltProcessor {
 	}
 }
 
-function serializeNode(node: MinimalXmlNode): string {
+function serializeNode(
+	node: MinimalXmlNode,
+	inheritedDefaultNamespace?: string,
+): string {
 	if (node instanceof MinimalTextNode) {
 		return escapeText(node.nodeValue ?? "");
+	}
+	if (node instanceof MinimalElement) {
+		return node.serialize(inheritedDefaultNamespace);
 	}
 	return node.serialize();
 }
@@ -234,6 +265,7 @@ describe("ttml writer namespace serialization", () => {
 
 			expect(output).toContain('<tt xmlns="http://www.w3.org/ns/ttml"');
 			expect(output).toContain('ttm:role="x-bg"');
+			expect(output).not.toMatch(/<(?:head|body|div|p|span)\b[^>]*\sxmlns=""/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns=/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns:ttm=/);
 		},

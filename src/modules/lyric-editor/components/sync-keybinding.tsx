@@ -12,6 +12,7 @@ import {
 	getSynchronizableUnits,
 	isSynchronizableLine,
 } from "$/modules/lyric-editor/utils/lyric-states";
+import { syncTimedWordTracksForWordTiming } from "$/modules/lyric-editor/utils/word-romanization-language";
 import {
 	SyncJudgeMode,
 	smartFirstWordAtom,
@@ -66,12 +67,18 @@ const setUnitStartTime = (
 	time: number,
 ) => {
 	const word = line.words[wordIndex];
+	const previousTiming = {
+		startTime: word.startTime,
+		endTime: word.endTime,
+	};
 	if (rubyIndex !== undefined && word.ruby?.[rubyIndex]) {
 		word.ruby[rubyIndex].startTime = time;
 		updateRubyParentTime(word);
+		syncTimedWordTracksForWordTiming(line, previousTiming, word);
 		return;
 	}
 	word.startTime = time;
+	syncTimedWordTracksForWordTiming(line, previousTiming, word);
 };
 
 const setUnitEndTime = (
@@ -81,12 +88,18 @@ const setUnitEndTime = (
 	time: number,
 ) => {
 	const word = line.words[wordIndex];
+	const previousTiming = {
+		startTime: word.startTime,
+		endTime: word.endTime,
+	};
 	if (rubyIndex !== undefined && word.ruby?.[rubyIndex]) {
 		word.ruby[rubyIndex].endTime = time;
 		updateRubyParentTime(word);
+		syncTimedWordTracksForWordTiming(line, previousTiming, word);
 		return;
 	}
 	word.endTime = time;
+	syncTimedWordTracksForWordTiming(line, previousTiming, word);
 };
 
 export const SyncKeyBinding: FC = () => {

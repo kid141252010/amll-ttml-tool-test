@@ -12,9 +12,10 @@ import { useAtom, useAtomValue } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { amllAutoGenerateRubyFromRomanizationAtom } from "$/modules/settings/states/amll";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 
@@ -26,6 +27,9 @@ export const DistributeRomanizationDialog = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
 	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const autoGenerateRubyFromRomanization = useAtomValue(
+		amllAutoGenerateRubyFromRomanizationAtom,
+	);
 
 	const [scope, setScope] = useState<Scope>("all");
 	const [customStart, setCustomStart] = useState("1");
@@ -95,10 +99,12 @@ export const DistributeRomanizationDialog = () => {
 							line.words.forEach((word, wordIndex) => {
 								if (results[wordIndex]) {
 									word.romanWord = results[wordIndex];
-									applyGeneratedRuby(word, {
-										lineWords: line.words,
-										wordIndex,
-									});
+									if (autoGenerateRubyFromRomanization) {
+										applyGeneratedRuby(word, {
+											lineWords: line.words,
+											wordIndex,
+										});
+									}
 								}
 							});
 							applyRomanizationWarnings(line.words);
@@ -110,7 +116,7 @@ export const DistributeRomanizationDialog = () => {
 									([key, value]) => {
 										if (value === fullRoman) {
 											targetLang = key;
-											delete line.romanLyricByLang![key];
+											delete line.romanLyricByLang?.[key];
 										}
 									},
 								);

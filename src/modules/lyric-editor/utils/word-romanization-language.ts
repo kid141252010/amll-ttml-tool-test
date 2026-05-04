@@ -77,6 +77,16 @@ export function syncWordRomanizationForWord(
 		sortRomanizationEntriesByLine(line, entries);
 }
 
+export function syncTimedWordTracksForWordTiming(
+	line: LyricLine,
+	previousTiming: Pick<LyricWord, "startTime" | "endTime">,
+	nextTiming: Pick<LyricWord, "startTime" | "endTime">,
+) {
+	if (hasSameTiming(previousTiming, nextTiming)) return;
+	syncTimedTextTrackMap(line.wordRomanizationByLang, previousTiming, nextTiming);
+	syncTimedTextTrackMap(line.wordTranslationByLang, previousTiming, nextTiming);
+}
+
 function getFirstWordRomanizationLang(ttmlLyric: TTMLLyric): string | undefined {
 	for (const line of ttmlLyric.lyricLines) {
 		const lang = Object.keys(line.wordRomanizationByLang ?? {}).find(
@@ -122,6 +132,23 @@ function sortRomanizationEntriesByLine(
 function normalizeLang(lang: string | undefined): string | undefined {
 	const normalized = lang?.trim();
 	return normalized || undefined;
+}
+
+function syncTimedTextTrackMap<
+	T extends Pick<LyricWord, "startTime" | "endTime">,
+>(
+	byLang: Record<string, T[]> | undefined,
+	previousTiming: Pick<LyricWord, "startTime" | "endTime">,
+	nextTiming: Pick<LyricWord, "startTime" | "endTime">,
+) {
+	if (!byLang) return;
+	for (const entries of Object.values(byLang)) {
+		for (const entry of entries) {
+			if (!hasSameTiming(entry, previousTiming)) continue;
+			entry.startTime = nextTiming.startTime;
+			entry.endTime = nextTiming.endTime;
+		}
+	}
 }
 
 function hasSameTiming(
