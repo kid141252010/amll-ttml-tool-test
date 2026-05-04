@@ -514,6 +514,7 @@ export default function exportTTMLText(
 			for (const [lang, data] of collectWordRomanizationTracks(
 				line,
 				bgLine,
+				ttmlLyric.defaultRomanizationLang,
 			).entries()) {
 				if (data.mainRoman.length === 0 && data.bgRoman.length === 0) continue;
 				// 逐字音译优先：只覆盖当前 itunes:key 的逐行音译

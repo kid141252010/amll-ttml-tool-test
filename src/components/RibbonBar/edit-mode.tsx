@@ -76,6 +76,11 @@ import {
 	type DuetStateContext,
 } from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
+import {
+	getActiveWordRomanizationLang,
+	getPreferredWordRomanizationLang,
+	syncWordRomanizationForWord,
+} from "$/modules/lyric-editor/utils/word-romanization-language";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
@@ -313,10 +318,29 @@ function EditField<
 				}
 				const value = parser(rawValue);
 				editLyricLines((state) => {
+					const targetRomanizationLang =
+						isWordField && fieldName === "romanWord"
+							? getPreferredWordRomanizationLang(state)
+							: undefined;
 					for (const line of state.lyricLines) {
 						if (isWordField) {
-							for (const word of line.words) {
+							for (
+								let wordIndex = 0;
+								wordIndex < line.words.length;
+								wordIndex++
+							) {
+								const word = line.words[wordIndex];
 								if (selectedItems.has(word.id)) {
+									if (fieldName === "romanWord" && targetRomanizationLang) {
+										syncWordRomanizationForWord(
+											line,
+											word,
+											String(value ?? ""),
+											targetRomanizationLang,
+										);
+										applyGeneratedRuby(word, { lineWords: line.words, wordIndex });
+										continue;
+									}
 									(word as L)[fieldName] = value;
 								}
 							}
@@ -1749,38 +1773,10 @@ const MultilingualField: FC = () => {
 		return matchedLang;
 	}, [lyricLines]);
 
-	const currentWordRomanizationLang = useMemo(() => {
-		let matchedLang: string | undefined;
-		for (const line of lyricLines.lyricLines) {
-			const byLang = line.wordRomanizationByLang;
-			if (!byLang) continue;
-			let lineMatched: string | undefined;
-			for (const [lang, romans] of Object.entries(byLang)) {
-				if (romans.length === 0) continue;
-				let matches = true;
-				for (const word of line.words) {
-					if (word.word.trim().length === 0) continue;
-					const match = romans.find(
-						(r) => r.startTime === word.startTime && r.endTime === word.endTime,
-					);
-					const roman = match?.text ?? "";
-					if (roman.trim().length === 0) continue;
-					if (word.romanWord !== roman) {
-						matches = false;
-						break;
-					}
-				}
-				if (matches) {
-					lineMatched = lang;
-					break;
-				}
-			}
-			if (!lineMatched) return undefined;
-			if (matchedLang && matchedLang !== lineMatched) return undefined;
-			matchedLang = lineMatched;
-		}
-		return matchedLang;
-	}, [lyricLines]);
+	const currentWordRomanizationLang = useMemo(
+		() => getActiveWordRomanizationLang(lyricLines),
+		[lyricLines],
+	);
 
 	const applyTranslationLang = useCallback(
 		function applyTranslationLangInner(lang: string) {

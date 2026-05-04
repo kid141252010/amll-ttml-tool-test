@@ -81,6 +81,25 @@ describe("ttml timed text helpers", () => {
 		]);
 	});
 
+	test("collects word.romanWord fallback into the configured default language", () => {
+		const collectWithFallback = collectWordRomanizationTracks as (
+			line: LyricLine,
+			bgLine: LyricLine | undefined,
+			fallbackLang: string,
+		) => ReturnType<typeof collectWordRomanizationTracks>;
+
+		const tracks = collectWithFallback(
+			line([word("顔", 1000, 1200, "kao")]),
+			undefined,
+			"ja-Latn",
+		);
+
+		expect(tracks.has(TtmlTextTrackLanguage.Untagged)).toBe(false);
+		expect(tracks.get("ja-Latn")?.mainRoman).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "kao" },
+		]);
+	});
+
 	test("matches duplicate timed words by consuming timed text in order", () => {
 		const matches = matchTimedTextItemsInOrder(
 			[word("a", 1000, 1200), word("b", 1000, 1200)],

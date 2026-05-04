@@ -239,3 +239,25 @@ describe("ttml writer namespace serialization", () => {
 		},
 	);
 });
+
+describe("ttml writer romanization language fallback", () => {
+	test("exports word.romanWord fallback using the imported default romanization language", () => {
+		const output = exportTTMLText({
+			metadata: [],
+			agents: [],
+			lyricLang: "ja",
+			defaultRomanizationLang: "ja-Latn",
+			lyricLines: [
+				line([
+					word("顔", 1000, 1200, "kao"),
+					word("で", 1200, 1400, "de"),
+				]),
+			],
+		});
+
+		expect(output).toContain('<transliteration xml:lang="ja-Latn">');
+		expect(output).toContain('<text for="L1">');
+		expect(output).toContain(">kao<");
+		expect(output).not.toContain("<transliteration><text");
+	});
+});

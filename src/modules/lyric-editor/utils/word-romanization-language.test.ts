@@ -1,0 +1,118 @@
+import { describe, expect, test } from "vitest";
+import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
+import {
+	getPreferredWordRomanizationLang,
+	syncWordRomanizationForWord,
+} from "./word-romanization-language";
+
+const word = (
+	wordText: string,
+	startTime: number,
+	endTime: number,
+	romanWord = "",
+	overrides: Partial<LyricWord> = {},
+): LyricWord => ({
+	id: `${wordText}-${startTime}-${endTime}`,
+	word: wordText,
+	startTime,
+	endTime,
+	obscene: false,
+	emptyBeat: 0,
+	romanWord,
+	rubyPhraseStart: false,
+	...overrides,
+});
+
+const line = (
+	words: LyricWord[],
+	overrides: Partial<LyricLine> = {},
+): LyricLine => ({
+	id: `line-${words.map((item) => item.id).join("-")}`,
+	words,
+	translatedLyric: "",
+	romanLyric: "",
+	isBG: false,
+	isDuet: false,
+	startTime: words[0]?.startTime ?? 0,
+	endTime: words[words.length - 1]?.endTime ?? 0,
+	ignoreSync: false,
+	vocal: [],
+	...overrides,
+});
+
+const lyric = (
+	lyricLines: LyricLine[],
+	overrides: Partial<TTMLLyric> = {},
+): TTMLLyric => ({
+	metadata: [],
+	agents: [],
+	lyricLines,
+	...overrides,
+});
+
+describe("word romanization language synchronization", () => {
+	test("uses imported default language when an imported line has no word romanization track", () => {
+		const targetLine = line([word("顔", 1000, 1200)]);
+		const state = lyric([targetLine], {
+			defaultRomanizationLang: "ja-Latn",
+		});
+
+		const lang = getPreferredWordRomanizationLang(state);
+		syncWordRomanizationForWord(targetLine, targetLine.words[0], "kao", lang);
+
+		expect(lang).toBe("ja-Latn");
+		expect(targetLine.words[0].romanWord).toBe("kao");
+		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "kao" },
+		]);
+	});
+
+	test("updates the active language without mutating another language track", () => {
+		const targetLine = line([word("君", 1000, 1200, "kimi")], {
+			wordRomanizationByLang: {
+				"ja-Latn": [{ startTime: 1000, endTime: 1200, text: "kimi" }],
+				"en-Latn": [{ startTime: 1000, endTime: 1200, text: "you" }],
+			},
+		});
+		const state = lyric([targetLine], {
+			defaultRomanizationLang: "ja-Latn",
+		});
+
+		const lang = getPreferredWordRomanizationLang(state);
+		syncWordRomanizationForWord(targetLine, targetLine.words[0], "kimi2", lang);
+
+		expect(lang).toBe("ja-Latn");
+		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "kimi2" },
+		]);
+		expect(targetLine.wordRomanizationByLang?.["en-Latn"]).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "you" },
+		]);
+	});
+
+	test("removes only the matching timed entry when clearing a word romanization", () => {
+		const targetLine = line(
+			[word("顔", 1000, 1200, "kao"), word("で", 1200, 1400, "de")],
+			{
+				wordRomanizationByLang: {
+					"ja-Latn": [
+						{ startTime: 1000, endTime: 1200, text: "kao" },
+						{ startTime: 1200, endTime: 1400, text: "de" },
+					],
+				},
+			},
+		);
+
+		syncWordRomanizationForWord(
+			targetLine,
+			targetLine.words[0],
+			"",
+			"ja-Latn",
+		);
+
+		expect(targetLine.words[0].romanWord).toBe("");
+		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
+			{ startTime: 1200, endTime: 1400, text: "de" },
+		]);
+	});
+});
