@@ -4,6 +4,8 @@ import {
 	ITUNES_EXTENSION_NAMESPACE,
 	TtmlTextTrackLanguage,
 	collectWordRomanizationTracks,
+	getLineTimingBounds,
+	getLinesTimingBounds,
 	getTtmlDuration,
 	getXmlLangAttribute,
 	matchTimedTextItemsInOrder,
@@ -107,5 +109,34 @@ describe("ttml timed text helpers", () => {
 		});
 
 		expect(getTtmlDuration([main, bg])).toBe(1800);
+	});
+
+	test("snaps line begin to first valid word when line start time is stale", () => {
+		const timedLine = line([word("hello", 1200, 1500)], {
+			startTime: 0,
+			endTime: 1500,
+		});
+
+		expect(getLineTimingBounds(timedLine)).toEqual({
+			beginTime: 1200,
+			endTime: 1500,
+		});
+	});
+
+	test("snaps grouped begin to earliest valid main or background word", () => {
+		const main = line([word("main", 1800, 2200)], {
+			startTime: 0,
+			endTime: 2200,
+		});
+		const bg = line([word("bg", 1400, 2100)], {
+			isBG: true,
+			startTime: 0,
+			endTime: 2100,
+		});
+
+		expect(getLinesTimingBounds([main, bg])).toEqual({
+			beginTime: 1400,
+			endTime: 2200,
+		});
 	});
 });
