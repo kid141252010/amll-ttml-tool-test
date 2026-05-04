@@ -224,6 +224,17 @@
 				"action": "Open manager"
 			}
 		},
+		"amll": {
+			"title": "AMLL",
+			"subtitle": "Lyric optimization options",
+			"normalizeSpaces": "Normalize spaces",
+			"resetLineTimestamps": "Reset line timestamps",
+			"convertExcessiveBackgroundLines": "Merge excessive background vocals",
+			"syncMainAndBackgroundLines": "Sync main/background vocal timing",
+			"cleanUnintentionalOverlaps": "Clean unintentional overlaps",
+			"tryAdvanceStartTime": "Try advancing start times",
+			"autoGenerateRubyFromRomanization": "Auto-generate Ruby from word romanization"
+		},
 		"connect": {
 			"title": "Connect",
 			"checking": "Verifying...",
