@@ -17,15 +17,9 @@ import { VitePWA } from "vite-plugin-pwa";
 import wasm from "vite-plugin-wasm";
 import svgLoader from "vite-svg-loader";
 
-const AMLL_LOCAL_EXISTS = existsSync(
-	resolve(__dirname, "../applemusic-like-lyrics"),
-);
-
 const ReactCompilerConfig = {
 	target: "19",
 };
-
-process.env.AMLL_LOCAL_EXISTS = AMLL_LOCAL_EXISTS ? "true" : "false";
 
 const plugins: Plugin[] = [
 	{
@@ -308,25 +302,10 @@ export default defineConfig({
 		sourcemap: true,
 	},
 	resolve: {
-		alias: Object.assign(
-			{
-				$: resolve(__dirname, "src"),
-				path: "path-browserify",
-			},
-			AMLL_LOCAL_EXISTS
-				? {
-						// for development, use the local copy of the AMLL library
-						"@applemusic-like-lyrics/core": resolve(
-							__dirname,
-							"../applemusic-like-lyrics/packages/core/src",
-						),
-						"@applemusic-like-lyrics/react": resolve(
-							__dirname,
-							"../applemusic-like-lyrics/packages/react/src",
-						),
-					}
-				: {},
-		) as Record<string, string>,
+		alias: {
+			$: resolve(__dirname, "src"),
+			path: "path-browserify",
+		},
 		dedupe: ["react", "react-dom", "jotai"],
 	},
 	optimizeDeps: {
