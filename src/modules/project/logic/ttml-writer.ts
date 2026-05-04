@@ -166,7 +166,6 @@ export default function exportTTMLText(
 
 	function createRomanizationSpanFromData(word: TTMLRomanWord): Element {
 		const span = doc.createElement("span");
-		span.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
 		span.setAttribute("begin", msToTimestamp(word.startTime));
 		span.setAttribute("end", msToTimestamp(word.endTime));
 		// 去除首尾空格，空格会作为单独的空格文本节点添加
@@ -177,7 +176,6 @@ export default function exportTTMLText(
 	// 辅助函数：创建逐字翻译的 span 元素
 	function createTranslationSpanFromData(word: TTMLTranslationWord): Element {
 		const span = doc.createElement("span");
-		span.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
 		span.setAttribute("begin", msToTimestamp(word.startTime));
 		span.setAttribute("end", msToTimestamp(word.endTime));
 		// 去除首尾空格，空格会作为单独的空格文本节点添加
@@ -396,11 +394,6 @@ export default function exportTTMLText(
 				lineIndex++;
 
 				const bgLineSpan = doc.createElement("span");
-				bgLineSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-				bgLineSpan.setAttribute(
-					"xmlns:ttm",
-					"http://www.w3.org/ns/ttml#metadata",
-				);
 				bgLineSpan.setAttribute("ttm:role", "x-bg");
 
 				// 为 bg 行导出 agent 属性（如果有的话）
@@ -611,11 +604,6 @@ export default function exportTTMLText(
 					}
 					if (bg.trim().length > 0) {
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						bgSpan.appendChild(doc.createTextNode(bg));
 						textEl.appendChild(bgSpan);
@@ -656,11 +644,6 @@ export default function exportTTMLText(
 
 					if (data.bgTrans.length > 0) {
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						const bgSpans: Element[] = [];
 						const bgMatches = matchTimedTextItemsInOrder(
@@ -738,11 +721,6 @@ export default function exportTTMLText(
 					}
 					if (bg.trim().length > 0) {
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						bgSpan.appendChild(doc.createTextNode(bg));
 						textEl.appendChild(bgSpan);
@@ -783,11 +761,6 @@ export default function exportTTMLText(
 
 					if (data.bgRoman.length > 0) {
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						const bgSpans: Element[] = [];
 						const bgMatches = matchTimedTextItemsInOrder(
