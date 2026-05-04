@@ -30,7 +30,7 @@ export interface TTMLVocalTag {
 
 export interface TTMLAgent {
 	id: string;
-	type: "person" | "group" | "other";
+	type: "person" | "group" | "character" | "organization" | "other";
 	names: string[];
 }
 

@@ -24,6 +24,16 @@ import type {
 } from "../../../types/ttml.ts";
 import { log } from "../../../utils/logging.ts";
 import { msToTimestamp } from "../../../utils/timestamp.ts";
+import {
+	ITUNES_EXTENSION_NAMESPACE,
+	ITUNES_METADATA_NAMESPACE,
+	collectWordRomanizationTracks,
+	getLineTimingBounds,
+	getLinesTimingBounds,
+	getTtmlDuration,
+	getXmlLangAttribute,
+	matchTimedTextItemsInOrder,
+} from "./ttml-timed-text.ts";
 
 type LineMetadata = {
 	main: string;
@@ -186,10 +196,7 @@ export default function exportTTMLText(
 	ttRoot.setAttribute("xmlns:ttm", "http://www.w3.org/ns/ttml#metadata");
 	ttRoot.setAttribute("xmlns:tts", "http://www.w3.org/ns/ttml#styling");
 	ttRoot.setAttribute("xmlns:amll", "http://www.example.com/ns/amll");
-	ttRoot.setAttribute(
-		"xmlns:itunes",
-		"http://music.apple.com/lyric-ttml-internal",
-	);
+	ttRoot.setAttribute("xmlns:itunes", ITUNES_EXTENSION_NAMESPACE);
 	// 设置歌词语言代码
 	ttRoot.setAttribute("xml:lang", lyricLang);
 
@@ -207,11 +214,13 @@ export default function exportTTMLText(
 	const hasAnyTiming = lyric.some((l) =>
 		l.words.some((w) => w.word.trim().length > 0 && w.endTime > w.startTime),
 	);
-	let timingMode: "Word" | "Line" | "None";
-	if (totalNonBlankWords === 0 || !hasAnyTiming) timingMode = "None";
-	else if (nonBlankWordCountsPerLine.some((c) => c > 1)) timingMode = "Word";
-	else timingMode = "Line";
-	ttRoot.setAttribute("itunes:timing", timingMode);
+	let timingMode: "Word" | "Line" | undefined;
+	if (totalNonBlankWords > 0 && hasAnyTiming) {
+		timingMode = nonBlankWordCountsPerLine.some((c) => c > 1) ? "Word" : "Line";
+	}
+	if (timingMode) {
+		ttRoot.setAttribute("itunes:timing", timingMode);
+	}
 
 	doc.appendChild(ttRoot);
 
@@ -316,7 +325,7 @@ export default function exportTTMLText(
 		>
 	>();
 
-	const guessDuration = lyric[lyric.length - 1]?.endTime ?? 0;
+	const guessDuration = getTtmlDuration(lyric);
 	body.setAttribute("dur", msToTimestamp(guessDuration));
 	const isDynamicLyric = lyric.some(
 		(line) => line.words.filter((v) => v.word.trim().length > 0).length > 1,
@@ -324,8 +333,7 @@ export default function exportTTMLText(
 
 	for (const param of params) {
 		const paramDiv = doc.createElement("div");
-		const beginTime = param[0]?.startTime ?? 0;
-		const endTime = param[param.length - 1]?.endTime ?? 0;
+		const { beginTime, endTime } = getLinesTimingBounds(param);
 
 		paramDiv.setAttribute("begin", msToTimestamp(beginTime));
 		paramDiv.setAttribute("end", msToTimestamp(endTime));
@@ -335,17 +343,18 @@ export default function exportTTMLText(
 			(line) => line.songPart && line.songPart.trim().length > 0 && !line.isBG,
 		);
 		if (firstLineWithSongPart?.songPart) {
-			paramDiv.setAttribute("itunes:song-part", firstLineWithSongPart.songPart);
+			paramDiv.setAttribute("itunes:songPart", firstLineWithSongPart.songPart);
 		}
 
 		for (let lineIndex = 0; lineIndex < param.length; lineIndex++) {
 			const line = param[lineIndex];
+			const nextLine = param[lineIndex + 1];
+			const bgLine = nextLine?.isBG ? nextLine : undefined;
+			const lineBounds = getLinesTimingBounds(bgLine ? [line, bgLine] : [line]);
 			const lineP = doc.createElement("p");
-			const beginTime = line.startTime ?? 0;
-			const endTime = line.endTime;
 
-			lineP.setAttribute("begin", msToTimestamp(beginTime));
-			lineP.setAttribute("end", msToTimestamp(endTime));
+			lineP.setAttribute("begin", msToTimestamp(lineBounds.beginTime));
+			lineP.setAttribute("end", msToTimestamp(lineBounds.endTime));
 
 			// 优先使用 line.agent，如果没有则根据 isDuet 判断
 			const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
@@ -359,23 +368,17 @@ export default function exportTTMLText(
 			lineP.setAttribute("itunes:key", itunesKey);
 
 			const mainWords = line.words;
-			let bgWords: LyricWord[] = [];
+			const bgWords: LyricWord[] = bgLine?.words ?? [];
 
 			if (isDynamicLyric) {
-				let beginTime = Number.POSITIVE_INFINITY;
-				let endTime = 0;
 				for (const word of line.words) {
 					if (word.word.trim().length === 0 && !hasRuby(word)) {
 						lineP.appendChild(doc.createTextNode(word.word));
 					} else {
 						const span = createWordElement(word);
 						lineP.appendChild(span);
-						beginTime = Math.min(beginTime, word.startTime);
-						endTime = Math.max(endTime, word.endTime);
 					}
 				}
-				lineP.setAttribute("begin", msToTimestamp(line.startTime));
-				lineP.setAttribute("end", msToTimestamp(line.endTime));
 			} else {
 				const word = line.words[0];
 				if (word.word.trim().length === 0 && !hasRuby(word)) {
@@ -383,16 +386,10 @@ export default function exportTTMLText(
 				} else {
 					lineP.appendChild(createWordElement(word));
 				}
-				lineP.setAttribute("begin", msToTimestamp(word.startTime));
-				lineP.setAttribute("end", msToTimestamp(word.endTime));
 			}
 
-			const nextLine = param[lineIndex + 1];
-			let bgLine: LyricLine | undefined;
-			if (nextLine?.isBG) {
+			if (bgLine) {
 				lineIndex++;
-				bgLine = nextLine;
-				bgWords = bgLine.words;
 
 				const bgLineSpan = doc.createElement("span");
 				bgLineSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
@@ -408,9 +405,6 @@ export default function exportTTMLText(
 				}
 
 				if (isDynamicLyric) {
-					let beginTime = Number.POSITIVE_INFINITY;
-					let endTime = 0;
-
 					const firstWordIndex = bgLine.words.findIndex(
 						(w) => w.word.trim().length > 0,
 					);
@@ -434,12 +428,8 @@ export default function exportTTMLText(
 							addWrapperToElement(span, prefix, suffix);
 
 							bgLineSpan.appendChild(span);
-							beginTime = Math.min(beginTime, word.startTime);
-							endTime = Math.max(endTime, word.endTime);
 						}
 					}
-					bgLineSpan.setAttribute("begin", msToTimestamp(beginTime));
-					bgLineSpan.setAttribute("end", msToTimestamp(endTime));
 				} else {
 					const word = bgLine.words[0];
 					if (word.word.trim().length === 0 && !hasRuby(word)) {
@@ -449,9 +439,10 @@ export default function exportTTMLText(
 						addWrapperToElement(span, "(", ")");
 						bgLineSpan.appendChild(span);
 					}
-					bgLineSpan.setAttribute("begin", msToTimestamp(word.startTime));
-					bgLineSpan.setAttribute("end", msToTimestamp(word.endTime));
 				}
+				const bgBounds = getLineTimingBounds(bgLine);
+				bgLineSpan.setAttribute("begin", msToTimestamp(bgBounds.beginTime));
+				bgLineSpan.setAttribute("end", msToTimestamp(bgBounds.endTime));
 
 				const normalizedBgVocal = normalizeVocalValue(bgLine.vocal);
 				if (normalizedBgVocal.length > 0) {
@@ -490,8 +481,8 @@ export default function exportTTMLText(
 				const mainTrans = line.wordTranslationByLang?.[lang] ?? [];
 				const bgTrans = bgLine?.wordTranslationByLang?.[lang] ?? [];
 				if (mainTrans.length === 0 && bgTrans.length === 0) continue;
-				// 逐字翻译优先：删除相同语言的逐行翻译
-				translationByLangMap.delete(lang);
+				// 逐字翻译优先：只覆盖当前 itunes:key 的逐行翻译
+				translationByLangMap.get(lang)?.delete(itunesKey);
 				if (!wordTranslationByLangMap.has(lang)) {
 					wordTranslationByLangMap.set(lang, new Map());
 				}
@@ -522,30 +513,24 @@ export default function exportTTMLText(
 			}
 			// 注意：不输出无语言代码的 romanLyric
 
-			// 2. 然后收集逐字音译（wordRomanizationByLang），会覆盖逐行音译
-			const wordRomanLangs = new Set<string>([
-				...Object.keys(line.wordRomanizationByLang ?? {}),
-				...Object.keys(bgLine?.wordRomanizationByLang ?? {}),
-			]);
-			// 处理有语言代码的逐字音译（跳过 und）
-			for (const lang of wordRomanLangs) {
-				if (lang === "und") continue; // 跳过 und，不输出
-				const mainRoman = line.wordRomanizationByLang?.[lang] ?? [];
-				const bgRoman = bgLine?.wordRomanizationByLang?.[lang] ?? [];
-				if (mainRoman.length === 0 && bgRoman.length === 0) continue;
-				// 逐字音译优先：删除相同语言的逐行音译
-				romanizationByLangMap.delete(lang);
+			// 2. 然后收集逐字音译（包含 word.romanWord 无语言回退）
+			for (const [lang, data] of collectWordRomanizationTracks(
+				line,
+				bgLine,
+			).entries()) {
+				if (data.mainRoman.length === 0 && data.bgRoman.length === 0) continue;
+				// 逐字音译优先：只覆盖当前 itunes:key 的逐行音译
+				romanizationByLangMap.get(lang)?.delete(itunesKey);
 				if (!wordRomanizationByLangMap.has(lang)) {
 					wordRomanizationByLangMap.set(lang, new Map());
 				}
 				wordRomanizationByLangMap.get(lang)?.set(itunesKey, {
-					mainWords,
-					bgWords,
-					mainRoman,
-					bgRoman,
+					mainWords: data.mainWords,
+					bgWords: data.bgWords,
+					mainRoman: data.mainRoman,
+					bgRoman: data.bgRoman,
 				});
 			}
-			// 注意：不输出无语言代码的 word.romanWord
 
 			paramDiv.appendChild(lineP);
 		}
@@ -557,17 +542,18 @@ export default function exportTTMLText(
 	const hasSongwriter = ttmlLyric.metadata.some(
 		(m) => m.key === "songwriter" && m.value.some((v) => v.trim().length > 0),
 	);
+	const hasNestedEntries = <T>(map: Map<string, Map<string, T>>) =>
+		Array.from(map.values()).some((entries) => entries.size > 0);
 	const hasTranslations =
-		translationByLangMap.size > 0 || wordTranslationByLangMap.size > 0;
+		hasNestedEntries(translationByLangMap) ||
+		hasNestedEntries(wordTranslationByLangMap);
 	const hasTransliterations =
-		romanizationByLangMap.size > 0 || wordRomanizationByLangMap.size > 0;
+		hasNestedEntries(romanizationByLangMap) ||
+		hasNestedEntries(wordRomanizationByLangMap);
 
 	if (hasSongwriter || hasTranslations || hasTransliterations) {
 		const iTunesMetadata = doc.createElement("iTunesMetadata");
-		iTunesMetadata.setAttribute(
-			"xmlns",
-			"http://music.apple.com/lyric-ttml-internal",
-		);
+		iTunesMetadata.setAttribute("xmlns", ITUNES_METADATA_NAMESPACE);
 
 		// 1. 添加 songwriter
 		if (hasSongwriter) {
@@ -642,17 +628,19 @@ export default function exportTTMLText(
 					textEl.setAttribute("for", key);
 
 					if (data.mainTrans.length > 0) {
-						for (const word of data.mainWords) {
+						const mainMatches = matchTimedTextItemsInOrder(
+							data.mainWords,
+							data.mainTrans,
+						);
+						for (let index = 0; index < data.mainWords.length; index++) {
+							const word = data.mainWords[index];
 							if (word.word.trim().length === 0) {
 								if (textEl.hasChildNodes()) {
 									textEl.appendChild(doc.createTextNode(word.word));
 								}
 								continue;
 							}
-							const match = data.mainTrans.find(
-								(r) =>
-									r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							const match = mainMatches[index];
 							if (!match || match.text.length === 0) continue;
 							textEl.appendChild(createTranslationSpanFromData(match));
 							// 如果 hasSpaceAfter 为 true，添加空格文本节点
@@ -671,17 +659,19 @@ export default function exportTTMLText(
 						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						const bgSpans: Element[] = [];
-						for (const word of data.bgWords) {
+						const bgMatches = matchTimedTextItemsInOrder(
+							data.bgWords,
+							data.bgTrans,
+						);
+						for (let index = 0; index < data.bgWords.length; index++) {
+							const word = data.bgWords[index];
 							if (word.word.trim().length === 0) {
 								if (bgSpan.hasChildNodes()) {
 									bgSpan.appendChild(doc.createTextNode(word.word));
 								}
 								continue;
 							}
-							const match = data.bgTrans.find(
-								(r) =>
-									r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							const match = bgMatches[index];
 							if (!match || match.text.length === 0) continue;
 							const span = createTranslationSpanFromData(match);
 							bgSpan.appendChild(span);
@@ -725,7 +715,10 @@ export default function exportTTMLText(
 					return cached;
 				}
 				const transliteration = doc.createElement("transliteration");
-				transliteration.setAttribute("xml:lang", lang);
+				const xmlLang = getXmlLangAttribute(lang);
+				if (xmlLang) {
+					transliteration.setAttribute("xml:lang", xmlLang);
+				}
 				transliterations.appendChild(transliteration);
 				transliterationCache.set(lang, transliteration);
 				return transliteration;
@@ -762,17 +755,19 @@ export default function exportTTMLText(
 					textEl.setAttribute("for", key);
 
 					if (data.mainRoman.length > 0) {
-						for (const word of data.mainWords) {
+						const mainMatches = matchTimedTextItemsInOrder(
+							data.mainWords,
+							data.mainRoman,
+						);
+						for (let index = 0; index < data.mainWords.length; index++) {
+							const word = data.mainWords[index];
 							if (word.word.trim().length === 0) {
 								if (textEl.hasChildNodes()) {
 									textEl.appendChild(doc.createTextNode(word.word));
 								}
 								continue;
 							}
-							const match = data.mainRoman.find(
-								(r) =>
-									r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							const match = mainMatches[index];
 							if (!match || match.text.length === 0) continue;
 							textEl.appendChild(createRomanizationSpanFromData(match));
 							// 如果 hasSpaceAfter 为 true，添加空格文本节点
@@ -791,17 +786,19 @@ export default function exportTTMLText(
 						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						const bgSpans: Element[] = [];
-						for (const word of data.bgWords) {
+						const bgMatches = matchTimedTextItemsInOrder(
+							data.bgWords,
+							data.bgRoman,
+						);
+						for (let index = 0; index < data.bgWords.length; index++) {
+							const word = data.bgWords[index];
 							if (word.word.trim().length === 0) {
 								if (bgSpan.hasChildNodes()) {
 									bgSpan.appendChild(doc.createTextNode(word.word));
 								}
 								continue;
 							}
-							const match = data.bgRoman.find(
-								(r) =>
-									r.startTime === word.startTime && r.endTime === word.endTime,
-							);
+							const match = bgMatches[index];
 							if (!match || match.text.length === 0) continue;
 							const span = createRomanizationSpanFromData(match);
 							bgSpan.appendChild(span);
@@ -839,6 +836,14 @@ export default function exportTTMLText(
 	ttRoot.appendChild(body);
 	log("ttml document built", ttRoot);
 
+	const serializeWithXmlDeclaration = (target: Node) => {
+		const xml = new XMLSerializer()
+			.serializeToString(target)
+			.replace(/^\uFEFF/, "");
+		if (xml.startsWith("<?xml")) return xml;
+		return `<?xml version="1.0" encoding="UTF-8"?>\n${xml}`;
+	};
+
 	if (pretty) {
 		const xsltDoc = new DOMParser().parseFromString(
 			[
@@ -860,7 +865,7 @@ export default function exportTTMLText(
 		xsltProcessor.importStylesheet(xsltDoc);
 		const resultDoc = xsltProcessor.transformToDocument(doc);
 
-		return new XMLSerializer().serializeToString(resultDoc);
+		return serializeWithXmlDeclaration(resultDoc);
 	}
-	return new XMLSerializer().serializeToString(doc);
+	return serializeWithXmlDeclaration(doc);
 }
