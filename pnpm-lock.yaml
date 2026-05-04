@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@applemusic-like-lyrics/core': file:./vendor/applemusic-like-lyrics-core-0.2.1.tgz
-  '@applemusic-like-lyrics/lyric': file:./vendor/applemusic-like-lyrics-lyric-0.3.0.tgz
-  '@applemusic-like-lyrics/react': file:./vendor/applemusic-like-lyrics-react-0.2.1.tgz
-
 pnpmfileChecksum: sha256-ayO5vj5CEr5rcgw4n0hZt27ZANzZSxqsQrJyLUPiBJg=
 
 importers:
@@ -16,14 +11,14 @@ importers:
   .:
     dependencies:
       '@applemusic-like-lyrics/core':
-        specifier: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz
-        version: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))
+        specifier: ^0.4.2
+        version: 0.4.2(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))
       '@applemusic-like-lyrics/lyric':
-        specifier: file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz
-        version: file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz
+        specifier: ^1.0.0
+        version: 1.0.0
       '@applemusic-like-lyrics/react':
-        specifier: file:vendor/applemusic-like-lyrics-react-0.2.1.tgz
-        version: file:vendor/applemusic-like-lyrics-react-0.2.1.tgz(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        specifier: ^0.4.2
+        version: 0.4.2(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@pixi/app':
         specifier: ^7.4.3
         version: 7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))
@@ -262,9 +257,8 @@ packages:
     peerDependencies:
       ajv: '>=8'
 
-  '@applemusic-like-lyrics/core@file:vendor/applemusic-like-lyrics-core-0.2.1.tgz':
-    resolution: {integrity: sha512-YOdXwvYSVyVKBIyc2MtK4bmHwheZyJxOLsbCyPrMJGW5WIG/fcqO5VN+yYc0NsDepmEsHmCToZzt9TodVNAgAA==, tarball: file:vendor/applemusic-like-lyrics-core-0.2.1.tgz}
-    version: 0.2.1
+  '@applemusic-like-lyrics/core@0.4.2':
+    resolution: {integrity: sha512-+ydkJZjsaR64N6hEzl0q+y6bvwUnEMSBUHN0GmiGAol3K4XdEWBshW6/8nnCuNqC998tY62OxhZfMKFpN/i/ow==}
     peerDependencies:
       '@pixi/app': '*'
       '@pixi/core': '*'
@@ -274,13 +268,11 @@ packages:
       '@pixi/filter-color-matrix': '*'
       '@pixi/sprite': '*'
 
-  '@applemusic-like-lyrics/lyric@file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz':
-    resolution: {integrity: sha512-W0LsJAkUpr6CCxzEu7lXwNi2VXLx48KSZRqKPrIlDnxi2vZq+HxjgW2WNDNz+2LFQx3TRLdnKsEIdwlEn4weYQ==, tarball: file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz}
-    version: 0.3.0
+  '@applemusic-like-lyrics/lyric@1.0.0':
+    resolution: {integrity: sha512-fAIg2peCvEu7WwnQswbrajtJ8kXFgR/H7QWL++WppkzG3rwsyR+oWj1EseLbbA3IBdHPO9C8/OOMfKtkGn0rxQ==}
 
-  '@applemusic-like-lyrics/react@file:vendor/applemusic-like-lyrics-react-0.2.1.tgz':
-    resolution: {integrity: sha512-5uzzwlPFRy4369dAaClJYUZGqOct4V+rJoge4i6nF1XH1O2BkXtvCwIYF/8/I53NzH0rcisrDvU/uoAZ29P+7g==, tarball: file:vendor/applemusic-like-lyrics-react-0.2.1.tgz}
-    version: 0.2.1
+  '@applemusic-like-lyrics/react@0.4.2':
+    resolution: {integrity: sha512-U+coWJjks9BgxzpR5yKQ5ieCYILjY/S1IHq6cgR6QSyvVYYAY+6lkUrbd0GhnlJkl8RiM7I19AiPXAMqo+Rprg==}
     peerDependencies:
       '@pixi/app': '*'
       '@pixi/core': '*'
@@ -290,6 +282,9 @@ packages:
       '@pixi/sprite': '*'
       react: '*'
       react-dom: '*'
+
+  '@applemusic-like-lyrics/ttml@1.0.0':
+    resolution: {integrity: sha512-vZuYe5Q2kbUGNBKD7yizj4n+mFkKAa7pabZzr+JZco5gYbPvKqiMZbsvAyqLPs1IPmpA9n77X/FTqEfRvdEu3Q==}
 
   '@babel/code-frame@7.29.0':
     resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==, tarball: https://registry.npmmirror.com/@babel/code-frame/-/code-frame-7.29.0.tgz}
@@ -2688,9 +2683,6 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  bezier-easing@2.1.0:
-    resolution: {integrity: sha512-gbIqZ/eslnUFC1tjEvtz0sgx+xTK20wDnYMIA27VA04R7w6xxXQPZDbibjA9DTWZRA2CXtwHykkVzlCaAJAZig==, tarball: https://registry.npmmirror.com/bezier-easing/-/bezier-easing-2.1.0.tgz}
-
   bezier-easing@3.0.0:
     resolution: {integrity: sha512-lE85voPXiK99T8NHOfhaUqCZpJdP1gBbbTEvdBDdPB+phyvPZPNWalBe42eb6lKOYchP0qZrtBiRCARtT4edRQ==, tarball: https://registry.npmmirror.com/bezier-easing/-/bezier-easing-3.0.0.tgz}
 
@@ -3960,6 +3952,9 @@ packages:
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==, tarball: https://registry.npmmirror.com/pako/-/pako-1.0.11.tgz}
 
+  pako@2.1.0:
+    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
+
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==, tarball: https://registry.npmmirror.com/parse-entities/-/parse-entities-4.0.2.tgz}
 
@@ -5038,7 +5033,7 @@ snapshots:
       jsonpointer: 5.0.1
       leven: 3.1.0
 
-  '@applemusic-like-lyrics/core@file:vendor/applemusic-like-lyrics-core-0.2.1.tgz(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))':
+  '@applemusic-like-lyrics/core@0.4.2(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))':
     dependencies:
       '@pixi/app': 7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))
       '@pixi/core': 7.4.3
@@ -5048,15 +5043,18 @@ snapshots:
       '@pixi/filter-color-matrix': 7.4.3(@pixi/core@7.4.3)
       '@pixi/sprite': 7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))
       '@ungap/structured-clone': 1.3.0
-      bezier-easing: 2.1.0
+      bezier-easing: 3.0.0
       deep-freeze: 0.0.1
       gl-matrix: 4.0.0-beta.2
 
-  '@applemusic-like-lyrics/lyric@file:vendor/applemusic-like-lyrics-lyric-0.3.0.tgz': {}
-
-  '@applemusic-like-lyrics/react@file:vendor/applemusic-like-lyrics-react-0.2.1.tgz(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
+  '@applemusic-like-lyrics/lyric@1.0.0':
     dependencies:
-      '@applemusic-like-lyrics/core': file:vendor/applemusic-like-lyrics-core-0.2.1.tgz(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))
+      '@applemusic-like-lyrics/ttml': 1.0.0
+      pako: 2.1.0
+
+  '@applemusic-like-lyrics/react@0.4.2(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
+    dependencies:
+      '@applemusic-like-lyrics/core': 0.4.2(@pixi/app@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))(@pixi/filter-blur@7.4.3(@pixi/core@7.4.3))(@pixi/filter-bulge-pinch@5.1.1(@pixi/core@7.4.3))(@pixi/filter-color-matrix@7.4.3(@pixi/core@7.4.3))(@pixi/sprite@7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3)))
       '@pixi/app': 7.4.3(@pixi/core@7.4.3)(@pixi/display@7.4.3(@pixi/core@7.4.3))
       '@pixi/core': 7.4.3
       '@pixi/display': 7.4.3(@pixi/core@7.4.3)
@@ -5067,6 +5065,8 @@ snapshots:
       react-dom: 19.2.5(react@19.2.5)
     transitivePeerDependencies:
       - '@pixi/filter-bulge-pinch'
+
+  '@applemusic-like-lyrics/ttml@1.0.0': {}
 
   '@babel/code-frame@7.29.0':
     dependencies:
@@ -7432,8 +7432,6 @@ snapshots:
 
   baseline-browser-mapping@2.10.17: {}
 
-  bezier-easing@2.1.0: {}
-
   bezier-easing@3.0.0: {}
 
   bl@5.1.0:
@@ -9074,6 +9072,8 @@ snapshots:
   package-json-from-dist@1.0.1: {}
 
   pako@1.0.11: {}
+
+  pako@2.1.0: {}
 
   parse-entities@4.0.2:
     dependencies:
