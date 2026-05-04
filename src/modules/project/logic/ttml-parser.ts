@@ -635,6 +635,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		Map<string, WordRomanMetadata>
 	>();
 	const transliterationLangOrder: string[] = [];
+	let defaultRomanizationLang: string | undefined;
 	const getOrCreateLangMap = <T>(
 		target: Map<string, Map<string, T>>,
 		lang: string,
@@ -653,6 +654,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	for (const transliterationEl of transliterationElements) {
 		const langAttr = (transliterationEl.getAttribute("xml:lang") ?? "").trim();
 		const lang = langAttr || TtmlTextTrackLanguage.Untagged;
+		if (langAttr && !defaultRomanizationLang) {
+			defaultRomanizationLang = langAttr;
+		}
 		if (!transliterationLangOrder.includes(lang)) {
 			transliterationLangOrder.push(lang);
 		}
@@ -677,13 +681,21 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 		}
 	}
+	if (!defaultRomanizationLang && transliterationElements.length > 0) {
+		defaultRomanizationLang = TtmlTextTrackLanguage.Untagged;
+	}
 
-	const getPreferredTransliterationLangs = () => [
-		TtmlTextTrackLanguage.Untagged,
-		...transliterationLangOrder.filter(
-			(lang) => lang !== TtmlTextTrackLanguage.Untagged,
-		),
-	];
+	const getPreferredTransliterationLangs = () => {
+		if (!defaultRomanizationLang) {
+			return [TtmlTextTrackLanguage.Untagged];
+		}
+		return [
+			defaultRomanizationLang,
+			...transliterationLangOrder.filter(
+				(lang) => lang !== defaultRomanizationLang,
+			),
+		];
+	};
 
 	const getPreferredLineRomanText = (
 		itunesKey: string,
@@ -1178,6 +1190,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		agents,
 		lyricLang,
 		autoLang,
+		defaultRomanizationLang,
 		customSongParts:
 			customSongParts.size > 0 ? Array.from(customSongParts) : undefined,
 	};

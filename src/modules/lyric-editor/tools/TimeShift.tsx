@@ -120,6 +120,31 @@ export const TimeShiftDialog = () => {
 							});
 						}
 					});
+					for (const romanWords of Object.values(
+						line.wordRomanizationByLang ?? {},
+					)) {
+						romanWords.forEach((romanWord) => {
+							romanWord.startTime = Math.max(
+								0,
+								romanWord.startTime + finalOffset,
+							);
+							romanWord.endTime = Math.max(0, romanWord.endTime + finalOffset);
+						});
+					}
+					for (const translationWords of Object.values(
+						line.wordTranslationByLang ?? {},
+					)) {
+						translationWords.forEach((translationWord) => {
+							translationWord.startTime = Math.max(
+								0,
+								translationWord.startTime + finalOffset,
+							);
+							translationWord.endTime = Math.max(
+								0,
+								translationWord.endTime + finalOffset,
+							);
+						});
+					}
 				}
 			});
 		});

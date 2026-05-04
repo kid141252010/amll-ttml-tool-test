@@ -11,6 +11,10 @@ import {
 } from "react";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import { getRomanWordEditState } from "$/modules/lyric-editor/utils/word-romanization";
+import {
+	getPreferredWordRomanizationLang,
+	syncWordRomanizationForWord,
+} from "$/modules/lyric-editor/utils/word-romanization-language";
 import { amllAutoGenerateRubyFromRomanizationAtom } from "$/modules/settings/states/amll";
 import { lyricLinesAtom } from "$/states/main";
 import type { LyricWord } from "$/types/ttml";
@@ -44,11 +48,17 @@ export const RomanWordView = ({
 		(newValue: string) => {
 			if (newValue !== word.romanWord) {
 				editLyricLines((draft) => {
+					const targetLang = getPreferredWordRomanizationLang(draft);
 					for (const line of draft.lyricLines) {
 						const wordIndex = line.words.findIndex((w) => w.id === word.id);
 						if (wordIndex === -1) continue;
 						const targetWord = line.words[wordIndex];
-						targetWord.romanWord = newValue;
+						syncWordRomanizationForWord(
+							line,
+							targetWord,
+							newValue,
+							targetLang,
+						);
 						if (autoGenerateRubyFromRomanization) {
 							applyGeneratedRuby(targetWord, {
 								lineWords: line.words,

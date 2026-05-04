@@ -51,6 +51,10 @@ export interface TTMLLyric {
 	 * @description 存储文件中出现的但不在预设列表中的自定义 song-part 值
 	 */
 	customSongParts?: string[];
+	/**
+	 * @description 导入时检测到的默认音译语言代码，用于保存无显式语言的逐字音译编辑
+	 */
+	defaultRomanizationLang?: string;
 }
 
 export interface LyricWordBase {

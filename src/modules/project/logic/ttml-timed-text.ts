@@ -60,6 +60,7 @@ export function matchTimedTextItemsInOrder<T extends TimedTextItem>(
 export function collectWordRomanizationTracks(
 	line: LyricLine,
 	bgLine?: LyricLine,
+	fallbackLang: string = TtmlTextTrackLanguage.Untagged,
 ): Map<string, WordRomanizationTrack> {
 	const tracks = new Map<string, WordRomanizationTrack>();
 
@@ -83,11 +84,25 @@ export function collectWordRomanizationTracks(
 	}
 
 	const mainFallback = buildRomanWordFallback(line.words);
-	applyFallbackTrack(tracks, "mainRoman", mainFallback, line.words, []);
+	applyFallbackTrack(
+		tracks,
+		fallbackLang,
+		"mainRoman",
+		mainFallback,
+		line.words,
+		[],
+	);
 
 	const bgWords = bgLine?.words ?? [];
 	const bgFallback = buildRomanWordFallback(bgWords);
-	applyFallbackTrack(tracks, "bgRoman", bgFallback, line.words, bgWords);
+	applyFallbackTrack(
+		tracks,
+		fallbackLang,
+		"bgRoman",
+		bgFallback,
+		line.words,
+		bgWords,
+	);
 
 	return tracks;
 }
@@ -161,19 +176,21 @@ function setTrackSide(
 
 function applyFallbackTrack(
 	tracks: Map<string, WordRomanizationTrack>,
+	lang: string,
 	side: TrackSide,
 	fallbackItems: TTMLRomanWord[],
 	mainWords: LyricWord[],
 	bgWords: LyricWord[],
 ) {
 	if (fallbackItems.length === 0) return;
-	if (hasEquivalentTrackSide(tracks, side, fallbackItems)) return;
-	const track = ensureTrack(
-		tracks,
-		TtmlTextTrackLanguage.Untagged,
-		mainWords,
-		bgWords,
-	);
+	const normalizedLang = lang.trim() || TtmlTextTrackLanguage.Untagged;
+	const existingTrack = tracks.get(normalizedLang);
+	if (existingTrack) {
+		if (isEquivalentTimedTextList(existingTrack[side], fallbackItems)) return;
+	} else if (hasEquivalentTrackSide(tracks, side, fallbackItems)) {
+		return;
+	}
+	const track = ensureTrack(tracks, normalizedLang, mainWords, bgWords);
 	track[side] = fallbackItems;
 }
 
