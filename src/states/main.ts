@@ -126,6 +126,11 @@ export const newLyricLinesAtom = atom(
 export const selectedLinesAtom = atom(new Set<string>());
 export const selectedWordsAtom = atom(new Set<string>());
 
+// 当前选中的翻译/音译语言
+export const selectedTranslationLangAtom = atom<string>("");
+export const selectedRomanizationLangAtom = atom<string>("");
+export const selectedWordRomanizationLangAtom = atom<string>("");
+
 export const saveFileNameAtom = atom("lyric.ttml");
 
 export const showUnselectedLinesAtom = atomWithStorage(
