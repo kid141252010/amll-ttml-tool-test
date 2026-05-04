@@ -93,19 +93,22 @@ export function collectWordRomanizationTracks(
 }
 
 export function getLineTimingBounds(line: LyricLine): TimingBounds {
-	const times = collectLineTimes(line);
-	return toTimingBounds(times, line.startTime, line.endTime);
+	return {
+		beginTime: getLineBeginTime(line),
+		endTime: getTimingEndTime(collectLineTimes(line), line.endTime),
+	};
 }
 
 export function getLinesTimingBounds(
 	lines: readonly LyricLine[],
 ): TimingBounds {
-	const times = lines.flatMap((line) => collectLineTimes(line));
-	return toTimingBounds(
-		times,
-		lines[0]?.startTime ?? 0,
-		lines[lines.length - 1]?.endTime ?? 0,
-	);
+	return {
+		beginTime: getTimingBeginTime(lines),
+		endTime: getTimingEndTime(
+			lines.flatMap((line) => collectLineTimes(line)),
+			lines[lines.length - 1]?.endTime ?? 0,
+		),
+	};
 }
 
 export function getTtmlDuration(lines: readonly LyricLine[]): number {
@@ -254,6 +257,28 @@ function collectLineTimes(line: LyricLine): number[] {
 	return times;
 }
 
+function getTimingBeginTime(lines: readonly LyricLine[]): number {
+	if (lines.length === 0) return 0;
+	return Math.min(...lines.map(getLineBeginTime));
+}
+
+function getLineBeginTime(line: LyricLine): number {
+	const firstWord = line.words.find(isValidTimingWord);
+	return normalizeTime(firstWord?.startTime ?? line.startTime);
+}
+
+function isValidTimingWord(word: LyricWord): boolean {
+	return (
+		word.word.trim().length > 0 ||
+		(word.ruby?.some((rubyWord) => rubyWord.word.trim().length > 0) ?? false)
+	);
+}
+
+function getTimingEndTime(times: readonly number[], fallbackEnd: number): number {
+	if (times.length === 0) return normalizeTime(fallbackEnd);
+	return Math.max(...times.map(normalizeTime));
+}
+
 function addTimedTextList(
 	times: number[],
 	items: readonly (TTMLRomanWord | TTMLTranslationWord)[],
@@ -266,23 +291,6 @@ function addTimedTextList(
 function addTimeRange(times: number[], startTime: number, endTime: number) {
 	if (Number.isFinite(startTime)) times.push(startTime);
 	if (Number.isFinite(endTime)) times.push(endTime);
-}
-
-function toTimingBounds(
-	times: readonly number[],
-	fallbackBegin: number,
-	fallbackEnd: number,
-): TimingBounds {
-	if (times.length === 0) {
-		return {
-			beginTime: normalizeTime(fallbackBegin),
-			endTime: normalizeTime(fallbackEnd),
-		};
-	}
-	return {
-		beginTime: Math.min(...times.map(normalizeTime)),
-		endTime: Math.max(...times.map(normalizeTime)),
-	};
 }
 
 function normalizeTime(time: number): number {

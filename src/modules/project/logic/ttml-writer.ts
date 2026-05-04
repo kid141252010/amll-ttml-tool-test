@@ -40,6 +40,10 @@ type LineMetadata = {
 	bg: string;
 };
 
+export function stripXmlDeclaration(xml: string): string {
+	return xml.replace(/^\uFEFF/, "").replace(/^<\?xml\b[^?]*\?>\s*/i, "");
+}
+
 export default function exportTTMLText(
 	ttmlLyric: TTMLLyric,
 	pretty = false,
@@ -836,13 +840,8 @@ export default function exportTTMLText(
 	ttRoot.appendChild(body);
 	log("ttml document built", ttRoot);
 
-	const serializeWithXmlDeclaration = (target: Node) => {
-		const xml = new XMLSerializer()
-			.serializeToString(target)
-			.replace(/^\uFEFF/, "");
-		if (xml.startsWith("<?xml")) return xml;
-		return `<?xml version="1.0" encoding="UTF-8"?>\n${xml}`;
-	};
+	const serializeWithoutXmlDeclaration = (target: Node) =>
+		stripXmlDeclaration(new XMLSerializer().serializeToString(target));
 
 	if (pretty) {
 		const xsltDoc = new DOMParser().parseFromString(
@@ -865,7 +864,7 @@ export default function exportTTMLText(
 		xsltProcessor.importStylesheet(xsltDoc);
 		const resultDoc = xsltProcessor.transformToDocument(doc);
 
-		return serializeWithXmlDeclaration(resultDoc);
+		return serializeWithoutXmlDeclaration(resultDoc);
 	}
-	return serializeWithXmlDeclaration(doc);
+	return serializeWithoutXmlDeclaration(doc);
 }
