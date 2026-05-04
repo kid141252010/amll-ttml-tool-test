@@ -24,3 +24,7 @@ export const amllTryAdvanceStartTimeAtom = atomWithStorage(
 	"amllOptimizeTryAdvanceStartTime",
 	false,
 );
+export const amllAutoGenerateRubyFromRomanizationAtom = atomWithStorage(
+	"amllAutoGenerateRubyFromRomanization",
+	false,
+);

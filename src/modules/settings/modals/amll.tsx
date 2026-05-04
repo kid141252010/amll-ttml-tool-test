@@ -1,12 +1,13 @@
-import { Card, Flex, Heading, Text, Checkbox } from "@radix-ui/themes";
+import { Card, Checkbox, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import {
+	amllAutoGenerateRubyFromRomanizationAtom,
+	amllCleanUnintentionalOverlapsAtom,
+	amllConvertExcessiveBackgroundLinesAtom,
 	amllNormalizeSpacesAtom,
 	amllResetLineTimestampsAtom,
-	amllConvertExcessiveBackgroundLinesAtom,
 	amllSyncMainAndBackgroundLinesAtom,
-	amllCleanUnintentionalOverlapsAtom,
 	amllTryAdvanceStartTimeAtom,
 } from "$/modules/settings/states/amll";
 
@@ -29,6 +30,10 @@ export const SettingsAMLLTab = () => {
 	const [tryAdvanceStartTime, setTryAdvanceStartTime] = useAtom(
 		amllTryAdvanceStartTimeAtom,
 	);
+	const [
+		autoGenerateRubyFromRomanization,
+		setAutoGenerateRubyFromRomanization,
+	] = useAtom(amllAutoGenerateRubyFromRomanizationAtom);
 
 	return (
 		<Flex direction="column" gap="4">
@@ -102,6 +107,20 @@ export const SettingsAMLLTab = () => {
 						<Checkbox
 							checked={tryAdvanceStartTime}
 							onCheckedChange={(value) => setTryAdvanceStartTime(!!value)}
+						/>
+					</Flex>
+					<Flex align="center" justify="between" gap="3">
+						<Text>
+							{t(
+								"settings.amll.autoGenerateRubyFromRomanization",
+								"逐字音译自动生成 Ruby",
+							)}
+						</Text>
+						<Checkbox
+							checked={autoGenerateRubyFromRomanization}
+							onCheckedChange={(value) =>
+								setAutoGenerateRubyFromRomanization(!!value)
+							}
 						/>
 					</Flex>
 				</Flex>
