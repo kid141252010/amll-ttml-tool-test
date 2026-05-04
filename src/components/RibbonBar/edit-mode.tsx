@@ -73,7 +73,7 @@ import {
 } from "$/types/ttml";
 import {
 	calculateDuetState,
-	type DuetStateContext,
+	calculateDuetOptions,
 } from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { RibbonFrame, RibbonSection } from "./common";
@@ -1098,22 +1098,6 @@ const AgentField: FC = () => {
 					agentMap.set(agent.id, agent);
 				}
 
-				// 分别找到 single 和 group 类型的 mainAgentId
-				let singleMainAgentId: string | undefined;
-				let groupMainAgentId: string | undefined;
-				for (const agent of state.agents) {
-					if (agent.type === "person" && !singleMainAgentId) {
-						singleMainAgentId = agent.id;
-					}
-					if (agent.type === "group" && !groupMainAgentId) {
-						groupMainAgentId = agent.id;
-					}
-					// 如果都找到了，提前退出
-					if (singleMainAgentId && groupMainAgentId) {
-						break;
-					}
-				}
-
 				// 首先更新选中行的 agent（包括背景行）
 				for (const line of state.lyricLines) {
 					if (selectedLines.has(line.id)) {
@@ -1121,63 +1105,12 @@ const AgentField: FC = () => {
 					}
 				}
 
-				// 找到第一个选中的非背景行索引，用于向前查找 lastAgentId
-				let firstSelectedIndex = -1;
-				for (let i = 0; i < state.lyricLines.length; i++) {
-					if (
-						selectedLines.has(state.lyricLines[i].id) &&
-						!state.lyricLines[i].isBG
-					) {
-						firstSelectedIndex = i;
-						break;
-					}
-				}
-
-				// 向前查找上一个 single 类型的 agent
-				let singleLastAgentId = singleMainAgentId ?? "v1";
-				let groupLastAgentId = groupMainAgentId ?? "v2";
-
-				if (firstSelectedIndex > 0) {
-					// 向前查找 single 类型的 agent
-					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
-						const line = state.lyricLines[i];
-						if (!line.isBG && line.agent) {
-							const agentType = agentMap.get(line.agent)?.type;
-							if (agentType === "person" || agentType === "other") {
-								singleLastAgentId = line.agent;
-								break;
-							}
-						}
-					}
-
-					// 向前查找 group 类型的 agent
-					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
-						const line = state.lyricLines[i];
-						if (!line.isBG && line.agent) {
-							const agentType = agentMap.get(line.agent)?.type;
-							if (agentType === "group") {
-								groupLastAgentId = line.agent;
-								break;
-							}
-						}
-					}
-				}
-
-				// 对唱状态计算上下文
-				const duetContext: DuetStateContext = {
-					agentId: undefined,
-					agentMap,
-					isGroup: false,
-					single: {
-						lastAgentId: singleLastAgentId,
-						currentAgentId: singleMainAgentId ?? "v1",
-						duetToggle: false,
-					},
-					group: {
-						lastAgentId: groupLastAgentId,
-						currentAgentId: groupMainAgentId ?? "v2",
-						duetToggle: true,
-					},
+				// 初始化对唱处理选项
+				const duetOptionsBase = calculateDuetOptions(state.agents ?? []);
+				const duetState = {
+					...duetOptionsBase,
+					currentAgentId: duetOptionsBase.mainAgentId,
+					duetToggle: false,
 				};
 
 				// 记录主行的对唱状态，供背景行继承
@@ -1191,14 +1124,11 @@ const AgentField: FC = () => {
 						continue;
 					}
 
-					// 判断当前行的 agent 类型
-					duetContext.agentId = line.agent;
-					duetContext.isGroup = line.agent
-						? agentMap.get(line.agent)?.type === "group"
-						: false;
-
-					// 使用可复用的对唱状态计算函数（内部会更新上下文）
-					line.isDuet = calculateDuetState(duetContext);
+					// 使用新的对唱状态计算函数
+					const result = calculateDuetState(line.agent, duetState);
+					line.isDuet = result.isDuet;
+					duetState.currentAgentId = result.newCurrentAgentId;
+					duetState.duetToggle = result.newDuetToggle;
 					lastMainLineIsDuet = line.isDuet;
 				}
 
