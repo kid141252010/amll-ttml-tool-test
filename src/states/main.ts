@@ -104,6 +104,10 @@ export const editingWordStateAtom = atom({
 	lineIndex: -1,
 	word: "",
 });
+export const currentWordRomanizationLangAtom = atom<string | undefined>(
+	undefined,
+);
+export const isEditingWordRomanizationAtom = atom(false);
 export const newLyricLinesAtom = atom(
 	null,
 	(
@@ -121,6 +125,11 @@ export const newLyricLinesAtom = atom(
 		set(undoableLyricLinesAtom, RESET);
 		set(selectedLinesAtom, new Set());
 		set(selectedWordsAtom, new Set());
+		set(
+			currentWordRomanizationLangAtom,
+			newState.defaultRomanizationLang?.trim() || undefined,
+		);
+		set(isEditingWordRomanizationAtom, false);
 	},
 );
 export const selectedLinesAtom = atom(new Set<string>());

@@ -63,30 +63,29 @@ export function collectWordRomanizationTracks(
 	fallbackLang: string = TtmlTextTrackLanguage.Untagged,
 ): Map<string, WordRomanizationTrack> {
 	const tracks = new Map<string, WordRomanizationTrack>();
+	const normalizedFallbackLang = normalizeTrackLanguage(fallbackLang);
 
-	for (const [lang, romanWords] of Object.entries(
-		line.wordRomanizationByLang ?? {},
-	)) {
-		setTrackSide(tracks, lang, "mainRoman", romanWords, line.words, []);
-	}
-
-	for (const [lang, romanWords] of Object.entries(
-		bgLine?.wordRomanizationByLang ?? {},
-	)) {
-		setTrackSide(
-			tracks,
-			lang,
-			"bgRoman",
-			romanWords,
-			line.words,
-			bgLine?.words ?? [],
-		);
-	}
+	collectTrackSide(
+		tracks,
+		line.wordRomanizationByLang,
+		"mainRoman",
+		line.words,
+		[],
+		normalizedFallbackLang,
+	);
+	collectTrackSide(
+		tracks,
+		bgLine?.wordRomanizationByLang,
+		"bgRoman",
+		line.words,
+		bgLine?.words ?? [],
+		normalizedFallbackLang,
+	);
 
 	const mainFallback = buildRomanWordFallback(line.words);
 	applyFallbackTrack(
 		tracks,
-		fallbackLang,
+		normalizedFallbackLang,
 		"mainRoman",
 		mainFallback,
 		line.words,
@@ -97,7 +96,7 @@ export function collectWordRomanizationTracks(
 	const bgFallback = buildRomanWordFallback(bgWords);
 	applyFallbackTrack(
 		tracks,
-		fallbackLang,
+		normalizedFallbackLang,
 		"bgRoman",
 		bgFallback,
 		line.words,
@@ -174,6 +173,59 @@ function setTrackSide(
 	track[side] = normalizedItems;
 }
 
+function collectTrackSide(
+	tracks: Map<string, WordRomanizationTrack>,
+	byLang: Record<string, TTMLRomanWord[]> | undefined,
+	side: TrackSide,
+	mainWords: LyricWord[],
+	bgWords: LyricWord[],
+	fallbackLang: string,
+) {
+	const entries = Object.entries(byLang ?? {});
+	for (const [lang, romanWords] of entries) {
+		if (shouldMergeUntaggedIntoFallback(lang, fallbackLang)) continue;
+		setTrackSide(tracks, lang, side, romanWords, mainWords, bgWords);
+	}
+
+	if (fallbackLang === TtmlTextTrackLanguage.Untagged) return;
+	for (const [lang, romanWords] of entries) {
+		if (!shouldMergeUntaggedIntoFallback(lang, fallbackLang)) continue;
+		mergeTrackSideMissingItems(
+			tracks,
+			fallbackLang,
+			side,
+			romanWords,
+			mainWords,
+			bgWords,
+		);
+	}
+}
+
+function mergeTrackSideMissingItems(
+	tracks: Map<string, WordRomanizationTrack>,
+	lang: string,
+	side: TrackSide,
+	items: readonly TTMLRomanWord[],
+	mainWords: LyricWord[],
+	bgWords: LyricWord[],
+) {
+	const normalizedItems = cloneTimedTextItems(items);
+	if (normalizedItems.length === 0) return;
+
+	const track = ensureTrack(tracks, lang, mainWords, bgWords);
+	const mergedItems = [...track[side]];
+	for (const item of normalizedItems) {
+		if (mergedItems.some((existing) => hasSameTiming(existing, item))) {
+			continue;
+		}
+		mergedItems.push(item);
+	}
+	track[side] = sortTimedTextItemsByWords(
+		side === "mainRoman" ? mainWords : bgWords,
+		mergedItems,
+	);
+}
+
 function applyFallbackTrack(
 	tracks: Map<string, WordRomanizationTrack>,
 	lang: string,
@@ -183,15 +235,49 @@ function applyFallbackTrack(
 	bgWords: LyricWord[],
 ) {
 	if (fallbackItems.length === 0) return;
-	const normalizedLang = lang.trim() || TtmlTextTrackLanguage.Untagged;
+	const normalizedLang = normalizeTrackLanguage(lang);
 	const existingTrack = tracks.get(normalizedLang);
 	if (existingTrack) {
 		if (isEquivalentTimedTextList(existingTrack[side], fallbackItems)) return;
+		mergeTrackSideMissingItems(
+			tracks,
+			normalizedLang,
+			side,
+			fallbackItems,
+			mainWords,
+			bgWords,
+		);
+		return;
 	} else if (hasEquivalentTrackSide(tracks, side, fallbackItems)) {
 		return;
 	}
 	const track = ensureTrack(tracks, normalizedLang, mainWords, bgWords);
 	track[side] = fallbackItems;
+}
+
+function shouldMergeUntaggedIntoFallback(lang: string, fallbackLang: string) {
+	return (
+		lang === TtmlTextTrackLanguage.Untagged &&
+		fallbackLang !== TtmlTextTrackLanguage.Untagged
+	);
+}
+
+function normalizeTrackLanguage(lang: string | undefined): string {
+	return lang?.trim() || TtmlTextTrackLanguage.Untagged;
+}
+
+function sortTimedTextItemsByWords<T extends TimedTextItem>(
+	words: readonly Pick<LyricWord, "startTime" | "endTime">[],
+	items: T[],
+) {
+	return [...items].sort((left, right) => {
+		const leftIndex = words.findIndex((word) => hasSameTiming(left, word));
+		const rightIndex = words.findIndex((word) => hasSameTiming(right, word));
+		if (leftIndex !== -1 && rightIndex !== -1) return leftIndex - rightIndex;
+		if (leftIndex !== -1) return -1;
+		if (rightIndex !== -1) return 1;
+		return left.startTime - right.startTime || left.endTime - right.endTime;
+	});
 }
 
 function hasEquivalentTrackSide(

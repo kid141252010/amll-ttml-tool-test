@@ -39,7 +39,7 @@ import {
 } from "$/states/dialogs.ts";
 import {
 	isDirtyAtom,
-	lyricLinesAtom,
+	newLyricLinesAtom,
 	projectIdAtom,
 	saveFileNameAtom,
 } from "$/states/main.ts";
@@ -61,7 +61,7 @@ export const ImportFromLRCLIB = () => {
 	const { t } = useTranslation();
 
 	const [isOpen, setIsOpen] = useAtom(importFromLRCLIBDialogAtom);
-	const setLyricLines = useSetAtom(lyricLinesAtom);
+	const setLyricLines = useSetAtom(newLyricLinesAtom);
 	const setProjectId = useSetAtom(projectIdAtom);
 	const setSaveFileName = useSetAtom(saveFileNameAtom);
 	const isDirty = useAtomValue(isDirtyAtom);

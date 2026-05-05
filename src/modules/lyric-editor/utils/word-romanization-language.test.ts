@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
 import {
 	getPreferredWordRomanizationLang,
+	getSortedWordRomanizationLanguages,
 	syncTimedWordTracksForWordTiming,
 	syncWordRomanizationForWord,
 } from "./word-romanization-language";
@@ -52,6 +53,48 @@ const lyric = (
 });
 
 describe("word romanization language synchronization", () => {
+	test("sorts explicit and default languages before legacy untagged tracks", () => {
+		const state = lyric(
+			[
+				line([word("顔", 1000, 1200, "kao")], {
+					wordRomanizationByLang: {
+						und: [{ startTime: 1000, endTime: 1200, text: "legacy" }],
+						"ja-Latn": [{ startTime: 1000, endTime: 1200, text: "kao" }],
+						"en-Latn": [{ startTime: 1000, endTime: 1200, text: "face" }],
+					},
+				}),
+			],
+			{ defaultRomanizationLang: "ja-Latn" },
+		);
+
+		expect(getSortedWordRomanizationLanguages(state, "en-Latn")).toEqual([
+			"en-Latn",
+			"ja-Latn",
+			"und",
+		]);
+		expect(getSortedWordRomanizationLanguages(state)).toEqual([
+			"ja-Latn",
+			"en-Latn",
+			"und",
+		]);
+	});
+
+	test("uses an explicitly selected language without falling back to active or untagged tracks", () => {
+		const state = lyric(
+			[
+				line([word("顔", 1000, 1200, "legacy")], {
+					wordRomanizationByLang: {
+						und: [{ startTime: 1000, endTime: 1200, text: "legacy" }],
+						"ja-Latn": [{ startTime: 1000, endTime: 1200, text: "kao" }],
+					},
+				}),
+			],
+			{ defaultRomanizationLang: "ja-Latn" },
+		);
+
+		expect(getPreferredWordRomanizationLang(state, "ja-Latn")).toBe("ja-Latn");
+	});
+
 	test("uses imported default language when an imported line has no word romanization track", () => {
 		const targetLine = line([word("顔", 1000, 1200)]);
 		const state = lyric([targetLine], {
@@ -114,6 +157,27 @@ describe("word romanization language synchronization", () => {
 		expect(targetLine.words[0].romanWord).toBe("");
 		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
 			{ startTime: 1200, endTime: 1400, text: "de" },
+		]);
+	});
+
+	test("removes same-timed legacy untagged entries when saving a tagged word romanization", () => {
+		const targetLine = line([word("顔", 1000, 1200, "legacy")], {
+			wordRomanizationByLang: {
+				und: [{ startTime: 1000, endTime: 1200, text: "legacy" }],
+				"ja-Latn": [],
+			},
+		});
+
+		syncWordRomanizationForWord(
+			targetLine,
+			targetLine.words[0],
+			"kao",
+			"ja-Latn",
+		);
+
+		expect(targetLine.wordRomanizationByLang?.und).toBeUndefined();
+		expect(targetLine.wordRomanizationByLang?.["ja-Latn"]).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "kao" },
 		]);
 	});
 

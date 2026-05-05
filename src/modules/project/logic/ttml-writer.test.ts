@@ -45,14 +45,17 @@ class MinimalElement {
 		const attributes = Array.from(this.attributes.entries());
 		const explicitDefaultNamespace = this.attributes.get("xmlns");
 		let childDefaultNamespace = inheritedDefaultNamespace;
+		const hasNamespacePrefix = this.tagName.includes(":");
 
 		if (explicitDefaultNamespace !== undefined) {
 			childDefaultNamespace = explicitDefaultNamespace;
-		} else if (this.namespaceURI) {
+		} else if (this.namespaceURI && !hasNamespacePrefix) {
 			childDefaultNamespace = this.namespaceURI;
 			if (this.namespaceURI !== inheritedDefaultNamespace) {
 				attributes.unshift(["xmlns", this.namespaceURI]);
 			}
+		} else if (this.namespaceURI && hasNamespacePrefix) {
+			childDefaultNamespace = inheritedDefaultNamespace;
 		} else if (inheritedDefaultNamespace) {
 			childDefaultNamespace = "";
 			attributes.unshift(["xmlns", ""]);
@@ -268,6 +271,20 @@ describe("ttml writer namespace serialization", () => {
 			expect(output).not.toMatch(/<(?:head|body|div|p|span)\b[^>]*\sxmlns=""/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns=/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns:ttm=/);
+		},
+	);
+
+	test.each([false, true])(
+		"keeps iTunes metadata descendants in metadata namespace when pretty is %s",
+		(pretty) => {
+			const output = exportTTMLText(buildLyricWithNestedSpanTracks(), pretty);
+
+			expect(output).toContain(
+				'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">',
+			);
+			expect(output).toContain("<translations>");
+			expect(output).toContain("<transliterations>");
+			expect(output).not.toContain('xmlns=""');
 		},
 	);
 });

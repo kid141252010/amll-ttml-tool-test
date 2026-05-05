@@ -16,7 +16,7 @@ import {
 	confirmDialogAtom,
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
-import { isDirtyAtom, lyricLinesAtom } from "$/states/main.ts";
+import { isDirtyAtom, newLyricLinesAtom } from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
 import { error as logError } from "$/utils/logging.ts";
@@ -267,7 +267,7 @@ export const ImportFromText = () => {
 				}
 			}
 
-			store.set(lyricLinesAtom, {
+			store.set(newLyricLinesAtom, {
 				lyricLines: result,
 				metadata: [],
 				lyricLang: "zh-Hans",
