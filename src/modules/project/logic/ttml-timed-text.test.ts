@@ -100,6 +100,48 @@ describe("ttml timed text helpers", () => {
 		]);
 	});
 
+	test("merges legacy untagged word romanization into the configured default language", () => {
+		const collectWithFallback = collectWordRomanizationTracks as (
+			line: LyricLine,
+			bgLine: LyricLine | undefined,
+			fallbackLang: string,
+		) => ReturnType<typeof collectWordRomanizationTracks>;
+
+		const tracks = collectWithFallback(
+			line([word("顔", 1000, 1200), word("で", 1200, 1400)], {
+				wordRomanizationByLang: {
+					und: [
+						{ startTime: 1000, endTime: 1200, text: "legacy-kao" },
+						{ startTime: 1200, endTime: 1400, text: "de" },
+					],
+					"ja-Latn": [{ startTime: 1000, endTime: 1200, text: "kao" }],
+				},
+			}),
+			undefined,
+			"ja-Latn",
+		);
+
+		expect(tracks.has(TtmlTextTrackLanguage.Untagged)).toBe(false);
+		expect(tracks.get("ja-Latn")?.mainRoman).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "kao" },
+			{ startTime: 1200, endTime: 1400, text: "de" },
+		]);
+	});
+
+	test("keeps untagged word romanization untagged when no default language exists", () => {
+		const tracks = collectWordRomanizationTracks(
+			line([word("顔", 1000, 1200)], {
+				wordRomanizationByLang: {
+					und: [{ startTime: 1000, endTime: 1200, text: "kao" }],
+				},
+			}),
+		);
+
+		expect(tracks.get(TtmlTextTrackLanguage.Untagged)?.mainRoman).toEqual([
+			{ startTime: 1000, endTime: 1200, text: "kao" },
+		]);
+	});
+
 	test("matches duplicate timed words by consuming timed text in order", () => {
 		const matches = matchTimedTextItemsInOrder(
 			[word("a", 1000, 1200), word("b", 1000, 1200)],

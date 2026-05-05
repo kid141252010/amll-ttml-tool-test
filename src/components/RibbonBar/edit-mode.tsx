@@ -45,6 +45,8 @@ import { useTranslation } from "react-i18next";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import {
 	buildWordRomanizationAutoApplyKey,
+	createRomanWordEditSession,
+	type RomanWordEditSession,
 	shouldAutoApplyWordRomanizationLanguage,
 } from "$/modules/lyric-editor/utils/word-romanization";
 import {
@@ -66,7 +68,9 @@ import {
 } from "$/states/dialogs";
 import {
 	customSongPartPresetsAtom,
+	currentWordRomanizationLangAtom,
 	editingTimeFieldAtom,
+	isEditingWordRomanizationAtom,
 	lyricLinesAtom,
 	projectIdAtom,
 	requestFocusAtom,
@@ -83,8 +87,8 @@ import {
 } from "$/types/ttml";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import {
-	getActiveWordRomanizationLang,
 	getPreferredWordRomanizationLang,
+	getSortedWordRomanizationLanguages,
 	syncTimedWordTracksForWordTiming,
 	syncWordRomanizationForWord,
 } from "$/modules/lyric-editor/utils/word-romanization-language";
@@ -117,12 +121,19 @@ function EditField<
 	const [showDurationInput, setShowDurationInput] = useAtom(
 		showEndTimeAsDurationAtom,
 	);
+	const isRomanWordField = isWordField && fieldName === "romanWord";
 	const itemAtom = useMemo(
 		() => (isWordField ? selectedWordsAtom : selectedLinesAtom),
 		[isWordField],
 	);
 
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const setCurrentWordRomanizationLang = useSetAtom(
+		currentWordRomanizationLangAtom,
+	);
+	const setIsEditingWordRomanization = useSetAtom(
+		isEditingWordRomanizationAtom,
+	);
 	const autoGenerateRubyFromRomanization = useAtomValue(
 		amllAutoGenerateRubyFromRomanizationAtom,
 	);
@@ -131,7 +142,11 @@ function EditField<
 
 	const [requestFocus, setRequestFocus] = useAtom(requestFocusAtom);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const fieldInputRef = useRef("");
 	const durationInvalidTimerRef = useRef<number | null>(null);
+	const romanWordEditSessionRef = useRef<RomanWordEditSession | null>(null);
+	const isFieldFocusedRef = useRef(false);
+	const onInputFinishedRef = useRef((_rawValue: string) => {});
 
 	useEffect(() => {
 		if (requestFocus === fieldName && !isWordField && inputRef.current) {
@@ -147,6 +162,10 @@ function EditField<
 		},
 		[],
 	);
+
+	useEffect(() => {
+		fieldInputRef.current = fieldInput ?? "";
+	}, [fieldInput]);
 
 	const hasErrorAtom = useMemo(
 		() =>
@@ -263,6 +282,22 @@ function EditField<
 		if (typeof currentValue === "string") return currentValue;
 		return "";
 	}, [currentValue, durationValue, fieldName, showDurationInput]);
+	const beginRomanWordEditSession = useCallback(() => {
+		if (!isRomanWordField) return;
+		const targetLang = getPreferredWordRomanizationLang(
+			store.get(lyricLinesAtom),
+			store.get(currentWordRomanizationLangAtom),
+		);
+		romanWordEditSessionRef.current =
+			createRomanWordEditSession(targetLang);
+		setCurrentWordRomanizationLang(targetLang);
+		setIsEditingWordRomanization(true);
+	}, [
+		isRomanWordField,
+		store,
+		setCurrentWordRomanizationLang,
+		setIsEditingWordRomanization,
+	]);
 	const flashInvalidDurationInput = useCallback(() => {
 		setFieldInput("");
 		setDurationInputInvalid(true);
@@ -284,6 +319,15 @@ function EditField<
 
 	const onInputFinished = useCallback(
 		(rawValue: string) => {
+			const romanWordSession = isRomanWordField
+				? romanWordEditSessionRef.current
+				: null;
+			if (isRomanWordField) {
+				if (!romanWordSession?.tryCommit()) return;
+				setCurrentWordRomanizationLang(romanWordSession.lang);
+				setIsEditingWordRomanization(false);
+			}
+
 			try {
 				const selectedItems = store.get(itemAtom);
 				const fieldKey = String(fieldName);
@@ -339,8 +383,8 @@ function EditField<
 				const value = parser(rawValue);
 				editLyricLines((state) => {
 					const targetRomanizationLang =
-						isWordField && fieldName === "romanWord"
-							? getPreferredWordRomanizationLang(state)
+						isRomanWordField && romanWordSession
+							? romanWordSession.lang
 							: undefined;
 					for (const line of state.lyricLines) {
 						if (isWordField) {
@@ -399,11 +443,32 @@ function EditField<
 			compareValue,
 			fieldName,
 			isWordField,
+			isRomanWordField,
 			parser,
 			showDurationInput,
 			flashInvalidDurationInput,
 			autoGenerateRubyFromRomanization,
+			setCurrentWordRomanizationLang,
+			setIsEditingWordRomanization,
 		],
+	);
+
+	useEffect(() => {
+		onInputFinishedRef.current = onInputFinished;
+	}, [onInputFinished]);
+
+	useEffect(
+		() => () => {
+			if (!isRomanWordField) return;
+			const session = romanWordEditSessionRef.current;
+			if (isFieldFocusedRef.current && session?.shouldAutoCommit()) {
+				onInputFinishedRef.current(fieldInputRef.current);
+			}
+			romanWordEditSessionRef.current = null;
+			isFieldFocusedRef.current = false;
+			setIsEditingWordRomanization(false);
+		},
+		[isRomanWordField, setIsEditingWordRomanization],
 	);
 
 	useLayoutEffect(() => {
@@ -460,12 +525,32 @@ function EditField<
 				value={fieldInput ?? ""}
 				placeholder={fieldPlaceholder}
 				disabled={fieldInput === undefined}
-				onChange={(evt) => setFieldInput(evt.currentTarget.value)}
+				onChange={(evt) => {
+					fieldInputRef.current = evt.currentTarget.value;
+					setFieldInput(evt.currentTarget.value);
+				}}
 				onKeyDown={(evt) => {
-					if (evt.key !== "Enter") return;
-					onInputFinished(evt.currentTarget.value);
+					if (evt.key === "Enter") {
+						evt.preventDefault();
+						onInputFinished(evt.currentTarget.value);
+						if (isRomanWordField) {
+							evt.currentTarget.blur();
+						}
+						return;
+					}
+					if (evt.key === "Escape" && isRomanWordField) {
+						evt.preventDefault();
+						romanWordEditSessionRef.current?.cancel();
+						fieldInputRef.current = compareValue;
+						setFieldInput(compareValue);
+						setIsEditingWordRomanization(false);
+						inputRef.current?.blur();
+					}
 				}}
 				onFocus={() => {
+					isFieldFocusedRef.current = true;
+					fieldInputRef.current = inputRef.current?.value ?? "";
+					beginRomanWordEditSession();
 					if (
 						!isWordField &&
 						(fieldName === "startTime" || fieldName === "endTime")
@@ -478,6 +563,20 @@ function EditField<
 				}}
 				onBlur={(evt) => {
 					setEditingTimeField(null);
+					isFieldFocusedRef.current = false;
+
+					if (isRomanWordField) {
+						if (evt.currentTarget.value === compareValue) {
+							romanWordEditSessionRef.current?.cancel();
+							romanWordEditSessionRef.current = null;
+							setIsEditingWordRomanization(false);
+							return;
+						}
+						onInputFinished(evt.currentTarget.value);
+						romanWordEditSessionRef.current = null;
+						setIsEditingWordRomanization(false);
+						return;
+					}
 
 					if (evt.currentTarget.value === compareValue) return;
 					onInputFinished(evt.currentTarget.value);
@@ -1702,6 +1801,9 @@ const MultilingualField: FC = () => {
 	const { t } = useTranslation();
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const projectId = useAtomValue(projectIdAtom);
+	const [selectedWordRomanizationLang, setSelectedWordRomanizationLang] =
+		useAtom(currentWordRomanizationLangAtom);
+	const isEditingWordRomanization = useAtomValue(isEditingWordRomanizationAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
 	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
@@ -1759,17 +1861,11 @@ const MultilingualField: FC = () => {
 	}, [lyricLines]);
 
 	const wordRomanizationLanguages = useMemo(() => {
-		const languages = new Set<string>();
-		for (const line of lyricLines.lyricLines) {
-			if (!line.wordRomanizationByLang) continue;
-			for (const [lang, words] of Object.entries(line.wordRomanizationByLang)) {
-				if (words.length > 0) {
-					languages.add(lang);
-				}
-			}
-		}
-		return Array.from(languages);
-	}, [lyricLines]);
+		return getSortedWordRomanizationLanguages(
+			lyricLines,
+			selectedWordRomanizationLang,
+		);
+	}, [lyricLines, selectedWordRomanizationLang]);
 
 	const currentTranslationLang = useMemo(() => {
 		let matchedLang: string | undefined;
@@ -1815,10 +1911,16 @@ const MultilingualField: FC = () => {
 		return matchedLang;
 	}, [lyricLines]);
 
-	const currentWordRomanizationLang = useMemo(
-		() => getActiveWordRomanizationLang(lyricLines),
-		[lyricLines],
-	);
+	const currentWordRomanizationLang = useMemo(() => {
+		if (wordRomanizationLanguages.length === 0) return undefined;
+		const preferredLang = getPreferredWordRomanizationLang(
+			lyricLines,
+			selectedWordRomanizationLang,
+		);
+		return wordRomanizationLanguages.includes(preferredLang)
+			? preferredLang
+			: wordRomanizationLanguages[0];
+	}, [lyricLines, selectedWordRomanizationLang, wordRomanizationLanguages]);
 
 	const applyTranslationLang = useCallback(
 		function applyTranslationLangInner(lang: string) {
@@ -1893,11 +1995,13 @@ const MultilingualField: FC = () => {
 								delete byLang.und;
 							}
 						});
+						setSelectedWordRomanizationLang(nextLang);
 						applyWordRomanizationLangInner(nextLang);
 					},
 				});
 				return;
 			}
+			setSelectedWordRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					const romanWords = line.wordRomanizationByLang?.[lang] ?? [];
@@ -1929,6 +2033,7 @@ const MultilingualField: FC = () => {
 			editLyricLines,
 			setAddLanguageDialog,
 			autoGenerateRubyFromRomanization,
+			setSelectedWordRomanizationLang,
 		],
 	);
 
@@ -2006,6 +2111,7 @@ const MultilingualField: FC = () => {
 
 	useEffect(() => {
 		// 自动选择第一个逐字音译语言
+		if (isEditingWordRomanization) return;
 		const autoApplyKey = buildWordRomanizationAutoApplyKey(
 			projectId,
 			wordRomanizationLanguages,
@@ -2015,6 +2121,7 @@ const MultilingualField: FC = () => {
 			currentLanguage: currentWordRomanizationLang,
 			currentAutoApplyKey: autoApplyKey,
 			previousAutoApplyKey: wordRomanizationAutoApplyKeyRef.current,
+			isEditing: isEditingWordRomanization,
 		});
 		wordRomanizationAutoApplyKeyRef.current = autoApplyKey;
 		if (shouldApply) {
@@ -2025,6 +2132,7 @@ const MultilingualField: FC = () => {
 		wordRomanizationLanguages,
 		currentWordRomanizationLang,
 		applyWordRomanizationLang,
+		isEditingWordRomanization,
 	]);
 
 	const openEditTranslationLangDialog = useCallback(() => {
@@ -2135,6 +2243,7 @@ const MultilingualField: FC = () => {
 						}
 					}
 				});
+				setSelectedWordRomanizationLang(trimmed);
 			},
 		});
 	}, [
@@ -2142,6 +2251,7 @@ const MultilingualField: FC = () => {
 		setEditLanguageDialog,
 		editLyricLines,
 		autoGenerateRubyFromRomanization,
+		setSelectedWordRomanizationLang,
 	]);
 
 	return (
@@ -2358,6 +2468,9 @@ const MultilingualField: FC = () => {
 												}
 											}
 										});
+										if (currentWordRomanizationLang === lang) {
+											setSelectedWordRomanizationLang(undefined);
+										}
 									}}
 									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
 								>

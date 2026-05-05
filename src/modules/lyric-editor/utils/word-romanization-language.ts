@@ -25,13 +25,45 @@ export function getActiveWordRomanizationLang(
 
 export function getPreferredWordRomanizationLang(
 	ttmlLyric: TTMLLyric,
+	selectedLang?: string,
 ): string {
+	const normalizedSelectedLang = normalizeLang(selectedLang);
+	if (normalizedSelectedLang) return normalizedSelectedLang;
+
+	const defaultLang = normalizeLang(ttmlLyric.defaultRomanizationLang);
+	if (defaultLang) return defaultLang;
+
 	return (
-		getActiveWordRomanizationLang(ttmlLyric) ??
-		normalizeLang(ttmlLyric.defaultRomanizationLang) ??
-		getFirstWordRomanizationLang(ttmlLyric) ??
+		getSortedWordRomanizationLanguages(ttmlLyric)[0] ??
 		TtmlTextTrackLanguage.Untagged
 	);
+}
+
+export function getSortedWordRomanizationLanguages(
+	ttmlLyric: TTMLLyric,
+	selectedLang?: string,
+): string[] {
+	const languages = getWordRomanizationLanguages(ttmlLyric);
+	const originalIndex = new Map(
+		languages.map((lang, index) => [lang, index] as const),
+	);
+	const normalizedSelectedLang = normalizeLang(selectedLang);
+	const defaultLang = normalizeLang(ttmlLyric.defaultRomanizationLang);
+
+	return [...languages].sort((left, right) => {
+		const leftPriority = getWordRomanizationLangPriority(
+			left,
+			normalizedSelectedLang,
+			defaultLang,
+		);
+		const rightPriority = getWordRomanizationLangPriority(
+			right,
+			normalizedSelectedLang,
+			defaultLang,
+		);
+		if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+		return (originalIndex.get(left) ?? 0) - (originalIndex.get(right) ?? 0);
+	});
 }
 
 export function syncWordRomanizationForWord(
@@ -46,6 +78,8 @@ export function syncWordRomanizationForWord(
 	const entries = line.wordRomanizationByLang[normalizedLang] ?? [];
 	const entryIndex = entries.findIndex((entry) => hasSameTiming(entry, word));
 	const isEmpty = nextRomanWord.trim().length === 0;
+	const shouldRemoveLegacyUntagged =
+		normalizedLang !== TtmlTextTrackLanguage.Untagged;
 
 	if (isEmpty) {
 		if (entryIndex !== -1) {
@@ -55,10 +89,15 @@ export function syncWordRomanizationForWord(
 			line.wordRomanizationByLang[normalizedLang] = entries;
 		} else {
 			delete line.wordRomanizationByLang[normalizedLang];
-			if (Object.keys(line.wordRomanizationByLang).length === 0) {
-				delete line.wordRomanizationByLang;
-			}
 		}
+		if (shouldRemoveLegacyUntagged) {
+			removeSameTimedWordRomanizationEntry(
+				line,
+				TtmlTextTrackLanguage.Untagged,
+				word,
+			);
+		}
+		pruneEmptyWordRomanizationMap(line);
 		return;
 	}
 
@@ -75,6 +114,14 @@ export function syncWordRomanizationForWord(
 	}
 	line.wordRomanizationByLang[normalizedLang] =
 		sortRomanizationEntriesByLine(line, entries);
+	if (shouldRemoveLegacyUntagged) {
+		removeSameTimedWordRomanizationEntry(
+			line,
+			TtmlTextTrackLanguage.Untagged,
+			word,
+		);
+	}
+	pruneEmptyWordRomanizationMap(line);
 }
 
 export function syncTimedWordTracksForWordTiming(
@@ -87,14 +134,30 @@ export function syncTimedWordTracksForWordTiming(
 	syncTimedTextTrackMap(line.wordTranslationByLang, previousTiming, nextTiming);
 }
 
-function getFirstWordRomanizationLang(ttmlLyric: TTMLLyric): string | undefined {
+function getWordRomanizationLanguages(ttmlLyric: TTMLLyric): string[] {
+	const languages: string[] = [];
+	const seen = new Set<string>();
 	for (const line of ttmlLyric.lyricLines) {
-		const lang = Object.keys(line.wordRomanizationByLang ?? {}).find(
-			(key) => (line.wordRomanizationByLang?.[key]?.length ?? 0) > 0,
-		);
-		if (lang) return lang;
+		for (const [lang, romanWords] of Object.entries(
+			line.wordRomanizationByLang ?? {},
+		)) {
+			if (romanWords.length === 0 || seen.has(lang)) continue;
+			seen.add(lang);
+			languages.push(lang);
+		}
 	}
-	return undefined;
+	return languages;
+}
+
+function getWordRomanizationLangPriority(
+	lang: string,
+	selectedLang: string | undefined,
+	defaultLang: string | undefined,
+) {
+	if (selectedLang && lang === selectedLang) return 0;
+	if (defaultLang && lang === defaultLang) return 1;
+	if (lang !== TtmlTextTrackLanguage.Untagged) return 2;
+	return 3;
 }
 
 function lineMatchesRomanizationTrack(
@@ -127,6 +190,32 @@ function sortRomanizationEntriesByLine(
 		if (rightIndex !== -1) return 1;
 		return left.startTime - right.startTime || left.endTime - right.endTime;
 	});
+}
+
+function removeSameTimedWordRomanizationEntry(
+	line: LyricLine,
+	lang: string,
+	word: LyricWord,
+) {
+	const byLang = line.wordRomanizationByLang;
+	const entries = byLang?.[lang];
+	if (!byLang || !entries) return;
+
+	const filteredEntries = entries.filter((entry) => !hasSameTiming(entry, word));
+	if (filteredEntries.length > 0) {
+		byLang[lang] = filteredEntries;
+	} else {
+		delete byLang[lang];
+	}
+}
+
+function pruneEmptyWordRomanizationMap(line: LyricLine) {
+	if (
+		line.wordRomanizationByLang &&
+		Object.keys(line.wordRomanizationByLang).length === 0
+	) {
+		delete line.wordRomanizationByLang;
+	}
 }
 
 function normalizeLang(lang: string | undefined): string | undefined {
