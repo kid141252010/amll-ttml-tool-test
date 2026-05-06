@@ -44,19 +44,19 @@ class MinimalElement {
 	serialize(inheritedDefaultNamespace?: string): string {
 		const attributes = Array.from(this.attributes.entries());
 		const explicitDefaultNamespace = this.attributes.get("xmlns");
+		const usesDefaultNamespace =
+			this.namespaceURI !== null && !this.tagName.includes(":");
 		let childDefaultNamespace = inheritedDefaultNamespace;
 		const hasNamespacePrefix = this.tagName.includes(":");
 
 		if (explicitDefaultNamespace !== undefined) {
 			childDefaultNamespace = explicitDefaultNamespace;
-		} else if (this.namespaceURI && !hasNamespacePrefix) {
+		} else if (usesDefaultNamespace) {
 			childDefaultNamespace = this.namespaceURI;
 			if (this.namespaceURI !== inheritedDefaultNamespace) {
 				attributes.unshift(["xmlns", this.namespaceURI]);
 			}
-		} else if (this.namespaceURI && hasNamespacePrefix) {
-			childDefaultNamespace = inheritedDefaultNamespace;
-		} else if (inheritedDefaultNamespace) {
+		} else if (!this.namespaceURI && inheritedDefaultNamespace) {
 			childDefaultNamespace = "";
 			attributes.unshift(["xmlns", ""]);
 		}
@@ -243,11 +243,27 @@ function buildLyricWithNestedSpanTracks(): TTMLLyric {
 	);
 
 	return {
-		metadata: [],
+		metadata: [{ key: "album", value: ["namespace-check"] }],
 		lyricLines: [main, background],
-		agents: [],
+		vocalTags: [
+			{ key: "lead", value: "Lead" },
+			{ key: "harmony", value: "Harmony" },
+		],
+		agents: [
+			{ id: "v1", type: "person", names: ["主唱"] },
+			{ id: "v2", type: "person", names: ["和声"] },
+		],
 		lyricLang: "zh-Hans",
 	};
+}
+
+function expectOnlyRootAndITunesMetadataDeclareNamespaces(output: string) {
+	const tagsWithNamespaceDeclarations = Array.from(
+		output.matchAll(/<([A-Za-z][\w:.-]*)\b[^>]*\sxmlns(?::[\w.-]+)?=/g),
+		(match) => match[1],
+	);
+
+	expect(tagsWithNamespaceDeclarations).toEqual(["tt", "iTunesMetadata"]);
 }
 
 describe("ttml writer serialization helpers", () => {
@@ -268,9 +284,28 @@ describe("ttml writer namespace serialization", () => {
 
 			expect(output).toContain('<tt xmlns="http://www.w3.org/ns/ttml"');
 			expect(output).toContain('ttm:role="x-bg"');
+			expect(output).not.toMatch(/<ttm:(?:agent|name)\b[^>]*\sxmlns(?::\w+)?=/);
+			expect(output).not.toMatch(/<amll:(?:meta|vocals)\b[^>]*\sxmlns(?::\w+)?=/);
 			expect(output).not.toMatch(/<(?:head|body|div|p|span)\b[^>]*\sxmlns=""/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns=/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns:ttm=/);
+			expectOnlyRootAndITunesMetadataDeclareNamespaces(output);
+		},
+	);
+
+	test.each([false, true])(
+		"keeps iTunes metadata descendants in metadata namespace when pretty is %s",
+		(pretty) => {
+			const output = exportTTMLText(buildLyricWithNestedSpanTracks(), pretty);
+
+			expect(output).toContain(
+				'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">',
+			);
+			expect(output).toContain("<translations>");
+			expect(output).toContain("<transliterations>");
+			expect(output).not.toContain('xmlns=""');
+			expect(output).not.toMatch(/<(?:translations|transliterations|translation|transliteration|text|span)\b[^>]*\sxmlns(?::\w+)?=/);
+			expectOnlyRootAndITunesMetadataDeclareNamespaces(output);
 		},
 	);
 
