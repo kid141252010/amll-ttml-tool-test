@@ -26,7 +26,10 @@ import { useTranslation } from "react-i18next";
 import { agentManagerDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { TTMLAgent } from "$/types/ttml";
-import { calculateDuetState } from "$/modules/project/logic/ttml-parser";
+import {
+	calculateDuetState,
+	calculateDuetOptions,
+} from "$/modules/project/logic/ttml-parser";
 import styles from "./AgentManager.module.css";
 
 const AGENT_TYPES: Array<{ value: TTMLAgent["type"]; label: string }> = [
@@ -110,39 +113,26 @@ export const AgentManager = () => {
 
 	// 重新计算所有行的对唱状态
 	const recalculateDuetState = (draft: typeof lyricLines) => {
-		const agentMap = new Map<string, TTMLAgent>();
-		for (const agent of draft.agents) {
-			agentMap.set(agent.id, agent);
-		}
+		const agents = draft.agents ?? [];
 
-		// 找到第一个 person 类型的 agent 作为主歌手
-		let mainAgentId = "v1";
-		for (const agent of draft.agents) {
-			if (agent.type === "person") {
-				mainAgentId = agent.id;
-				break;
-			}
-		}
-
-		let currentAgentId = mainAgentId;
-		let duetToggle = false;
+		// 初始化对唱处理选项
+		const duetOptionsBase = calculateDuetOptions(agents);
+		const duetState = {
+			...duetOptionsBase,
+			currentAgentId: duetOptionsBase.mainAgentId,
+			duetToggle: false,
+		};
 
 		for (const line of draft.lyricLines) {
 			if (line.isBG) {
 				continue;
 			}
 
-			const result = calculateDuetState(
-				line.agent,
-				agentMap,
-				mainAgentId,
-				currentAgentId,
-				duetToggle,
-			);
+			const result = calculateDuetState(line.agent, duetState);
 
 			line.isDuet = result.isDuet;
-			currentAgentId = result.newCurrentAgentId;
-			duetToggle = result.newDuetToggle;
+			duetState.currentAgentId = result.newCurrentAgentId;
+			duetState.duetToggle = result.newDuetToggle;
 		}
 	};
 
@@ -290,7 +280,7 @@ export const AgentManager = () => {
 												</Select.Content>
 											</Select.Root>
 										</Flex>
-										<Flex gap="2" align="flex-start">
+										<Flex gap="2" align="start">
 											<Text
 												size="2"
 												style={{ minWidth: "60px", marginTop: "4px" }}
@@ -368,7 +358,7 @@ export const AgentManager = () => {
 													</Select.Content>
 												</Select.Root>
 											</Flex>
-											<Flex gap="2" align="flex-start">
+											<Flex gap="2" align="start">
 												<Text
 													size="2"
 													style={{ minWidth: "60px", marginTop: "4px" }}

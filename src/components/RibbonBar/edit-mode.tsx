@@ -50,8 +50,8 @@ import {
 	shouldAutoApplyWordRomanizationLanguage,
 } from "$/modules/lyric-editor/utils/word-romanization";
 import {
+	calculateDuetOptions,
 	calculateDuetState,
-	type DuetStateContext,
 } from "$/modules/project/logic/ttml-parser";
 import {
 	LayoutMode,
@@ -75,6 +75,9 @@ import {
 	projectIdAtom,
 	requestFocusAtom,
 	selectedLinesAtom,
+	selectedRomanizationLangAtom,
+	selectedTranslationLangAtom,
+	selectedWordRomanizationLangAtom,
 	selectedWordsAtom,
 	showEndTimeAsDurationAtom,
 } from "$/states/main.ts";
@@ -288,8 +291,7 @@ function EditField<
 			store.get(lyricLinesAtom),
 			store.get(currentWordRomanizationLangAtom),
 		);
-		romanWordEditSessionRef.current =
-			createRomanWordEditSession(targetLang);
+		romanWordEditSessionRef.current = createRomanWordEditSession(targetLang);
 		setCurrentWordRomanizationLang(targetLang);
 		setIsEditingWordRomanization(true);
 	}, [
@@ -366,11 +368,7 @@ function EditField<
 										endTime: word.endTime,
 									};
 									word.endTime = newEndTime;
-									syncTimedWordTracksForWordTiming(
-										line,
-										previousTiming,
-										word,
-									);
+									syncTimedWordTracksForWordTiming(line, previousTiming, word);
 								}
 							} else if (selectedItems.has(line.id)) {
 								line.endTime = line.startTime + durationValue;
@@ -1012,7 +1010,10 @@ const SongPartField: FC = () => {
 						...customSongPartPresets,
 					];
 					if (allPresets.includes(value.trim())) {
-						return t("ribbonBar.editMode.duplicateValue", "Value already exists");
+						return t(
+							"ribbonBar.editMode.duplicateValue",
+							"Value already exists",
+						);
 					}
 					return null;
 				},
@@ -1066,9 +1067,7 @@ const SongPartField: FC = () => {
 	const handleDeletePreset = useCallback(
 		(presetValue: string) => {
 			// 从自定义预设列表中移除
-			setCustomSongPartPresets((prev) =>
-				prev.filter((p) => p !== presetValue),
-			);
+			setCustomSongPartPresets((prev) => prev.filter((p) => p !== presetValue));
 			// 将所有使用该预设的行的 songPart 设置为 undefined（无）
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
@@ -1258,22 +1257,6 @@ const AgentField: FC = () => {
 					agentMap.set(agent.id, agent);
 				}
 
-				// 分别找到 single 和 group 类型的 mainAgentId
-				let singleMainAgentId: string | undefined;
-				let groupMainAgentId: string | undefined;
-				for (const agent of state.agents) {
-					if (agent.type === "person" && !singleMainAgentId) {
-						singleMainAgentId = agent.id;
-					}
-					if (agent.type === "group" && !groupMainAgentId) {
-						groupMainAgentId = agent.id;
-					}
-					// 如果都找到了，提前退出
-					if (singleMainAgentId && groupMainAgentId) {
-						break;
-					}
-				}
-
 				// 首先更新选中行的 agent（包括背景行）
 				for (const line of state.lyricLines) {
 					if (selectedLines.has(line.id)) {
@@ -1281,63 +1264,12 @@ const AgentField: FC = () => {
 					}
 				}
 
-				// 找到第一个选中的非背景行索引，用于向前查找 lastAgentId
-				let firstSelectedIndex = -1;
-				for (let i = 0; i < state.lyricLines.length; i++) {
-					if (
-						selectedLines.has(state.lyricLines[i].id) &&
-						!state.lyricLines[i].isBG
-					) {
-						firstSelectedIndex = i;
-						break;
-					}
-				}
-
-				// 向前查找上一个 single 类型的 agent
-				let singleLastAgentId = singleMainAgentId ?? "v1";
-				let groupLastAgentId = groupMainAgentId ?? "v2";
-
-				if (firstSelectedIndex > 0) {
-					// 向前查找 single 类型的 agent
-					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
-						const line = state.lyricLines[i];
-						if (!line.isBG && line.agent) {
-							const agentType = agentMap.get(line.agent)?.type;
-							if (agentType === "person" || agentType === "other") {
-								singleLastAgentId = line.agent;
-								break;
-							}
-						}
-					}
-
-					// 向前查找 group 类型的 agent
-					for (let i = firstSelectedIndex - 1; i >= 0; i--) {
-						const line = state.lyricLines[i];
-						if (!line.isBG && line.agent) {
-							const agentType = agentMap.get(line.agent)?.type;
-							if (agentType === "group") {
-								groupLastAgentId = line.agent;
-								break;
-							}
-						}
-					}
-				}
-
-				// 对唱状态计算上下文
-				const duetContext: DuetStateContext = {
-					agentId: undefined,
-					agentMap,
-					isGroup: false,
-					single: {
-						lastAgentId: singleLastAgentId,
-						currentAgentId: singleMainAgentId ?? "v1",
-						duetToggle: false,
-					},
-					group: {
-						lastAgentId: groupLastAgentId,
-						currentAgentId: groupMainAgentId ?? "v2",
-						duetToggle: true,
-					},
+				// 初始化对唱处理选项
+				const duetOptionsBase = calculateDuetOptions(state.agents ?? []);
+				const duetState = {
+					...duetOptionsBase,
+					currentAgentId: duetOptionsBase.mainAgentId,
+					duetToggle: false,
 				};
 
 				// 记录主行的对唱状态，供背景行继承
@@ -1351,14 +1283,11 @@ const AgentField: FC = () => {
 						continue;
 					}
 
-					// 判断当前行的 agent 类型
-					duetContext.agentId = line.agent;
-					duetContext.isGroup = line.agent
-						? agentMap.get(line.agent)?.type === "group"
-						: false;
-
-					// 使用可复用的对唱状态计算函数（内部会更新上下文）
-					line.isDuet = calculateDuetState(duetContext);
+					// 使用新的对唱状态计算函数
+					const result = calculateDuetState(line.agent, duetState);
+					line.isDuet = result.isDuet;
+					duetState.currentAgentId = result.newCurrentAgentId;
+					duetState.duetToggle = result.newDuetToggle;
 					lastMainLineIsDuet = line.isDuet;
 				}
 
@@ -1450,15 +1379,15 @@ const AgentField: FC = () => {
 				disabled={isAgentSelectDisabled}
 			>
 				<Select.Trigger
-				placeholder={
-					!hasAgents
-						? t("ribbonBar.editMode.noAgents", "No agents")
-						: selectedLines.size === 0
-							? t("ribbonBar.editMode.noSelection", "No selection")
-							: t("ribbonBar.editMode.none", "None")
-				}
-				aria-labelledby={agentLabelId}
-			/>
+					placeholder={
+						!hasAgents
+							? t("ribbonBar.editMode.noAgents", "No agents")
+							: selectedLines.size === 0
+								? t("ribbonBar.editMode.noSelection", "No selection")
+								: t("ribbonBar.editMode.none", "None")
+					}
+					aria-labelledby={agentLabelId}
+				/>
 				<Select.Content>
 					{agentOptions.map((option) =>
 						option.type === "separator" ? (
@@ -1744,7 +1673,14 @@ const PrimaryContentField: FC = () => {
 					{languageOptions.map((lang) => (
 						<Box key={lang} position="relative">
 							<Select.Item value={lang}>
-								<Text style={{ paddingRight: languageOptions.length > 1 ? "2rem" : undefined }}>{lang}</Text>
+								<Text
+									style={{
+										paddingRight:
+											languageOptions.length > 1 ? "2rem" : undefined,
+									}}
+								>
+									{lang}
+								</Text>
 							</Select.Item>
 							{languageOptions.length > 1 && (
 								<Box
@@ -1766,7 +1702,10 @@ const PrimaryContentField: FC = () => {
 												for (const line of state.lyricLines) {
 													if (line.wordTranslationByLang?.[lang]) {
 														delete line.wordTranslationByLang[lang];
-														if (Object.keys(line.wordTranslationByLang).length === 0) {
+														if (
+															Object.keys(line.wordTranslationByLang).length ===
+															0
+														) {
 															delete line.wordTranslationByLang;
 														}
 													}
@@ -1783,7 +1722,10 @@ const PrimaryContentField: FC = () => {
 												}
 											});
 										}}
-										aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+										aria-label={t(
+											"ribbonBar.editMode.deleteLanguage",
+											"删除语言",
+										)}
 									>
 										<Delete16Regular />
 									</IconButton>
@@ -1801,8 +1743,17 @@ const MultilingualField: FC = () => {
 	const { t } = useTranslation();
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const projectId = useAtomValue(projectIdAtom);
+	const [selectedTranslationLang, setSelectedTranslationLang] = useAtom(
+		selectedTranslationLangAtom,
+	);
+	const [selectedRomanizationLang, setSelectedRomanizationLang] = useAtom(
+		selectedRomanizationLangAtom,
+	);
 	const [selectedWordRomanizationLang, setSelectedWordRomanizationLang] =
-		useAtom(currentWordRomanizationLangAtom);
+		useAtom(selectedWordRomanizationLangAtom);
+	const setCurrentWordRomanizationLang = useSetAtom(
+		currentWordRomanizationLangAtom,
+	);
 	const isEditingWordRomanization = useAtomValue(isEditingWordRomanizationAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
@@ -1867,61 +1818,6 @@ const MultilingualField: FC = () => {
 		);
 	}, [lyricLines, selectedWordRomanizationLang]);
 
-	const currentTranslationLang = useMemo(() => {
-		let matchedLang: string | undefined;
-		for (const line of lyricLines.lyricLines) {
-			const byLang = line.translatedLyricByLang;
-			if (!byLang) continue;
-			const keys = Object.keys(byLang);
-			if (keys.length === 1 && keys[0] === "und") {
-				if (matchedLang && matchedLang !== "und") return undefined;
-				matchedLang = "und";
-				continue;
-			}
-			const matched = Object.entries(byLang).find(([, value]) => {
-				const nextValue = value.trim().length > 0 ? value : "";
-				return nextValue === line.translatedLyric && value.trim().length > 0;
-			})?.[0];
-			if (!matched) return undefined;
-			if (matchedLang && matchedLang !== matched) return undefined;
-			matchedLang = matched;
-		}
-		return matchedLang;
-	}, [lyricLines]);
-
-	const currentRomanizationLang = useMemo(() => {
-		let matchedLang: string | undefined;
-		for (const line of lyricLines.lyricLines) {
-			const byLang = line.romanLyricByLang;
-			if (!byLang) continue;
-			const keys = Object.keys(byLang);
-			if (keys.length === 1 && keys[0] === "und") {
-				if (matchedLang && matchedLang !== "und") return undefined;
-				matchedLang = "und";
-				continue;
-			}
-			const matched = Object.entries(byLang).find(([, value]) => {
-				const nextValue = value.trim().length > 0 ? value : "";
-				return nextValue === line.romanLyric && value.trim().length > 0;
-			})?.[0];
-			if (!matched) return undefined;
-			if (matchedLang && matchedLang !== matched) return undefined;
-			matchedLang = matched;
-		}
-		return matchedLang;
-	}, [lyricLines]);
-
-	const currentWordRomanizationLang = useMemo(() => {
-		if (wordRomanizationLanguages.length === 0) return undefined;
-		const preferredLang = getPreferredWordRomanizationLang(
-			lyricLines,
-			selectedWordRomanizationLang,
-		);
-		return wordRomanizationLanguages.includes(preferredLang)
-			? preferredLang
-			: wordRomanizationLanguages[0];
-	}, [lyricLines, selectedWordRomanizationLang, wordRomanizationLanguages]);
-
 	const applyTranslationLang = useCallback(
 		function applyTranslationLangInner(lang: string) {
 			if (lang === "und") {
@@ -1942,13 +1838,14 @@ const MultilingualField: FC = () => {
 				});
 				return;
 			}
+			setSelectedTranslationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					line.translatedLyric = line.translatedLyricByLang?.[lang] ?? "";
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog],
+		[editLyricLines, setAddLanguageDialog, setSelectedTranslationLang],
 	);
 
 	const applyRomanizationLang = useCallback(
@@ -1971,13 +1868,14 @@ const MultilingualField: FC = () => {
 				});
 				return;
 			}
+			setSelectedRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					line.romanLyric = line.romanLyricByLang?.[lang] ?? "";
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog],
+		[editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang],
 	);
 
 	const applyWordRomanizationLang = useCallback(
@@ -1996,12 +1894,14 @@ const MultilingualField: FC = () => {
 							}
 						});
 						setSelectedWordRomanizationLang(nextLang);
+						setCurrentWordRomanizationLang(nextLang);
 						applyWordRomanizationLangInner(nextLang);
 					},
 				});
 				return;
 			}
 			setSelectedWordRomanizationLang(lang);
+			setCurrentWordRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
 					const romanWords = line.wordRomanizationByLang?.[lang] ?? [];
@@ -2033,6 +1933,7 @@ const MultilingualField: FC = () => {
 			editLyricLines,
 			setAddLanguageDialog,
 			autoGenerateRubyFromRomanization,
+			setCurrentWordRomanizationLang,
 			setSelectedWordRomanizationLang,
 		],
 	);
@@ -2097,17 +1998,17 @@ const MultilingualField: FC = () => {
 	// 当歌词解析完成后，自动选择第一个可用语言
 	useEffect(() => {
 		// 自动选择第一个翻译语言
-		if (translationLanguages.length > 0 && !currentTranslationLang) {
+		if (translationLanguages.length > 0 && !selectedTranslationLang) {
 			applyTranslationLang(translationLanguages[0]);
 		}
-	}, [translationLanguages, currentTranslationLang, applyTranslationLang]);
+	}, [translationLanguages, selectedTranslationLang, applyTranslationLang]);
 
 	useEffect(() => {
 		// 自动选择第一个音译语言
-		if (romanizationLanguages.length > 0 && !currentRomanizationLang) {
+		if (romanizationLanguages.length > 0 && !selectedRomanizationLang) {
 			applyRomanizationLang(romanizationLanguages[0]);
 		}
-	}, [romanizationLanguages, currentRomanizationLang, applyRomanizationLang]);
+	}, [romanizationLanguages, selectedRomanizationLang, applyRomanizationLang]);
 
 	useEffect(() => {
 		// 自动选择第一个逐字音译语言
@@ -2118,7 +2019,7 @@ const MultilingualField: FC = () => {
 		);
 		const shouldApply = shouldAutoApplyWordRomanizationLanguage({
 			availableLanguages: wordRomanizationLanguages,
-			currentLanguage: currentWordRomanizationLang,
+			currentLanguage: selectedWordRomanizationLang || undefined,
 			currentAutoApplyKey: autoApplyKey,
 			previousAutoApplyKey: wordRomanizationAutoApplyKeyRef.current,
 			isEditing: isEditingWordRomanization,
@@ -2130,95 +2031,107 @@ const MultilingualField: FC = () => {
 	}, [
 		projectId,
 		wordRomanizationLanguages,
-		currentWordRomanizationLang,
+		selectedWordRomanizationLang,
 		applyWordRomanizationLang,
 		isEditingWordRomanization,
 	]);
 
 	const openEditTranslationLangDialog = useCallback(() => {
-		if (!currentTranslationLang) return;
+		if (!selectedTranslationLang) return;
 		setEditLanguageDialog({
 			open: true,
 			target: "translation",
-			currentLang: currentTranslationLang,
+			currentLang: selectedTranslationLang,
 			onSubmit: (newLang) => {
 				const trimmed = newLang.trim();
-				if (!trimmed || trimmed === currentTranslationLang) return;
+				if (!trimmed || trimmed === selectedTranslationLang) return;
 				editLyricLines((state) => {
 					for (const line of state.lyricLines) {
 						const byLang = line.translatedLyricByLang;
-						if (!byLang || !byLang[currentTranslationLang]) continue;
+						if (!byLang || !byLang[selectedTranslationLang]) continue;
 						// 如果目标语言已存在，互换内容
 						if (byLang[trimmed]) {
-							const temp = byLang[currentTranslationLang];
-							byLang[currentTranslationLang] = byLang[trimmed];
+							const temp = byLang[selectedTranslationLang];
+							byLang[selectedTranslationLang] = byLang[trimmed];
 							byLang[trimmed] = temp;
 						} else {
 							// 否则直接重命名
-							byLang[trimmed] = byLang[currentTranslationLang];
-							delete byLang[currentTranslationLang];
+							byLang[trimmed] = byLang[selectedTranslationLang];
+							delete byLang[selectedTranslationLang];
 						}
 						// 更新当前显示的翻译
 						line.translatedLyric = byLang[trimmed] ?? "";
 					}
 				});
+				setSelectedTranslationLang(trimmed);
 			},
 		});
-	}, [currentTranslationLang, setEditLanguageDialog, editLyricLines]);
+	}, [
+		selectedTranslationLang,
+		setEditLanguageDialog,
+		editLyricLines,
+		setSelectedTranslationLang,
+	]);
 
 	const openEditRomanizationLangDialog = useCallback(() => {
-		if (!currentRomanizationLang) return;
+		if (!selectedRomanizationLang) return;
 		setEditLanguageDialog({
 			open: true,
 			target: "romanization",
-			currentLang: currentRomanizationLang,
+			currentLang: selectedRomanizationLang,
 			onSubmit: (newLang) => {
 				const trimmed = newLang.trim();
-				if (!trimmed || trimmed === currentRomanizationLang) return;
+				if (!trimmed || trimmed === selectedRomanizationLang) return;
 				editLyricLines((state) => {
 					for (const line of state.lyricLines) {
 						const byLang = line.romanLyricByLang;
-						if (!byLang || !byLang[currentRomanizationLang]) continue;
+						if (!byLang || !byLang[selectedRomanizationLang]) continue;
 						// 如果目标语言已存在，互换内容
 						if (byLang[trimmed]) {
-							const temp = byLang[currentRomanizationLang];
-							byLang[currentRomanizationLang] = byLang[trimmed];
+							const temp = byLang[selectedRomanizationLang];
+							byLang[selectedRomanizationLang] = byLang[trimmed];
 							byLang[trimmed] = temp;
 						} else {
 							// 否则直接重命名
-							byLang[trimmed] = byLang[currentRomanizationLang];
-							delete byLang[currentRomanizationLang];
+							byLang[trimmed] = byLang[selectedRomanizationLang];
+							delete byLang[selectedRomanizationLang];
 						}
 						// 更新当前显示的音译
 						line.romanLyric = byLang[trimmed] ?? "";
 					}
 				});
+				setSelectedRomanizationLang(trimmed);
 			},
 		});
-	}, [currentRomanizationLang, setEditLanguageDialog, editLyricLines]);
+	}, [
+		selectedRomanizationLang,
+		setEditLanguageDialog,
+		editLyricLines,
+		setSelectedRomanizationLang,
+	]);
 
 	const openEditWordRomanizationLangDialog = useCallback(() => {
-		if (!currentWordRomanizationLang) return;
+		if (!selectedWordRomanizationLang) return;
 		setEditLanguageDialog({
 			open: true,
 			target: "word-romanization",
-			currentLang: currentWordRomanizationLang,
+			currentLang: selectedWordRomanizationLang,
 			onSubmit: (newLang) => {
 				const trimmed = newLang.trim();
-				if (!trimmed || trimmed === currentWordRomanizationLang) return;
+				if (!trimmed || trimmed === selectedWordRomanizationLang) return;
 				editLyricLines((state) => {
 					for (const line of state.lyricLines) {
 						const byLang = line.wordRomanizationByLang;
-						if (!byLang || !byLang[currentWordRomanizationLang]) continue;
+						if (!byLang || !byLang[selectedWordRomanizationLang]) continue;
 						// 如果目标语言已存在，互换内容
 						if (byLang[trimmed]) {
-							const temp = byLang[currentWordRomanizationLang];
-							byLang[currentWordRomanizationLang] = byLang[trimmed];
+							const temp = byLang[selectedWordRomanizationLang];
+							byLang[selectedWordRomanizationLang] = byLang[trimmed];
 							byLang[trimmed] = temp;
 						} else {
 							// 否则直接重命名
-							byLang[trimmed] = byLang[currentWordRomanizationLang];
-							delete byLang[currentWordRomanizationLang];
+							byLang[trimmed] = byLang[selectedWordRomanizationLang];
+							delete byLang[selectedWordRomanizationLang];
 						}
 						// 更新当前显示的逐字音译
 						const romanWords = byLang[trimmed] ?? [];
@@ -2244,13 +2157,15 @@ const MultilingualField: FC = () => {
 					}
 				});
 				setSelectedWordRomanizationLang(trimmed);
+				setCurrentWordRomanizationLang(trimmed);
 			},
 		});
 	}, [
-		currentWordRomanizationLang,
+		selectedWordRomanizationLang,
 		setEditLanguageDialog,
 		editLyricLines,
 		autoGenerateRubyFromRomanization,
+		setCurrentWordRomanizationLang,
 		setSelectedWordRomanizationLang,
 	]);
 
@@ -2266,7 +2181,7 @@ const MultilingualField: FC = () => {
 				variant="soft"
 				size="1"
 				onClick={openEditTranslationLangDialog}
-				disabled={!currentTranslationLang}
+				disabled={!selectedTranslationLang}
 				aria-label={t("editLanguageDialog.editTranslation", "修改翻译语言代码")}
 			>
 				<Edit16Regular />
@@ -2275,7 +2190,7 @@ const MultilingualField: FC = () => {
 				{t("ribbonBar.editMode.translation", "翻译")}
 			</Text>
 			<Select.Root
-				value={currentTranslationLang}
+				value={selectedTranslationLang}
 				onValueChange={applyTranslationLang}
 				disabled={translationLanguages.length === 0}
 				size="1"
@@ -2306,18 +2221,26 @@ const MultilingualField: FC = () => {
 											for (const line of state.lyricLines) {
 												if (line.translatedLyricByLang?.[lang]) {
 													delete line.translatedLyricByLang[lang];
-													if (Object.keys(line.translatedLyricByLang).length === 0) {
+													if (
+														Object.keys(line.translatedLyricByLang).length === 0
+													) {
 														delete line.translatedLyricByLang;
 													}
 													// 如果当前显示的翻译是该语言，清空显示
-													if (line.translatedLyric === line.translatedLyricByLang?.[lang]) {
+													if (
+														line.translatedLyric ===
+														line.translatedLyricByLang?.[lang]
+													) {
 														line.translatedLyric = "";
 													}
 												}
 											}
 										});
 									}}
-									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+									aria-label={t(
+										"ribbonBar.editMode.deleteLanguage",
+										"删除语言",
+									)}
 								>
 									<Delete16Regular />
 								</IconButton>
@@ -2338,7 +2261,7 @@ const MultilingualField: FC = () => {
 				variant="soft"
 				size="1"
 				onClick={openEditRomanizationLangDialog}
-				disabled={!currentRomanizationLang}
+				disabled={!selectedRomanizationLang}
 				aria-label={t(
 					"editLanguageDialog.editRomanization",
 					"修改音译语言代码",
@@ -2350,7 +2273,7 @@ const MultilingualField: FC = () => {
 				{t("ribbonBar.editMode.romanization", "音译")}
 			</Text>
 			<Select.Root
-				value={currentRomanizationLang}
+				value={selectedRomanizationLang}
 				onValueChange={applyRomanizationLang}
 				disabled={romanizationLanguages.length === 0}
 				size="1"
@@ -2385,14 +2308,19 @@ const MultilingualField: FC = () => {
 														delete line.romanLyricByLang;
 													}
 													// 如果当前显示的音译是该语言，清空显示
-													if (line.romanLyric === line.romanLyricByLang?.[lang]) {
+													if (
+														line.romanLyric === line.romanLyricByLang?.[lang]
+													) {
 														line.romanLyric = "";
 													}
 												}
 											}
 										});
 									}}
-									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+									aria-label={t(
+										"ribbonBar.editMode.deleteLanguage",
+										"删除语言",
+									)}
 								>
 									<Delete16Regular />
 								</IconButton>
@@ -2413,7 +2341,7 @@ const MultilingualField: FC = () => {
 				variant="soft"
 				size="1"
 				onClick={openEditWordRomanizationLangDialog}
-				disabled={!currentWordRomanizationLang}
+				disabled={!selectedWordRomanizationLang}
 				aria-label={t(
 					"editLanguageDialog.editWordRomanization",
 					"修改逐字音译语言代码",
@@ -2425,7 +2353,7 @@ const MultilingualField: FC = () => {
 				{t("ribbonBar.editMode.wordRomanization", "逐字音译")}
 			</Text>
 			<Select.Root
-				value={currentWordRomanizationLang}
+				value={selectedWordRomanizationLang}
 				onValueChange={applyWordRomanizationLang}
 				disabled={wordRomanizationLanguages.length === 0}
 				size="1"
@@ -2456,7 +2384,10 @@ const MultilingualField: FC = () => {
 											for (const line of state.lyricLines) {
 												if (line.wordRomanizationByLang?.[lang]) {
 													delete line.wordRomanizationByLang[lang];
-													if (Object.keys(line.wordRomanizationByLang).length === 0) {
+													if (
+														Object.keys(line.wordRomanizationByLang).length ===
+														0
+													) {
 														delete line.wordRomanizationByLang;
 													}
 													// 如果当前显示的是该语言的逐字音译，清空显示
@@ -2468,11 +2399,15 @@ const MultilingualField: FC = () => {
 												}
 											}
 										});
-										if (currentWordRomanizationLang === lang) {
-											setSelectedWordRomanizationLang(undefined);
+										if (selectedWordRomanizationLang === lang) {
+											setSelectedWordRomanizationLang("");
+											setCurrentWordRomanizationLang(undefined);
 										}
 									}}
-									aria-label={t("ribbonBar.editMode.deleteLanguage", "删除语言")}
+									aria-label={t(
+										"ribbonBar.editMode.deleteLanguage",
+										"删除语言",
+									)}
 								>
 									<Delete16Regular />
 								</IconButton>
