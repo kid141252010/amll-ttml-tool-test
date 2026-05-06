@@ -47,6 +47,7 @@ class MinimalElement {
 		const usesDefaultNamespace =
 			this.namespaceURI !== null && !this.tagName.includes(":");
 		let childDefaultNamespace = inheritedDefaultNamespace;
+		const hasNamespacePrefix = this.tagName.includes(":");
 
 		if (explicitDefaultNamespace !== undefined) {
 			childDefaultNamespace = explicitDefaultNamespace;
@@ -305,6 +306,20 @@ describe("ttml writer namespace serialization", () => {
 			expect(output).not.toContain('xmlns=""');
 			expect(output).not.toMatch(/<(?:translations|transliterations|translation|transliteration|text|span)\b[^>]*\sxmlns(?::\w+)?=/);
 			expectOnlyRootAndITunesMetadataDeclareNamespaces(output);
+		},
+	);
+
+	test.each([false, true])(
+		"keeps iTunes metadata descendants in metadata namespace when pretty is %s",
+		(pretty) => {
+			const output = exportTTMLText(buildLyricWithNestedSpanTracks(), pretty);
+
+			expect(output).toContain(
+				'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">',
+			);
+			expect(output).toContain("<translations>");
+			expect(output).toContain("<transliterations>");
+			expect(output).not.toContain('xmlns=""');
 		},
 	);
 });
