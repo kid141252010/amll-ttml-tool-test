@@ -48,6 +48,26 @@ export function stripXmlDeclaration(xml: string): string {
 	return xml.replace(/^\uFEFF/, "").replace(/^<\?xml\b[^?]*\?>\s*/i, "");
 }
 
+export function stripNonRootNamespaceDeclarations(xml: string): string {
+	let rootSeen = false;
+
+	return xml.replace(
+		/<([A-Za-z_][\w:.-]*)(\s[^<>]*?)?>/g,
+		(match, tagName: string, attributes = "") => {
+			if (!rootSeen && tagName === "tt") {
+				rootSeen = true;
+				return match;
+			}
+
+			const cleanedAttributes = attributes.replace(
+				/\s+xmlns(?::[\w.-]+)?=(?:"[^"]*"|'[^']*')/g,
+				"",
+			);
+			return `<${tagName}${cleanedAttributes}>`;
+		},
+	);
+}
+
 export default function exportTTMLText(
 	ttmlLyric: TTMLLyric,
 	pretty = false,
@@ -836,7 +856,9 @@ export default function exportTTMLText(
 	log("ttml document built", ttRoot);
 
 	const serializeWithoutXmlDeclaration = (target: Node) =>
-		stripXmlDeclaration(new XMLSerializer().serializeToString(target));
+		stripNonRootNamespaceDeclarations(
+			stripXmlDeclaration(new XMLSerializer().serializeToString(target)),
+		);
 
 	if (pretty) {
 		const xsltDoc = new DOMParser().parseFromString(
