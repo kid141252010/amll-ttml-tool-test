@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import type { LyricLine, LyricWord, TTMLLyric } from "$/types/ttml";
-import exportTTMLText, { stripXmlDeclaration } from "./ttml-writer";
+import exportTTMLText, {
+	stripNonRootNamespaceDeclarations,
+	stripXmlDeclaration,
+} from "./ttml-writer";
 
 const TEXT_NODE = 3;
 
@@ -47,7 +50,6 @@ class MinimalElement {
 		const usesDefaultNamespace =
 			this.namespaceURI !== null && !this.tagName.includes(":");
 		let childDefaultNamespace = inheritedDefaultNamespace;
-		const hasNamespacePrefix = this.tagName.includes(":");
 
 		if (explicitDefaultNamespace !== undefined) {
 			childDefaultNamespace = explicitDefaultNamespace;
@@ -257,13 +259,13 @@ function buildLyricWithNestedSpanTracks(): TTMLLyric {
 	};
 }
 
-function expectOnlyRootAndITunesMetadataDeclareNamespaces(output: string) {
+function expectOnlyRootDeclaresNamespaces(output: string) {
 	const tagsWithNamespaceDeclarations = Array.from(
 		output.matchAll(/<([A-Za-z][\w:.-]*)\b[^>]*\sxmlns(?::[\w.-]+)?=/g),
 		(match) => match[1],
 	);
 
-	expect(tagsWithNamespaceDeclarations).toEqual(["tt", "iTunesMetadata"]);
+	expect(tagsWithNamespaceDeclarations).toEqual(["tt"]);
 }
 
 describe("ttml writer serialization helpers", () => {
@@ -274,52 +276,68 @@ describe("ttml writer serialization helpers", () => {
 			),
 		).toBe("<tt />");
 	});
+
+	test("strips namespace declarations from non-root tags only", () => {
+		const output = stripNonRootNamespaceDeclarations(
+			[
+				'<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:amll="http://www.example.com/ns/amll">',
+				"<head><metadata>",
+				'<ttm:agent xmlns:ttm="http://www.w3.org/ns/ttml#metadata" type="person">',
+				'<ttm:name xmlns:ttm="http://www.w3.org/ns/ttml#metadata" type="full">主唱</ttm:name>',
+				"</ttm:agent>",
+				'<amll:meta xmlns:amll="http://www.example.com/ns/amll" key="album" value="namespace-check"/>',
+				'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal"><translations/></iTunesMetadata>',
+				"</metadata></head></tt>",
+			].join(""),
+		);
+
+		expect(output).toContain(
+			'<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:amll="http://www.example.com/ns/amll">',
+		);
+		expect(output).toContain('<ttm:agent type="person">');
+		expect(output).toContain('<ttm:name type="full">主唱</ttm:name>');
+		expect(output).toContain(
+			'<amll:meta key="album" value="namespace-check"/>',
+		);
+		expect(output).toContain("<iTunesMetadata><translations/></iTunesMetadata>");
+		expectOnlyRootDeclaresNamespaces(output);
+	});
 });
 
 describe("ttml writer namespace serialization", () => {
 	test.each([false, true])(
-		"does not emit namespace declarations on internal span elements when pretty is %s",
+		"does not emit namespace declarations outside root when pretty is %s",
 		(pretty) => {
 			const output = exportTTMLText(buildLyricWithNestedSpanTracks(), pretty);
 
 			expect(output).toContain('<tt xmlns="http://www.w3.org/ns/ttml"');
 			expect(output).toContain('ttm:role="x-bg"');
-			expect(output).not.toMatch(/<ttm:(?:agent|name)\b[^>]*\sxmlns(?::\w+)?=/);
-			expect(output).not.toMatch(/<amll:(?:meta|vocals)\b[^>]*\sxmlns(?::\w+)?=/);
+			expect(output).not.toMatch(/<ttm:(?:agent|name)\b[^>]*\sxmlns(?::[\w.-]+)?=/);
+			expect(output).not.toMatch(/<amll:(?:meta|vocals)\b[^>]*\sxmlns(?::[\w.-]+)?=/);
+			expect(output).not.toMatch(/<iTunesMetadata\b[^>]*\sxmlns(?::[\w.-]+)?=/);
+			expect(output).not.toMatch(
+				/<(?:translations|transliterations|translation|transliteration|text)\b[^>]*\sxmlns(?::[\w.-]+)?=/,
+			);
 			expect(output).not.toMatch(/<(?:head|body|div|p|span)\b[^>]*\sxmlns=""/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns=/);
 			expect(output).not.toMatch(/<span\b[^>]*\sxmlns:ttm=/);
-			expectOnlyRootAndITunesMetadataDeclareNamespaces(output);
+			expectOnlyRootDeclaresNamespaces(output);
 		},
 	);
 
 	test.each([false, true])(
-		"keeps iTunes metadata descendants in metadata namespace when pretty is %s",
+		"keeps iTunes metadata descendants without local namespace declarations when pretty is %s",
 		(pretty) => {
 			const output = exportTTMLText(buildLyricWithNestedSpanTracks(), pretty);
 
-			expect(output).toContain(
-				'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">',
-			);
+			expect(output).toContain("<iTunesMetadata>");
 			expect(output).toContain("<translations>");
 			expect(output).toContain("<transliterations>");
 			expect(output).not.toContain('xmlns=""');
-			expect(output).not.toMatch(/<(?:translations|transliterations|translation|transliteration|text|span)\b[^>]*\sxmlns(?::\w+)?=/);
-			expectOnlyRootAndITunesMetadataDeclareNamespaces(output);
-		},
-	);
-
-	test.each([false, true])(
-		"keeps iTunes metadata descendants in metadata namespace when pretty is %s",
-		(pretty) => {
-			const output = exportTTMLText(buildLyricWithNestedSpanTracks(), pretty);
-
-			expect(output).toContain(
-				'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">',
+			expect(output).not.toMatch(
+				/<(?:iTunesMetadata|translations|transliterations|translation|transliteration|text|span)\b[^>]*\sxmlns(?::[\w.-]+)?=/,
 			);
-			expect(output).toContain("<translations>");
-			expect(output).toContain("<transliterations>");
-			expect(output).not.toContain('xmlns=""');
+			expectOnlyRootDeclaresNamespaces(output);
 		},
 	);
 });
