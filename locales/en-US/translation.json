@@ -430,7 +430,9 @@
 		"moveFollowingWordToNewLine": "Move followings to new line",
 		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line",
 		"copyWordContent": "Copy syllable info",
-		"copySelectedWordsText": "Copy selected syllables text"
+		"copySelectedWordsText": "Copy selected syllables text",
+		"autoCalculateFromPrev": "Auto calculate from previous syllable",
+		"autoCalculateFromNext": "Auto calculate from next syllable"
 	},
 	"settingsDialog": {
 		"title": "Preferences",

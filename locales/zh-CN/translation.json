@@ -452,7 +452,9 @@
 		"moveFollowingWordToNewLine": "此后单词拆至新行",
 		"moveWordToNewLine": "选中单词拆至新行",
 		"copyWordContent": "复制音节内容",
-		"copySelectedWordsText": "复制选中音节文本"
+		"copySelectedWordsText": "复制选中音节文本",
+		"autoCalculateFromPrev": "根据上一音节自动计算",
+		"autoCalculateFromNext": "根据下一音节自动计算"
 	},
 	"settingsDialog": {
 		"title": "首选项",
