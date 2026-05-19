@@ -151,9 +151,9 @@ export const HeaderFileInfo = () => {
 						<Text size="2">{suffix}</Text>
 					</Flex>
 				) : (
-					<ContextMenu.Root>
-						<ContextMenu.Trigger>
-							<Tooltip content={filename}>
+					<Tooltip content={filename}>
+						<ContextMenu.Root>
+							<ContextMenu.Trigger>
 								<Button
 									variant="ghost"
 									color="gray"
@@ -189,23 +189,23 @@ export const HeaderFileInfo = () => {
 										</Flex>
 									</Flex>
 								</Button>
-							</Tooltip>
-						</ContextMenu.Trigger>
-						<ContextMenu.Content>
-							<ContextMenu.Item onSelect={handleDirectRename}>
-								<Flex align="center" gap="2">
-									<Edit16Regular />
-									{t("contextMenu.directRename", "直接重命名")}
-								</Flex>
-							</ContextMenu.Item>
-							<ContextMenu.Item onSelect={handleMetadataRename}>
-								<Flex align="center" gap="2">
-									<Tag16Regular />
-									{t("contextMenu.metadataRename", "使用元数据重命名")}
-								</Flex>
-							</ContextMenu.Item>
-						</ContextMenu.Content>
-					</ContextMenu.Root>
+							</ContextMenu.Trigger>
+							<ContextMenu.Content>
+								<ContextMenu.Item onSelect={handleDirectRename}>
+									<Flex align="center" gap="2">
+										<Edit16Regular />
+										{t("contextMenu.directRename", "直接重命名")}
+									</Flex>
+								</ContextMenu.Item>
+								<ContextMenu.Item onSelect={handleMetadataRename}>
+									<Flex align="center" gap="2">
+										<Tag16Regular />
+										{t("contextMenu.metadataRename", "使用元数据重命名")}
+									</Flex>
+								</ContextMenu.Item>
+							</ContextMenu.Content>
+						</ContextMenu.Root>
+					</Tooltip>
 				)}
 			</Box>
 		</Flex>
