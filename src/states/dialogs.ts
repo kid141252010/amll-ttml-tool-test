@@ -94,6 +94,13 @@ export const duplicateSongIdDialogAtom = atom<{
 	existingIds: [],
 });
 
+// 使用元数据重命名对话框
+export const metadataRenameDialogAtom = atom<{
+	open: boolean;
+}>({
+	open: false,
+});
+
 // 消减卡顿对话框
 export const reduceStutterDialogAtom = atom<{
 	open: boolean;

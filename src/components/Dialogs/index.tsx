@@ -22,6 +22,7 @@ import { MetaSuggestionManagerDialog } from "./meta-suggestion-manager.tsx";
 import { StorageManagerDialog } from "./storage-manager.tsx";
 import { DuplicateSongIdDialog } from "./duplicate-song-id.tsx";
 import { ReduceStutterDialog } from "./reduce-stutter.tsx";
+import { MetadataRenameDialog } from "./metadata-rename.tsx";
 
 export const Dialogs = () => {
 	return (
@@ -50,6 +51,7 @@ export const Dialogs = () => {
 			<StorageManagerDialog />
 			<DuplicateSongIdDialog />
 			<ReduceStutterDialog />
+			<MetadataRenameDialog />
 		</>
 	);
 };
