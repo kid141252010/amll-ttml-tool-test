@@ -1,9 +1,25 @@
-import { HistoryRegular } from "@fluentui/react-icons";
-import { Box, Button, Flex, Text, TextField } from "@radix-ui/themes";
+import {
+	Edit16Regular,
+	HistoryRegular,
+	Tag16Regular,
+} from "@fluentui/react-icons";
+import {
+	Box,
+	Button,
+	ContextMenu,
+	Flex,
+	Text,
+	TextField,
+	Tooltip,
+} from "@radix-ui/themes";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
+import {
+	confirmDialogAtom,
+	historyRestoreDialogAtom,
+	metadataRenameDialogAtom,
+} from "$/states/dialogs";
 import {
 	lastSavedTimeAtom,
 	lyricLinesAtom,
@@ -17,6 +33,7 @@ export const HeaderFileInfo = () => {
 	const lastSavedTime = useAtomValue(lastSavedTimeAtom);
 	const setHistoryDialogOpen = useSetAtom(historyRestoreDialogAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const setMetadataRenameDialog = useSetAtom(metadataRenameDialogAtom);
 	const metadata = useAtomValue(lyricLinesAtom).metadata;
 	const [isEditing, setIsEditing] = useState(false);
 	const [draftName, setDraftName] = useState("");
@@ -69,25 +86,20 @@ export const HeaderFileInfo = () => {
 		return () => window.clearTimeout(timer);
 	}, [lastSavedTime]);
 
-	const handleNameClick = useCallback(() => {
-		const isDefaultName = filename.toLowerCase() === "lyric.ttml";
-		if (isDefaultName && suggestedFile) {
-			setConfirmDialog({
-				open: true,
-				title: t("confirmDialog.useMetadataName.title", "使用元数据命名？"),
-				description: t(
-					"confirmDialog.useMetadataName.description",
-					'是否使用"{name}"作为文件名？',
-					{ name: suggestedFile.baseName },
-				),
-				onConfirm: () => {
-					setFilename(suggestedFile.fileName);
-				},
-			});
-			return;
-		}
+	// 直接重命名 - 直接开始编辑
+	const handleDirectRename = useCallback(() => {
 		setIsEditing(true);
-	}, [filename, setConfirmDialog, setFilename, suggestedFile, t]);
+	}, []);
+
+	// 使用元数据重命名
+	const handleMetadataRename = useCallback(() => {
+		setMetadataRenameDialog({ open: true });
+	}, [setMetadataRenameDialog]);
+
+	// 处理文件名点击 - 现在直接开始编辑
+	const handleNameClick = useCallback(() => {
+		handleDirectRename();
+	}, [handleDirectRename]);
 
 	return (
 		<Flex align="center" gap="2" style={{ maxWidth: "100%" }}>
@@ -116,7 +128,7 @@ export const HeaderFileInfo = () => {
 				</Flex>
 			</Button>
 
-			<Box>
+			<Box style={{ marginLeft: "8px" }}>
 				{isEditing ? (
 					<Flex align="center" gap="1">
 						<TextField.Root
@@ -139,41 +151,61 @@ export const HeaderFileInfo = () => {
 						<Text size="2">{suffix}</Text>
 					</Flex>
 				) : (
-					<Button
-						variant="ghost"
-						color="gray"
-						style={{
-							height: "auto",
-							padding: "6px 10px",
-							fontWeight: "normal",
-							color: "var(--gray-12)",
-							maxWidth: "100%",
-						}}
-						onClick={handleNameClick}
-					>
-						<Flex align="center" gap="2" style={{ maxWidth: "100%" }}>
-							<Flex
-								align="center"
-								style={{
-									maxWidth: "10rem",
-									overflow: "hidden",
-									whiteSpace: "nowrap",
-								}}
-							>
-								<Text
-									weight="bold"
-									size="2"
+					<ContextMenu.Root>
+						<ContextMenu.Trigger>
+							<Tooltip content={filename}>
+								<Button
+									variant="ghost"
+									color="gray"
 									style={{
-										overflow: "hidden",
-										textOverflow: "ellipsis",
+										height: "auto",
+										padding: "6px 10px",
+										fontWeight: "normal",
+										color: "var(--gray-12)",
+										maxWidth: "100%",
 									}}
+									onClick={handleNameClick}
 								>
-									{getBaseName(filename)}
-								</Text>
-								<Text size="2">{suffix}</Text>
-							</Flex>
-						</Flex>
-					</Button>
+									<Flex align="center" gap="2" style={{ maxWidth: "100%" }}>
+										<Flex
+											align="center"
+											style={{
+												maxWidth: "10rem",
+												overflow: "hidden",
+												whiteSpace: "nowrap",
+											}}
+										>
+											<Text
+												weight="bold"
+												size="2"
+												style={{
+													overflow: "hidden",
+													textOverflow: "ellipsis",
+												}}
+											>
+												{getBaseName(filename)}
+											</Text>
+											<Text size="2">{suffix}</Text>
+										</Flex>
+									</Flex>
+								</Button>
+							</Tooltip>
+						</ContextMenu.Trigger>
+						<ContextMenu.Content>
+							<ContextMenu.Item onSelect={handleDirectRename}>
+								<Flex align="center" gap="2">
+									<Edit16Regular />
+									{t("contextMenu.directRename", "直接重命名")}
+								</Flex>
+							</ContextMenu.Item>
+							<ContextMenu.Item onSelect={handleMetadataRename}>
+								<Flex align="center" gap="2">
+									<Tag16Regular />
+									{t("contextMenu.metadataRename", "使用元数据重命名")}
+								</Flex>
+							</ContextMenu.Item>
+						</ContextMenu.Content>
+					</ContextMenu.Root>
 				)}
 			</Box>
 		</Flex>
