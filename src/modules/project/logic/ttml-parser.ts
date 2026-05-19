@@ -1197,7 +1197,9 @@ export interface DuetProcessResult {
  * @param agents - agent 列表
  * @returns 对唱处理选项
  */
-export function calculateDuetOptions(agents: TTMLAgent[]): Omit<DuetProcessOptions, "currentAgentId" | "duetToggle"> {
+export function calculateDuetOptions(
+	agents: TTMLAgent[],
+): Omit<DuetProcessOptions, "currentAgentId" | "duetToggle"> {
 	// 统计 group 数量
 	const groupCount = agents.filter((a) => a.type === "group").length;
 
@@ -1223,7 +1225,8 @@ export function calculateDuetState(
 	lineAgentId: string | undefined,
 	options: DuetProcessOptions,
 ): DuetProcessResult {
-	const { agents, isComplexMode, mainAgentId, currentAgentId, duetToggle } = options;
+	const { agents, isComplexMode, mainAgentId, currentAgentId, duetToggle } =
+		options;
 
 	// 如果没有 agent ID，返回默认值
 	if (!lineAgentId) {
