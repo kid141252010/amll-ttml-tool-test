@@ -387,38 +387,38 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								style={{ width: "120px" }}
 							/>
 							<Select.Content>
-							{languageFonts.map((lf) => (
-								<Box key={lf.lang} position="relative">
-									<Select.Item value={lf.lang}>
-										<Text style={{ paddingRight: "2rem" }}>{lf.lang}</Text>
-									</Select.Item>
-									<Box
-										position="absolute"
-										right="6px"
-										top="50%"
-										style={{
-											transform: "translateY(-50%)",
-											zIndex: 10,
-										}}
-									>
-										<IconButton
-											size="1"
-											variant="soft"
-											color="red"
-											onClick={() => {
-												handleDeleteLanguage(lf.lang);
+								{languageFonts.map((lf) => (
+									<Box key={lf.lang} position="relative">
+										<Select.Item value={lf.lang}>
+											<Text style={{ paddingRight: "2rem" }}>{lf.lang}</Text>
+										</Select.Item>
+										<Box
+											position="absolute"
+											right="6px"
+											top="50%"
+											style={{
+												transform: "translateY(-50%)",
+												zIndex: 10,
 											}}
-											aria-label={t(
-												"ribbonBar.previewMode.deleteLanguage",
-												"删除语言",
-											)}
 										>
-											<Delete16Regular />
-										</IconButton>
+											<IconButton
+												size="1"
+												variant="soft"
+												color="red"
+												onClick={() => {
+													handleDeleteLanguage(lf.lang);
+												}}
+												aria-label={t(
+													"ribbonBar.previewMode.deleteLanguage",
+													"删除语言",
+												)}
+											>
+												<Delete16Regular />
+											</IconButton>
+										</Box>
 									</Box>
-								</Box>
-							))}
-						</Select.Content>
+								))}
+							</Select.Content>
 						</Select.Root>
 						<IconButton
 							variant="soft"
