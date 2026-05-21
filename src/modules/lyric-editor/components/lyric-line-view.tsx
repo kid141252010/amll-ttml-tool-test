@@ -14,6 +14,8 @@ import {
 	MusicNote1Regular,
 	People16Regular,
 	LinkMultiple20Regular,
+	PauseFilled,
+	PlayFilled,
 	TextAlignRightFilled,
 	VideoBackgroundEffectFilled,
 } from "@fluentui/react-icons";
@@ -43,6 +45,11 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { audioEngine } from "$/modules/audio/audio-engine.ts";
+import {
+	audioBufferAtom,
+	auditionTimeAtom,
+} from "$/modules/audio/states/index.ts";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import {
 	enableAutoRomanizationPredictionAtom,
@@ -321,9 +328,18 @@ export const LyricLineView: FC<{
 	const visualizeTimestampUpdate = useAtomValue(visualizeTimestampUpdateAtom);
 	const showTimestamps = useAtomValue(showTimestampsAtom);
 	const toolMode = useAtomValue(toolModeAtom);
+	const audioBuffer = useAtomValue(audioBufferAtom);
+	const auditionTime = useAtomValue(auditionTimeAtom);
 	const store = useStore();
 	const wordsContainerRef = useRef<HTMLDivElement>(null);
 	const blockDragRef = useRef(false);
+	const isAudioLoaded = useMemo(() => audioBuffer !== null, [audioBuffer]);
+	const isPlayingThisLine = useMemo(() => {
+		if (auditionTime === null) return false;
+		const startTime = line.startTime / 1000;
+		const endTime = line.endTime / 1000;
+		return auditionTime >= startTime && auditionTime <= endTime;
+	}, [auditionTime, line.startTime, line.endTime]);
 
 	// 创建一个仅订阅当前行显示行号的 atom，优化性能
 	const displayNumberAtom = useMemo(
@@ -717,6 +733,31 @@ export const LyricLineView: FC<{
 					>
 						<div>
 							<Flex direction="column" align="center" justify="center" ml="3">
+								{isAudioLoaded && (
+									<IconButton
+										size="1"
+										variant="ghost"
+										color="gray"
+										onClick={(evt) => {
+											evt.stopPropagation();
+											evt.preventDefault();
+											if (isPlayingThisLine) {
+												// 如果正在播放当前行，则停止播放
+												audioEngine.stopAudition();
+											} else {
+												// 播放当前行范围的音频
+												const startTime = line.startTime / 1000;
+												const endTime = line.endTime / 1000;
+												if (endTime > startTime) {
+													audioEngine.auditionRange(startTime, endTime);
+												}
+											}
+										}}
+										title={t("lyricLineView.playLineAudio", "播放此行音频")}
+									>
+										{isPlayingThisLine ? <PauseFilled /> : <PlayFilled />}
+									</IconButton>
+								)}
 								<Text
 									className={classNames(
 										styles.lineNumber,

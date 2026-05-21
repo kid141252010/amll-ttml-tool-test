@@ -134,7 +134,11 @@
 			"keyBindingReference": "Hotkey Cheatsheet",
 			"startSync": "Mark Begin",
 			"continuousSync": "Commit",
-			"endSync": "Mark End"
+			"endSync": "Mark End",
+			"currentLineEdit": "Current Line Edit",
+			"currentLine": "Current Line",
+			"lineContent": "Lyric Content",
+			"noLineSelected": "No lyric line selected"
 		},
 		"reviewMode": {
 			"avatar": "Avatar",
@@ -576,7 +580,8 @@
 		"insertWord": "Insert word here…",
 		"vocalTagsLabel": "Vocalists:",
 		"vocalTagsAll": "All members",
-		"songPartLabel": "Part:"
+		"songPartLabel": "Part:",
+		"playLineAudio": "Play line audio"
 	},
 	"lyricWordView": {
 		"empty": "Empty",

@@ -155,7 +155,11 @@
 			"keyBindingReference": "打轴键位速查",
 			"startSync": "起始轴",
 			"continuousSync": "连续轴",
-			"endSync": "结束轴"
+			"endSync": "结束轴",
+			"currentLineEdit": "当前行编辑",
+			"currentLine": "当前行",
+			"lineContent": "歌词内容",
+			"noLineSelected": "未选择歌词行"
 		},
 		"reviewMode": {
 			"avatar": "头像",
@@ -598,7 +602,8 @@
 		"insertWord": "插入单词…",
 		"vocalTagsLabel": "演唱者：",
 		"vocalTagsAll": "全体成员",
-		"songPartLabel": "分段："
+		"songPartLabel": "分段：",
+		"playLineAudio": "播放此行音频"
 	},
 	"lyricWordView": {
 		"empty": "空白",
