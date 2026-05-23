@@ -138,6 +138,10 @@ export interface LyricLine extends AMLLLyricLine {
 	 * @description 存储该行的 agent 信息（来自 ttm:agent 属性）
 	 */
 	agent?: string;
+	/**
+	 * @description 该行是否为从右到左（RTL）显示
+	 */
+	isRtl?: boolean;
 }
 
 export const newLyricLine = (): LyricLine => ({
@@ -151,4 +155,5 @@ export const newLyricLine = (): LyricLine => ({
 	endTime: 0,
 	ignoreSync: false,
 	vocal: [],
+	isRtl: false,
 });

@@ -355,6 +355,11 @@ export default function exportTTMLText(
 				lineP.setAttribute("amll:vocal", normalizedVocal);
 			}
 
+			// 写入 RTL 标记
+			if (line.isRtl) {
+				lineP.setAttribute("amll:rtl", "true");
+			}
+
 			const itunesKey = `L${++i}`;
 			lineP.setAttribute("itunes:key", itunesKey);
 

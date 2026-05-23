@@ -852,6 +852,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			duetState.duetToggle = result.newDuetToggle;
 		}
 
+		// 读取 RTL 标记
+		const rtlAttr = lineEl.getAttribute("amll:rtl") ?? lineEl.getAttribute("rtl");
+		const isRtl = rtlAttr === "true";
+
 		const line: LyricLine = {
 			id: uid(),
 			words: [],
@@ -863,6 +867,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			endTime: parsedEndTime,
 			ignoreSync: false,
 			vocal: parsedLineVocal,
+			isRtl,
 		};
 
 		// 如果是该 div 的第一个非背景行，且存在 songPart，则设置到行对象中
