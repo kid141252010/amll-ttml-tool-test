@@ -853,7 +853,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 
 		// 读取 RTL 标记
-		const rtlAttr = lineEl.getAttribute("amll:rtl") ?? lineEl.getAttribute("rtl");
+		const rtlAttr =
+			lineEl.getAttribute("amll:rtl") ?? lineEl.getAttribute("rtl");
 		const isRtl = rtlAttr === "true";
 
 		const line: LyricLine = {

@@ -2276,33 +2276,39 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.lineProperties", "行属性")}>
-					<Grid columns="0fr 0fr" gap="4" gapY="1" flexGrow="1" align="center">
+					<Grid
+						columns="0fr 0fr 0fr 0fr"
+						gap="2"
+						gapY="1"
+						flexGrow="1"
+						align="center"
+					>
 						<CheckboxField
-						label={t("ribbonBar.editMode.bgLyric", "背景歌词")}
-						defaultValue={false}
-						isWordField={false}
-						fieldName="isBG"
-					/>
-					<CheckboxField
-						label={t("ribbonBar.editMode.duetLyric", "对唱歌词")}
-						isWordField={false}
-						fieldName="isDuet"
-						defaultValue={false}
-					/>
-					<CheckboxField
-						label={t("ribbonBar.editMode.ignoreSync", "忽略打轴")}
-						isWordField={false}
-						fieldName="ignoreSync"
-						defaultValue={false}
-					/>
-					<CheckboxField
-						label={t("ribbonBar.editMode.rtlLyric", "RTL")}
-						isWordField={false}
-						fieldName="isRtl"
-						defaultValue={false}
-					/>
-				</Grid>
-			</RibbonSection>
+							label={t("ribbonBar.editMode.bgLyric", "背景歌词")}
+							defaultValue={false}
+							isWordField={false}
+							fieldName="isBG"
+						/>
+						<CheckboxField
+							label={t("ribbonBar.editMode.duetLyric", "对唱歌词")}
+							isWordField={false}
+							fieldName="isDuet"
+							defaultValue={false}
+						/>
+						<CheckboxField
+							label={t("ribbonBar.editMode.ignoreSync", "忽略打轴")}
+							isWordField={false}
+							fieldName="ignoreSync"
+							defaultValue={false}
+						/>
+						<CheckboxField
+							label={t("ribbonBar.editMode.rtlLyric", "RTL")}
+							isWordField={false}
+							fieldName="isRtl"
+							defaultValue={false}
+						/>
+					</Grid>
+				</RibbonSection>
 				<RibbonSection label={t("ribbonBar.editMode.wordTiming", "词时间戳")}>
 					<Grid columns="0fr 1fr" gap="2" gapY="1" flexGrow="1" align="center">
 						<EditField

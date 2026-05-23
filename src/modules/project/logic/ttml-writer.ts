@@ -412,6 +412,11 @@ export default function exportTTMLText(
 					bgLineSpan.setAttribute("ttm:agent", bgLine.agent);
 				}
 
+				// 为 bg 行导出 RTL 属性
+				if (bgLine.isRtl) {
+					bgLineSpan.setAttribute("amll:rtl", "true");
+				}
+
 				if (isDynamicLyric) {
 					let beginTime = Number.POSITIVE_INFINITY;
 					let endTime = 0;
