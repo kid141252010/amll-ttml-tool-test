@@ -13,9 +13,9 @@
 		"locale:gen": "i18next 'src/**/*.{ts,tsx}'"
 	},
 	"dependencies": {
-		"@applemusic-like-lyrics/core": "^0.4.2",
-		"@applemusic-like-lyrics/lyric": "^1.0.0",
-		"@applemusic-like-lyrics/react": "^0.4.2",
+		"@applemusic-like-lyrics/core": "^0.5.1",
+		"@applemusic-like-lyrics/lyric": "^1.0.1",
+		"@applemusic-like-lyrics/react": "^0.5.1",
 		"@pixi/app": "^7.4.3",
 		"@pixi/core": "^7.4.3",
 		"@pixi/display": "^7.4.3",
