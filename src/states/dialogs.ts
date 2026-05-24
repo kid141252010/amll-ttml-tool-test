@@ -18,15 +18,19 @@ export const distributeRomanizationDialogAtom = atom(false);
 export const notificationCenterDialogAtom = atom(false);
 export type AddLanguageDialogTarget =
 	| "translation"
-	| "romanization"
-	| "word-romanization";
+	| "romanization";
 export const addLanguageDialogAtom = atom<{
 	open: boolean;
 	target: AddLanguageDialogTarget;
-	onSubmit?: (lang: string) => void;
+	// 原文行内容
+	originalLines: string[];
+	// 初始翻译/音译内容（用于编辑模式）
+	initialContent?: string;
+	onSubmit?: (lang: string, contentLines: string[]) => void;
 }>({
 	open: false,
 	target: "translation",
+	originalLines: [],
 });
 
 export type EditLanguageDialogTarget =
@@ -39,11 +43,16 @@ export const editLanguageDialogAtom = atom<{
 	open: boolean;
 	target: EditLanguageDialogTarget;
 	currentLang: string;
-	onSubmit?: (newLang: string) => void;
+	// 原文行内容
+	originalLines: string[];
+	// 当前翻译/音译内容
+	currentContent?: string;
+	onSubmit?: (newLang: string, contentLines: string[]) => void;
 }>({
 	open: false,
 	target: "primary",
 	currentLang: "",
+	originalLines: [],
 });
 export const confirmDialogAtom = atom<{
 	open: boolean;
