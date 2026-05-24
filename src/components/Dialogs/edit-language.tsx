@@ -138,6 +138,7 @@ interface EditableLineProps {
 	onMergeUp?: (currentValue: string) => void;
 	onMergeDown?: (currentValue: string, cursorPosition: number) => void;
 	onSplit?: (afterCursor: string) => void;
+	onPaste?: (currentValue: string, pastedText: string, selectionStart: number, selectionEnd: number) => void;
 	onEditNext?: () => void;
 	onEditPrevious?: () => void;
 	placeholder?: string;
@@ -154,6 +155,7 @@ const EditableLine = ({
 	onMergeUp,
 	onMergeDown,
 	onSplit,
+	onPaste,
 	onEditNext,
 	onEditPrevious,
 	placeholder,
@@ -267,6 +269,14 @@ const EditableLine = ({
 				onChange={(e) => setEditValue(e.target.value)}
 				onBlur={handleBlur}
 				onKeyDown={handleKeyDown}
+				onPaste={(e) => {
+					e.preventDefault();
+					if (!onPaste || !inputRef.current) return;
+					const pastedText = e.clipboardData.getData('text');
+					const selectionStart = inputRef.current.selectionStart || 0;
+					const selectionEnd = inputRef.current.selectionEnd || 0;
+					onPaste(editValue, pastedText, selectionStart, selectionEnd);
+				}}
 				style={{
 					width: "100%",
 					padding: "4px 8px",
@@ -503,33 +513,59 @@ export const EditLanguageDialog = () => {
 		}
 	}, []);
 
-	const handlePaste = useCallback((e: React.ClipboardEvent) => {
-		e.preventDefault();
-		const pastedText = e.clipboardData.getData("text");
-		const pastedLines = pastedText.split(/\r?\n/).map(line => line.trim());
+	// 处理粘贴事件
+	const handlePaste = useCallback((index: number, currentValue: string, pastedText: string, selectionStart: number, selectionEnd: number) => {
+		// 将粘贴内容插入到光标位置（替换选中的文本）
+		const beforeSelection = currentValue.slice(0, selectionStart);
+		const afterSelection = currentValue.slice(selectionEnd);
+		const newValue = beforeSelection + pastedText + afterSelection;
 		
-		setContentLines(prev => {
-			const newLines = [...prev];
-			
-			// 使用递归插入函数遍历插入每一行
-			for (let i = 0; i < pastedLines.length; i++) {
-				insertLineRecursive(newLines, i, pastedLines[i]);
-			}
-
-			// 清除溢出部分尾部的空内容
-			const originalLength = dialogState.originalLines.length;
-			while (newLines.length > originalLength) {
-				const lastIndex = newLines.length - 1;
-				if (newLines[lastIndex]?.trim().length === 0) {
-					newLines.pop();
-				} else {
-					break;
+		// 检查是否包含换行符
+		if (newValue.includes('\n')) {
+			// 有换行符，需要分行处理
+			const lines = newValue.split('\n').map(line => line.trim());
+			setContentLines(prev => {
+				const newLines = [...prev];
+				
+				// 第一行直接替换当前行
+				newLines[index] = lines[0];
+				
+				// 从第二行开始，递归插入后续行
+				for (let i = 1; i < lines.length; i++) {
+					insertLineRecursive(newLines, index + i, lines[i]);
 				}
-			}
 
-			return newLines;
-		});
-	}, [insertLineRecursive, dialogState.originalLines.length]);
+				// 清除溢出部分尾部的空内容
+				const originalLength = dialogState.originalLines.length;
+				while (newLines.length > originalLength) {
+					const lastIndex = newLines.length - 1;
+					if (newLines[lastIndex]?.trim().length === 0) {
+						newLines.pop();
+					} else {
+						break;
+					}
+				}
+
+				return newLines;
+			});
+			// 切换到最后一行输入的位置，光标放在行尾
+			const lastIndex = index + lines.length - 1;
+			if (lastIndex < contentLines.length) {
+				setEditingIndex(lastIndex);
+				const lastLineValue = contentLines[lastIndex] || "";
+				setCursorPosition(lastLineValue.length);
+			}
+		} else {
+			// 没有换行符，直接更新当前行
+			setContentLines(prev => {
+				const newLines = [...prev];
+				newLines[index] = newValue.trim();
+				return newLines;
+			});
+			// 设置光标位置到粘贴内容之后
+			setCursorPosition(selectionStart + pastedText.length);
+		}
+	}, [contentLines, insertLineRecursive, dialogState.originalLines.length]);
 
 	const getTargetLabel = () => {
 		switch (dialogState.target) {
@@ -548,7 +584,16 @@ export const EditLanguageDialog = () => {
 
 	return (
 		<Dialog.Root open={dialogState.open} onOpenChange={handleClose}>
-			<Dialog.Content maxWidth="800px" maxHeight="90vh">
+			<Dialog.Content
+				maxWidth="800px"
+				maxHeight="90vh"
+				onKeyDown={(e) => {
+					// 拦截 Ctrl+Z 和 Ctrl+Y，防止编辑页面响应撤销/重做
+					if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'y')) {
+						e.stopPropagation();
+					}
+				}}
+			>
 				<Dialog.Title>
 					{t("editLanguageDialog.title", "修改语言代码")} - {getTargetLabel()}
 				</Dialog.Title>
@@ -643,12 +688,11 @@ export const EditLanguageDialog = () => {
 									</div>
 								</Flex>
 								{/* 翻译/音译列 */}
-								<Flex
-									direction="column"
-									gap="1"
-									style={{ flex: 1, minWidth: 0 }}
-									onPaste={handlePaste}
-								>
+							<Flex
+								direction="column"
+								gap="1"
+								style={{ flex: 1, minWidth: 0 }}
+							>
 									<Text size="1" weight="bold">
 										{getTargetLabel()}
 										<Text size="1" color="gray" ml="2">
@@ -686,6 +730,7 @@ export const EditLanguageDialog = () => {
 											onMergeUp={(currentValue) => handleMergeUp(index, currentValue)}
 											onMergeDown={(currentValue, cursorPos) => handleMergeDown(index, currentValue, cursorPos)}
 											onSplit={(afterCursor) => handleSplit(index, afterCursor)}
+											onPaste={(currentValue, pastedText, selectionStart, selectionEnd) => handlePaste(index, currentValue, pastedText, selectionStart, selectionEnd)}
 											onEditNext={() => handleEditNext(index)}
 											onEditPrevious={() => handleEditPrevious(index)}
 											placeholder={t("editLanguageDialog.clickToEdit", "点击编辑")}
@@ -724,9 +769,10 @@ export const EditLanguageDialog = () => {
 											});
 										}}
 												onMergeUp={(currentValue) => handleMergeUp(actualIndex, currentValue)}
-												onMergeDown={(currentValue, cursorPos) => handleMergeDown(actualIndex, currentValue, cursorPos)}
-												onSplit={(afterCursor) => handleSplit(actualIndex, afterCursor)}
-												onEditNext={() => handleEditNext(actualIndex)}
+													onMergeDown={(currentValue, cursorPos) => handleMergeDown(actualIndex, currentValue, cursorPos)}
+													onSplit={(afterCursor) => handleSplit(actualIndex, afterCursor)}
+													onPaste={(currentValue, pastedText, selectionStart, selectionEnd) => handlePaste(actualIndex, currentValue, pastedText, selectionStart, selectionEnd)}
+													onEditNext={() => handleEditNext(actualIndex)}
 												onEditPrevious={() => handleEditPrevious(actualIndex)}
 												isOverflow={true}
 												cursorPosition={editingIndex === actualIndex ? cursorPosition : null}
