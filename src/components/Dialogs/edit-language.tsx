@@ -137,7 +137,7 @@ interface EditableLineProps {
 	onChange: (value: string) => void;
 	onMergeUp?: (currentValue: string) => void;
 	onMergeDown?: (currentValue: string, cursorPosition: number) => void;
-	onSplit?: (cursorPosition: number) => void;
+	onSplit?: (afterCursor: string) => void;
 	onEditNext?: () => void;
 	onEditPrevious?: () => void;
 	placeholder?: string;
@@ -207,7 +207,7 @@ const EditableLine = ({
 					setEditValue(beforeCursor);
 					onChange(beforeCursor);
 					// 触发拆分，将光标后的内容作为新行（trim 后）
-					onSplit(currentCursorPosition);
+					onSplit(afterCursor);
 					// 切换到下一行编辑
 					if (onEditNext) {
 						setTimeout(() => onEditNext(), 0);
@@ -216,10 +216,13 @@ const EditableLine = ({
 					onChange(editValue.trim());
 				}
 			} else {
-				// 单独按回车，结束编辑
+				// 单独按回车，保存当前行并切换到下一行编辑
 				e.preventDefault();
 				onChange(editValue.trim());
-				onStopEdit();
+				// 切换到下一行编辑，光标放在行尾
+				if (onEditNext) {
+					setTimeout(() => onEditNext(), 0);
+				}
 			}
 		} else if (e.key === "Escape") {
 			setEditValue(value);
@@ -434,15 +437,9 @@ export const EditLanguageDialog = () => {
 		return lines;
 	}, []);
 
-	const handleSplit = useCallback((index: number, splitCursorPosition: number) => {
+	const handleSplit = useCallback((index: number, afterCursor: string) => {
 		setContentLines(prev => {
 			const newLines = [...prev];
-			const currentValue = newLines[index] || "";
-			const beforeCursor = currentValue.slice(0, splitCursorPosition).trim();
-			const afterCursor = currentValue.slice(splitCursorPosition).trim();
-
-			// 更新当前行为光标前的内容（trim 后）
-			newLines[index] = beforeCursor;
 
 			// 将光标后的内容按行分割，遍历添加每一行
 			const linesToInsert = afterCursor.split('\n').map(line => line.trim());
@@ -493,8 +490,11 @@ export const EditLanguageDialog = () => {
 		const nextIndex = index + 1;
 		if (nextIndex < contentLines.length) {
 			setEditingIndex(nextIndex);
+			// 设置光标位置为下一行的末尾
+			const nextLineValue = contentLines[nextIndex] || "";
+			setCursorPosition(nextLineValue.length);
 		}
-	}, [contentLines.length]);
+	}, [contentLines]);
 
 	// 切换到上一行编辑
 	const handleEditPrevious = useCallback((index: number) => {
@@ -685,7 +685,7 @@ export const EditLanguageDialog = () => {
 											onChange={(value) => handleLineChange(index, value)}
 											onMergeUp={(currentValue) => handleMergeUp(index, currentValue)}
 											onMergeDown={(currentValue, cursorPos) => handleMergeDown(index, currentValue, cursorPos)}
-											onSplit={(splitCursorPosition) => handleSplit(index, splitCursorPosition)}
+											onSplit={(afterCursor) => handleSplit(index, afterCursor)}
 											onEditNext={() => handleEditNext(index)}
 											onEditPrevious={() => handleEditPrevious(index)}
 											placeholder={t("editLanguageDialog.clickToEdit", "点击编辑")}
@@ -725,7 +725,7 @@ export const EditLanguageDialog = () => {
 										}}
 												onMergeUp={(currentValue) => handleMergeUp(actualIndex, currentValue)}
 												onMergeDown={(currentValue, cursorPos) => handleMergeDown(actualIndex, currentValue, cursorPos)}
-												onSplit={(splitCursorPosition) => handleSplit(actualIndex, splitCursorPosition)}
+												onSplit={(afterCursor) => handleSplit(actualIndex, afterCursor)}
 												onEditNext={() => handleEditNext(actualIndex)}
 												onEditPrevious={() => handleEditPrevious(actualIndex)}
 												isOverflow={true}

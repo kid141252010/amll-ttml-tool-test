@@ -1814,20 +1814,18 @@ const MultilingualField: FC = () => {
 			target: "translation",
 			originalLines,
 			onSubmit: (lang, contentLines) => {
-				editLyricLines((state) => {
-					for (let i = 0; i < state.lyricLines.length; i++) {
-						const line = state.lyricLines[i];
-						line.translatedLyricByLang ??= {};
-						const data = contentLines[i] ?? "";
-						line.translatedLyricByLang[lang] = { data, isAutoFilled: false };
-						// 更新当前显示的翻译
-						if (i === 0) {
+					editLyricLines((state) => {
+						for (let i = 0; i < state.lyricLines.length; i++) {
+							const line = state.lyricLines[i];
+							line.translatedLyricByLang ??= {};
+							const data = contentLines[i] ?? "";
+							line.translatedLyricByLang[lang] = { data, isAutoFilled: false };
+							// 更新当前显示的翻译
 							line.translatedLyric = data;
 						}
-					}
-				});
-				setSelectedTranslationLang(lang);
-			},
+					});
+					setSelectedTranslationLang(lang);
+				},
 		});
 	}, [lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedTranslationLang]);
 
@@ -1839,20 +1837,18 @@ const MultilingualField: FC = () => {
 			target: "romanization",
 			originalLines,
 			onSubmit: (lang, contentLines) => {
-				editLyricLines((state) => {
-					for (let i = 0; i < state.lyricLines.length; i++) {
-						const line = state.lyricLines[i];
-						line.romanLyricByLang ??= {};
-						const data = contentLines[i] ?? "";
-						line.romanLyricByLang[lang] = { data, isAutoFilled: false };
-						// 更新当前显示的音译
-						if (i === 0) {
+					editLyricLines((state) => {
+						for (let i = 0; i < state.lyricLines.length; i++) {
+							const line = state.lyricLines[i];
+							line.romanLyricByLang ??= {};
+							const data = contentLines[i] ?? "";
+							line.romanLyricByLang[lang] = { data, isAutoFilled: false };
+							// 更新当前显示的音译
 							line.romanLyric = data;
 						}
-					}
-				});
-				setSelectedRomanizationLang(lang);
-			},
+					});
+					setSelectedRomanizationLang(lang);
+				},
 		});
 	}, [lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang]);
 
@@ -1925,9 +1921,7 @@ const MultilingualField: FC = () => {
 						const newData = contentLines[i] ?? "";
 						byLang[trimmed] = { data: newData, isAutoFilled: false };
 						// 更新当前显示的翻译
-						if (i === 0) {
-							line.translatedLyric = newData;
-						}
+						line.translatedLyric = newData;
 					}
 				});
 				setSelectedTranslationLang(trimmed);
@@ -1984,9 +1978,7 @@ const MultilingualField: FC = () => {
 						const newData = contentLines[i] ?? "";
 						byLang[trimmed] = { data: newData, isAutoFilled: false };
 						// 更新当前显示的音译
-						if (i === 0) {
-							line.romanLyric = newData;
-						}
+						line.romanLyric = newData;
 					}
 				});
 				setSelectedRomanizationLang(trimmed);
