@@ -59,7 +59,12 @@ import {
 	undoableLyricLinesAtom,
 	undoLyricLinesAtom,
 } from "$/states/main.ts";
-import { type LyricWord, type LyricWordBase, newLyricWord } from "$/types/ttml";
+import {
+	type LyricWord,
+	type LyricWordBase,
+	type TTMLLangData,
+	newLyricWord,
+} from "$/types/ttml";
 import { error, log } from "$/utils/logging.ts";
 
 export const useTopMenuActions = () => {
@@ -554,7 +559,9 @@ export const useTopMenuActions = () => {
 						if (line.romanLyricByLang) {
 							// 找到与当前行音译匹配的语言
 							Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
-								if (value === fullRoman) {
+								// 兼容旧数据：如果 value 是字符串，则直接使用
+								const data = typeof value === "string" ? value : value?.data ?? "";
+								if (data === fullRoman) {
 									targetLang = key;
 									delete line.romanLyricByLang?.[key];
 								}
@@ -563,19 +570,22 @@ export const useTopMenuActions = () => {
 						// 将逐字音译保存到对应语言
 						if (targetLang) {
 							line.wordRomanizationByLang ??= {};
-							line.wordRomanizationByLang[targetLang] = line.words
-								.filter((word) => word.romanWord.length > 0)
-								.map((word) => ({
-									startTime: word.startTime,
-									endTime: word.endTime,
-									text: word.romanWord,
-								}));
+							line.wordRomanizationByLang[targetLang] = {
+								data: line.words
+									.filter((word) => word.romanWord.length > 0)
+									.map((word) => ({
+										startTime: word.startTime,
+										endTime: word.endTime,
+										text: word.romanWord,
+									})),
+							};
 						}
 						// 如果还有其他语言的行音译，切换到第一个可用的语言
 						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
 						if (remainingLangs.length > 0) {
-							line.romanLyric =
-								line.romanLyricByLang?.[remainingLangs[0]] ?? "";
+							const value = line.romanLyricByLang?.[remainingLangs[0]];
+							// 兼容旧数据：如果 value 是字符串，则直接使用
+							line.romanLyric = typeof value === "string" ? value : value?.data ?? "";
 						} else {
 							line.romanLyric = "";
 						}
@@ -611,7 +621,9 @@ export const useTopMenuActions = () => {
 						if (line.romanLyricByLang) {
 							// 找到与当前行音译匹配的语言
 							Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
-								if (value === fullRoman) {
+								// 兼容旧数据：如果 value 是字符串，则直接使用
+								const data = typeof value === "string" ? value : value?.data ?? "";
+								if (data === fullRoman) {
 									targetLang = key;
 									delete line.romanLyricByLang?.[key];
 								}
@@ -620,19 +632,22 @@ export const useTopMenuActions = () => {
 						// 将逐字音译保存到对应语言
 						if (targetLang) {
 							line.wordRomanizationByLang ??= {};
-							line.wordRomanizationByLang[targetLang] = line.words
-								.filter((word) => word.romanWord.length > 0)
-								.map((word) => ({
-									startTime: word.startTime,
-									endTime: word.endTime,
-									text: word.romanWord,
-								}));
+							line.wordRomanizationByLang[targetLang] = {
+								data: line.words
+									.filter((word) => word.romanWord.length > 0)
+									.map((word) => ({
+										startTime: word.startTime,
+										endTime: word.endTime,
+										text: word.romanWord,
+									})),
+							};
 						}
 						// 如果还有其他语言的行音译，切换到第一个可用的语言
 						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
 						if (remainingLangs.length > 0) {
-							line.romanLyric =
-								line.romanLyricByLang?.[remainingLangs[0]] ?? "";
+							const value = line.romanLyricByLang?.[remainingLangs[0]];
+							// 兼容旧数据：如果 value 是字符串，则直接使用
+							line.romanLyric = typeof value === "string" ? value : value?.data ?? "";
 						} else {
 							line.romanLyric = "";
 						}
@@ -709,7 +724,7 @@ export const useTopMenuActions = () => {
 
 				// 设置行音译，语言代码为 zh-Latn（汉语拉丁化）
 				line.romanLyricByLang = line.romanLyricByLang || {};
-				line.romanLyricByLang["zh-Latn-pinyin"] = pinyinText;
+				line.romanLyricByLang["zh-Latn-pinyin"] = { data: pinyinText };
 
 				// 如果没有设置主要的 romanLyric，则使用这个
 				if (!line.romanLyric) {
@@ -735,7 +750,7 @@ export const useTopMenuActions = () => {
 
 				// 设置行音译，语言代码为 yue（粤语）
 				line.romanLyricByLang = line.romanLyricByLang || {};
-				line.romanLyricByLang["zh-Latn-jyutping"] = jyutping;
+				line.romanLyricByLang["zh-Latn-jyutping"] = { data: jyutping };
 
 				// 如果没有设置主要的 romanLyric，则使用这个
 				if (!line.romanLyric) {
@@ -791,7 +806,7 @@ export const useTopMenuActions = () => {
 					if (line) {
 						// 设置行音译，语言代码为 ja-Latn
 						line.romanLyricByLang = line.romanLyricByLang || {};
-						line.romanLyricByLang["ja-Latn"] = romaji;
+						line.romanLyricByLang["ja-Latn"] = { data: romaji };
 
 						// 如果没有设置主要的 romanLyric，则使用这个
 						if (!line.romanLyric) {
@@ -857,7 +872,7 @@ export const useTopMenuActions = () => {
 
 				// 设置行音译，语言代码为 ko-Latn（韩语拉丁化）
 				line.romanLyricByLang = line.romanLyricByLang || {};
-				line.romanLyricByLang["ko-Latn"] = romanizedText;
+				line.romanLyricByLang["ko-Latn"] = { data: romanizedText };
 
 				// 如果没有设置主要的 romanLyric，则使用这个
 				if (!line.romanLyric) {

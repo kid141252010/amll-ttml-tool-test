@@ -17,6 +17,7 @@ import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Translit
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
+import type { TTMLLangData } from "$/types/ttml";
 
 type Scope = "all" | "selected" | "selected-following" | "custom";
 
@@ -108,7 +109,9 @@ export const DistributeRomanizationDialog = () => {
 								// 找到与当前行音译匹配的语言
 								Object.entries(line.romanLyricByLang).forEach(
 									([key, value]) => {
-										if (value === fullRoman) {
+										// 兼容旧数据：如果 value 是字符串，则直接使用
+										const data = typeof value === "string" ? value : value?.data ?? "";
+										if (data === fullRoman) {
 											targetLang = key;
 											delete line.romanLyricByLang![key];
 										}
@@ -119,13 +122,15 @@ export const DistributeRomanizationDialog = () => {
 							// 将逐字音译保存到对应语言
 							if (targetLang) {
 								line.wordRomanizationByLang ??= {};
-								line.wordRomanizationByLang[targetLang] = line.words
-									.filter((word) => word.romanWord.trim().length > 0)
-									.map((word) => ({
-										startTime: word.startTime,
-										endTime: word.endTime,
-										text: word.romanWord,
-									}));
+								line.wordRomanizationByLang[targetLang] = {
+									data: line.words
+										.filter((word) => word.romanWord.trim().length > 0)
+										.map((word) => ({
+											startTime: word.startTime,
+											endTime: word.endTime,
+											text: word.romanWord,
+										})),
+								};
 							}
 						} catch (e) {
 							console.error(
