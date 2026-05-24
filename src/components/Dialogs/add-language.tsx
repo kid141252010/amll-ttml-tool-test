@@ -217,6 +217,14 @@ const EditableLine = ({
 				} else {
 					onChange(editValue.trim());
 				}
+			} else if (e.shiftKey) {
+				// Shift+回车，保存当前行并切换到上一行编辑
+				e.preventDefault();
+				onChange(editValue.trim());
+				// 切换到上一行编辑，光标放在行尾
+				if (onEditPrevious) {
+					setTimeout(() => onEditPrevious(), 0);
+				}
 			} else {
 				// 单独按回车，保存当前行并切换到下一行编辑
 				e.preventDefault();
@@ -492,9 +500,13 @@ export const AddLanguageDialog = () => {
 	// 切换到上一行编辑
 	const handleEditPrevious = useCallback((index: number) => {
 		if (index > 0) {
-			setEditingIndex(index - 1);
+			const prevIndex = index - 1;
+			setEditingIndex(prevIndex);
+			// 设置光标位置为上一行的末尾
+			const prevLineValue = contentLines[prevIndex] || "";
+			setCursorPosition(prevLineValue.length);
 		}
-	}, []);
+	}, [contentLines]);
 
 	// 处理粘贴事件
 	const handlePaste = useCallback((index: number, currentValue: string, pastedText: string, selectionStart: number, selectionEnd: number) => {
