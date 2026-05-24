@@ -71,6 +71,7 @@ import {
 	type LyricLine,
 	type LyricWord,
 	type TTMLAgent,
+	type TTMLLangData,
 	type TTMLTranslationWord,
 	newLyricLine,
 } from "$/types/ttml";
@@ -1614,7 +1615,9 @@ const MultilingualField: FC = () => {
 				continue;
 			}
 			for (const [lang, value] of entries) {
-				if (value.trim().length > 0) {
+				// 兼容旧数据：如果 value 是字符串，则直接使用
+				const data = typeof value === "string" ? value : value?.data ?? "";
+				if (data.trim().length > 0) {
 					languages.add(lang);
 				}
 			}
@@ -1636,7 +1639,9 @@ const MultilingualField: FC = () => {
 				continue;
 			}
 			for (const [lang, value] of entries) {
-				if (value.trim().length > 0) {
+				// 兼容旧数据：如果 value 是字符串，则直接使用
+				const data = typeof value === "string" ? value : value?.data ?? "";
+				if (data.trim().length > 0) {
 					languages.add(lang);
 				}
 			}
@@ -1652,7 +1657,9 @@ const MultilingualField: FC = () => {
 		for (const line of lyricLines.lyricLines) {
 			if (!line.wordRomanizationByLang) continue;
 			for (const [lang, words] of Object.entries(line.wordRomanizationByLang)) {
-				if (words.length > 0) {
+				// 兼容旧数据：如果 words 是数组，则直接使用
+				const data = Array.isArray(words) ? words : words?.data ?? [];
+				if (data.length > 0) {
 					languages.add(lang);
 				}
 			}
@@ -1671,7 +1678,14 @@ const MultilingualField: FC = () => {
 							for (const line of state.lyricLines) {
 								const byLang = line.translatedLyricByLang;
 								if (!byLang || !byLang.und) continue;
-								byLang[nextLang] = byLang.und;
+								// 获取当前语言的值
+								const currentValue = byLang.und;
+								// 兼容旧数据：如果 currentValue 是字符串，则转换为对象
+								const currentData = typeof currentValue === "string"
+									? { data: currentValue, isAutoFilled: false }
+									: { ...currentValue, isAutoFilled: false };
+								// 重命名时设置 isAutoFilled 为 false
+								byLang[nextLang] = currentData;
 								delete byLang.und;
 							}
 						});
@@ -1683,7 +1697,9 @@ const MultilingualField: FC = () => {
 			setSelectedTranslationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
-					line.translatedLyric = line.translatedLyricByLang?.[lang] ?? "";
+					const value = line.translatedLyricByLang?.[lang];
+					// 兼容旧数据：如果 value 是字符串，则直接使用
+					line.translatedLyric = typeof value === "string" ? value : value?.data ?? "";
 				}
 			});
 		},
@@ -1701,7 +1717,14 @@ const MultilingualField: FC = () => {
 							for (const line of state.lyricLines) {
 								const byLang = line.romanLyricByLang;
 								if (!byLang || !byLang.und) continue;
-								byLang[nextLang] = byLang.und;
+								// 获取当前语言的值
+								const currentValue = byLang.und;
+								// 兼容旧数据：如果 currentValue 是字符串，则转换为对象
+								const currentData = typeof currentValue === "string"
+									? { data: currentValue, isAutoFilled: false }
+									: { ...currentValue, isAutoFilled: false };
+								// 重命名时设置 isAutoFilled 为 false
+								byLang[nextLang] = currentData;
 								delete byLang.und;
 							}
 						});
@@ -1713,7 +1736,9 @@ const MultilingualField: FC = () => {
 			setSelectedRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
-					line.romanLyric = line.romanLyricByLang?.[lang] ?? "";
+					const value = line.romanLyricByLang?.[lang];
+					// 兼容旧数据：如果 value 是字符串，则直接使用
+					line.romanLyric = typeof value === "string" ? value : value?.data ?? "";
 				}
 			});
 		},
@@ -1723,15 +1748,26 @@ const MultilingualField: FC = () => {
 	const applyWordRomanizationLang = useCallback(
 		function applyWordRomanizationLangInner(lang: string) {
 			if (lang === "und") {
-				setAddLanguageDialog({
+				// 获取原文行内容
+				const originalLines = lyricLines.lyricLines.map((line) => line.words.map((w) => w.word).join(""));
+				setEditLanguageDialog({
 					open: true,
 					target: "word-romanization",
+					currentLang: "und",
+					originalLines,
 					onSubmit: (nextLang) => {
 						editLyricLines((state) => {
 							for (const line of state.lyricLines) {
 								const byLang = line.wordRomanizationByLang;
 								if (!byLang || !byLang.und) continue;
-								byLang[nextLang] = byLang.und;
+								// 获取当前语言的值
+								const currentValue = byLang.und;
+								// 兼容旧数据：如果 currentValue 是数组，则转换为对象
+								const currentData = Array.isArray(currentValue)
+									? { data: currentValue, isAutoFilled: false }
+									: { ...currentValue, isAutoFilled: false };
+								// 重命名时设置 isAutoFilled 为 false
+								byLang[nextLang] = currentData;
 								delete byLang.und;
 							}
 						});
@@ -1743,7 +1779,9 @@ const MultilingualField: FC = () => {
 			setSelectedWordRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
-					const romanWords = line.wordRomanizationByLang?.[lang] ?? [];
+					const value = line.wordRomanizationByLang?.[lang];
+					// 兼容旧数据：如果 value 是数组，则直接使用
+					const romanWords = Array.isArray(value) ? value : value?.data ?? [];
 					if (romanWords.length === 0) {
 						for (const word of line.words) {
 							word.romanWord = "";
@@ -1765,65 +1803,58 @@ const MultilingualField: FC = () => {
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog, setSelectedWordRomanizationLang],
+		[editLyricLines, lyricLines.lyricLines, setEditLanguageDialog, setSelectedWordRomanizationLang],
 	);
 
 	const openAddTranslationDialog = useCallback(() => {
+		// 获取原文行内容
+		const originalLines = lyricLines.lyricLines.map((line) => line.words.map((w) => w.word).join(""));
 		setAddLanguageDialog({
 			open: true,
 			target: "translation",
-			onSubmit: (lang) => {
+			originalLines,
+			onSubmit: (lang, contentLines) => {
 				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
+					for (let i = 0; i < state.lyricLines.length; i++) {
+						const line = state.lyricLines[i];
 						line.translatedLyricByLang ??= {};
-						line.translatedLyricByLang[lang] = line.translatedLyric ?? "";
-						line.translatedLyric = line.translatedLyricByLang[lang] ?? "";
+						const data = contentLines[i] ?? "";
+						line.translatedLyricByLang[lang] = { data, isAutoFilled: false };
+						// 更新当前显示的翻译
+						if (i === 0) {
+							line.translatedLyric = data;
+						}
 					}
 				});
-				applyTranslationLang(lang);
+				setSelectedTranslationLang(lang);
 			},
 		});
-	}, [applyTranslationLang, editLyricLines, setAddLanguageDialog]);
+	}, [lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedTranslationLang]);
 
 	const openAddRomanizationDialog = useCallback(() => {
+		// 获取原文行内容
+		const originalLines = lyricLines.lyricLines.map((line) => line.words.map((w) => w.word).join(""));
 		setAddLanguageDialog({
 			open: true,
 			target: "romanization",
-			onSubmit: (lang) => {
+			originalLines,
+			onSubmit: (lang, contentLines) => {
 				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
+					for (let i = 0; i < state.lyricLines.length; i++) {
+						const line = state.lyricLines[i];
 						line.romanLyricByLang ??= {};
-						line.romanLyricByLang[lang] = line.romanLyric ?? "";
-						line.romanLyric = line.romanLyricByLang[lang] ?? "";
+						const data = contentLines[i] ?? "";
+						line.romanLyricByLang[lang] = { data, isAutoFilled: false };
+						// 更新当前显示的音译
+						if (i === 0) {
+							line.romanLyric = data;
+						}
 					}
 				});
-				applyRomanizationLang(lang);
+				setSelectedRomanizationLang(lang);
 			},
 		});
-	}, [applyRomanizationLang, editLyricLines, setAddLanguageDialog]);
-
-	const openAddWordRomanizationDialog = useCallback(() => {
-		setAddLanguageDialog({
-			open: true,
-			target: "word-romanization",
-			onSubmit: (lang) => {
-				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
-						line.wordRomanizationByLang ??= {};
-						const romanWords = line.words
-							.filter((word) => word.romanWord.trim().length > 0)
-							.map((word) => ({
-								startTime: word.startTime,
-								endTime: word.endTime,
-								text: word.romanWord,
-							}));
-						line.wordRomanizationByLang[lang] = romanWords;
-					}
-				});
-				applyWordRomanizationLang(lang);
-			},
-		});
-	}, [applyWordRomanizationLang, editLyricLines, setAddLanguageDialog]);
+	}, [lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang]);
 
 	// 当歌词解析完成后，自动选择第一个可用语言
 	useEffect(() => {
@@ -1853,29 +1884,50 @@ const MultilingualField: FC = () => {
 
 	const openEditTranslationLangDialog = useCallback(() => {
 		if (!selectedTranslationLang) return;
+		// 获取原文行内容
+		const originalLines = lyricLines.lyricLines.map((line) => line.words.map((w) => w.word).join(""));
+		// 获取当前翻译内容
+		const currentContentLines = lyricLines.lyricLines.map((line) => {
+			const value = line.translatedLyricByLang?.[selectedTranslationLang];
+			return typeof value === "string" ? value : value?.data ?? "";
+		});
 		setEditLanguageDialog({
 			open: true,
 			target: "translation",
 			currentLang: selectedTranslationLang,
-			onSubmit: (newLang) => {
+			originalLines,
+			currentContent: currentContentLines.join("\n"),
+			onSubmit: (newLang, contentLines) => {
 				const trimmed = newLang.trim();
 				if (!trimmed || trimmed === selectedTranslationLang) return;
 				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
+					for (let i = 0; i < state.lyricLines.length; i++) {
+						const line = state.lyricLines[i];
 						const byLang = line.translatedLyricByLang;
 						if (!byLang || !byLang[selectedTranslationLang]) continue;
+						// 获取当前语言的值
+						const currentValue = byLang[selectedTranslationLang];
+						// 兼容旧数据：如果 currentValue 是字符串，则转换为对象
+						const currentData = typeof currentValue === "string"
+							? { data: currentValue, isAutoFilled: false }
+							: { ...currentValue, isAutoFilled: false };
 						// 如果目标语言已存在，互换内容
 						if (byLang[trimmed]) {
-							const temp = byLang[selectedTranslationLang];
-							byLang[selectedTranslationLang] = byLang[trimmed];
-							byLang[trimmed] = temp;
+							const temp = byLang[trimmed];
+							byLang[selectedTranslationLang] = temp;
+							byLang[trimmed] = currentData;
 						} else {
-							// 否则直接重命名
-							byLang[trimmed] = byLang[selectedTranslationLang];
+							// 否则直接重命名，并将 isAutoFilled 设置为 false
+							byLang[trimmed] = currentData;
 							delete byLang[selectedTranslationLang];
 						}
+						// 更新内容
+						const newData = contentLines[i] ?? "";
+						byLang[trimmed] = { data: newData, isAutoFilled: false };
 						// 更新当前显示的翻译
-						line.translatedLyric = byLang[trimmed] ?? "";
+						if (i === 0) {
+							line.translatedLyric = newData;
+						}
 					}
 				});
 				setSelectedTranslationLang(trimmed);
@@ -1883,6 +1935,7 @@ const MultilingualField: FC = () => {
 		});
 	}, [
 		selectedTranslationLang,
+		lyricLines.lyricLines,
 		setEditLanguageDialog,
 		editLyricLines,
 		setSelectedTranslationLang,
@@ -1890,29 +1943,50 @@ const MultilingualField: FC = () => {
 
 	const openEditRomanizationLangDialog = useCallback(() => {
 		if (!selectedRomanizationLang) return;
+		// 获取原文行内容
+		const originalLines = lyricLines.lyricLines.map((line) => line.words.map((w) => w.word).join(""));
+		// 获取当前音译内容
+		const currentContentLines = lyricLines.lyricLines.map((line) => {
+			const value = line.romanLyricByLang?.[selectedRomanizationLang];
+			return typeof value === "string" ? value : value?.data ?? "";
+		});
 		setEditLanguageDialog({
 			open: true,
 			target: "romanization",
 			currentLang: selectedRomanizationLang,
-			onSubmit: (newLang) => {
+			originalLines,
+			currentContent: currentContentLines.join("\n"),
+			onSubmit: (newLang, contentLines) => {
 				const trimmed = newLang.trim();
 				if (!trimmed || trimmed === selectedRomanizationLang) return;
 				editLyricLines((state) => {
-					for (const line of state.lyricLines) {
+					for (let i = 0; i < state.lyricLines.length; i++) {
+						const line = state.lyricLines[i];
 						const byLang = line.romanLyricByLang;
 						if (!byLang || !byLang[selectedRomanizationLang]) continue;
+						// 获取当前语言的值
+						const currentValue = byLang[selectedRomanizationLang];
+						// 兼容旧数据：如果 currentValue 是字符串，则转换为对象
+						const currentData = typeof currentValue === "string"
+							? { data: currentValue, isAutoFilled: false }
+							: { ...currentValue, isAutoFilled: false };
 						// 如果目标语言已存在，互换内容
 						if (byLang[trimmed]) {
-							const temp = byLang[selectedRomanizationLang];
-							byLang[selectedRomanizationLang] = byLang[trimmed];
-							byLang[trimmed] = temp;
+							const temp = byLang[trimmed];
+							byLang[selectedRomanizationLang] = temp;
+							byLang[trimmed] = currentData;
 						} else {
-							// 否则直接重命名
-							byLang[trimmed] = byLang[selectedRomanizationLang];
+							// 否则直接重命名，并将 isAutoFilled 设置为 false
+							byLang[trimmed] = currentData;
 							delete byLang[selectedRomanizationLang];
 						}
+						// 更新内容
+						const newData = contentLines[i] ?? "";
+						byLang[trimmed] = { data: newData, isAutoFilled: false };
 						// 更新当前显示的音译
-						line.romanLyric = byLang[trimmed] ?? "";
+						if (i === 0) {
+							line.romanLyric = newData;
+						}
 					}
 				});
 				setSelectedRomanizationLang(trimmed);
@@ -1920,6 +1994,7 @@ const MultilingualField: FC = () => {
 		});
 	}, [
 		selectedRomanizationLang,
+		lyricLines.lyricLines,
 		setEditLanguageDialog,
 		editLyricLines,
 		setSelectedRomanizationLang,
@@ -1927,10 +2002,13 @@ const MultilingualField: FC = () => {
 
 	const openEditWordRomanizationLangDialog = useCallback(() => {
 		if (!selectedWordRomanizationLang) return;
+		// 获取原文行内容（逐字音译不需要显示内容编辑，但为了满足类型要求）
+		const originalLines = lyricLines.lyricLines.map((line) => line.words.map((w) => w.word).join(""));
 		setEditLanguageDialog({
 			open: true,
 			target: "word-romanization",
 			currentLang: selectedWordRomanizationLang,
+			originalLines,
 			onSubmit: (newLang) => {
 				const trimmed = newLang.trim();
 				if (!trimmed || trimmed === selectedWordRomanizationLang) return;
@@ -1938,18 +2016,26 @@ const MultilingualField: FC = () => {
 					for (const line of state.lyricLines) {
 						const byLang = line.wordRomanizationByLang;
 						if (!byLang || !byLang[selectedWordRomanizationLang]) continue;
+						// 获取当前语言的值
+						const currentValue = byLang[selectedWordRomanizationLang];
+						// 兼容旧数据：如果 currentValue 是数组，则转换为对象
+						const currentData = Array.isArray(currentValue)
+							? { data: currentValue, isAutoFilled: false }
+							: { ...currentValue, isAutoFilled: false };
 						// 如果目标语言已存在，互换内容
 						if (byLang[trimmed]) {
-							const temp = byLang[selectedWordRomanizationLang];
-							byLang[selectedWordRomanizationLang] = byLang[trimmed];
-							byLang[trimmed] = temp;
+							const temp = byLang[trimmed];
+							byLang[selectedWordRomanizationLang] = temp;
+							byLang[trimmed] = currentData;
 						} else {
-							// 否则直接重命名
-							byLang[trimmed] = byLang[selectedWordRomanizationLang];
+							// 否则直接重命名，并将 isAutoFilled 设置为 false
+							byLang[trimmed] = currentData;
 							delete byLang[selectedWordRomanizationLang];
 						}
 						// 更新当前显示的逐字音译
-						const romanWords = byLang[trimmed] ?? [];
+						const newValue = byLang[trimmed];
+						// 兼容旧数据：如果 newValue 是数组，则直接使用
+						const romanWords = Array.isArray(newValue) ? newValue : newValue?.data ?? [];
 						for (
 							let wordIndex = 0;
 							wordIndex < line.words.length;
@@ -1974,6 +2060,7 @@ const MultilingualField: FC = () => {
 		});
 	}, [
 		selectedWordRomanizationLang,
+		lyricLines.lyricLines,
 		setEditLanguageDialog,
 		editLyricLines,
 		setSelectedWordRomanizationLang,
@@ -2030,6 +2117,10 @@ const MultilingualField: FC = () => {
 										editLyricLines((state) => {
 											for (const line of state.lyricLines) {
 												if (line.translatedLyricByLang?.[lang]) {
+													// 获取数据以进行比较
+													const value = line.translatedLyricByLang[lang];
+													// 兼容旧数据：如果 value 是字符串，则直接使用
+													const data = typeof value === "string" ? value : value?.data ?? "";
 													delete line.translatedLyricByLang[lang];
 													if (
 														Object.keys(line.translatedLyricByLang).length === 0
@@ -2037,10 +2128,7 @@ const MultilingualField: FC = () => {
 														delete line.translatedLyricByLang;
 													}
 													// 如果当前显示的翻译是该语言，清空显示
-													if (
-														line.translatedLyric ===
-														line.translatedLyricByLang?.[lang]
-													) {
+													if (line.translatedLyric === data) {
 														line.translatedLyric = "";
 													}
 												}
@@ -2113,14 +2201,16 @@ const MultilingualField: FC = () => {
 										editLyricLines((state) => {
 											for (const line of state.lyricLines) {
 												if (line.romanLyricByLang?.[lang]) {
+													// 获取数据以进行比较
+													const value = line.romanLyricByLang[lang];
+													// 兼容旧数据：如果 value 是字符串，则直接使用
+													const data = typeof value === "string" ? value : value?.data ?? "";
 													delete line.romanLyricByLang[lang];
 													if (Object.keys(line.romanLyricByLang).length === 0) {
 														delete line.romanLyricByLang;
 													}
 													// 如果当前显示的音译是该语言，清空显示
-													if (
-														line.romanLyric === line.romanLyricByLang?.[lang]
-													) {
+													if (line.romanLyric === data) {
 														line.romanLyric = "";
 													}
 												}
@@ -2222,17 +2312,6 @@ const MultilingualField: FC = () => {
 					))}
 				</Select.Content>
 			</Select.Root>
-			<IconButton
-				variant="soft"
-				size="1"
-				onClick={openAddWordRomanizationDialog}
-				aria-label={t(
-					"addLanguageDialog.addWordRomanization",
-					"新增逐字音译语言",
-				)}
-			>
-				<Add16Regular />
-			</IconButton>
 		</Grid>
 	);
 };

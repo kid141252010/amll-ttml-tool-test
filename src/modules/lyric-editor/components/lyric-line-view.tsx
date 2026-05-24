@@ -66,7 +66,12 @@ import {
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
+import {
+	type LyricLine,
+	type TTMLLangData,
+	newLyricLine,
+	newLyricWord,
+} from "$/types/ttml.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
@@ -206,23 +211,42 @@ const SubLineEdit = memo(
 						const targetLine = state.lyricLines[lineIndex];
 						const previousValue = targetLine[type];
 						targetLine[type] = newValue;
-						const syncByLang = (byLang?: Record<string, string>) => {
+						const syncByLang = (
+							byLang?: Record<string, TTMLLangData<string> | string>,
+						) => {
 							if (!byLang) return;
 							const keys = Object.keys(byLang);
 							if (keys.length === 1) {
-								byLang[keys[0]] = newValue;
+								const value = byLang[keys[0]];
+								if (typeof value === "string") {
+									byLang[keys[0]] = { data: newValue };
+								} else {
+									value.data = newValue;
+								}
 								return;
 							}
 							const matched = Object.entries(byLang).find(([, value]) => {
-								const nextValue = value.trim().length > 0 ? value : "";
-								return nextValue === previousValue && value.trim().length > 0;
+								// 兼容旧数据：如果 value 是字符串，则直接使用
+								const data = typeof value === "string" ? value : value?.data ?? "";
+								const nextValue = data.trim().length > 0 ? data : "";
+								return nextValue === previousValue && data.trim().length > 0;
 							})?.[0];
 							if (matched) {
-								byLang[matched] = newValue;
+								const value = byLang[matched];
+								if (typeof value === "string") {
+									byLang[matched] = { data: newValue };
+								} else {
+									value.data = newValue;
+								}
 								return;
 							}
 							if (byLang.und !== undefined) {
-								byLang.und = newValue;
+								const value = byLang.und;
+								if (typeof value === "string") {
+									byLang.und = { data: newValue };
+								} else {
+									value.data = newValue;
+								}
 							}
 						};
 						if (type === "translatedLyric") {
