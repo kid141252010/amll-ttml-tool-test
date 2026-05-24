@@ -90,6 +90,17 @@ export interface TTMLTranslationWord {
 	hasSpaceAfter?: boolean;
 }
 
+/**
+ * @description 带自动填充标记的语言代码数据
+ * 用于标识该语言代码是否是自动填充的默认值
+ */
+export interface TTMLLangData<T> {
+	/** @description 语言代码数据 */
+	data: T;
+	/** @description 是否是自动填充的默认值 */
+	isAutoFilled?: boolean;
+}
+
 export const newLyricWord = (): LyricWord => ({
 	id: uid(),
 	startTime: 0,
@@ -126,10 +137,10 @@ export interface LyricLine extends AMLLLyricLine {
 		originalNextStartTime: number | null;
 	};
 	vocal?: string[];
-	translatedLyricByLang?: Record<string, string>;
-	romanLyricByLang?: Record<string, string>;
-	wordRomanizationByLang?: Record<string, TTMLRomanWord[]>;
-	wordTranslationByLang?: Record<string, TTMLTranslationWord[]>;
+	translatedLyricByLang?: Record<string, TTMLLangData<string>>;
+	romanLyricByLang?: Record<string, TTMLLangData<string>>;
+	wordRomanizationByLang?: Record<string, TTMLLangData<TTMLRomanWord[]>>;
+	wordTranslationByLang?: Record<string, TTMLLangData<TTMLTranslationWord[]>>;
 	/**
 	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:song-part 属性）
 	 */

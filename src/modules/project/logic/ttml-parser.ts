@@ -22,6 +22,7 @@ import type {
 	LyricWord,
 	LyricWordBase,
 	TTMLAgent,
+	TTMLLangData,
 	TTMLLyric,
 	TTMLMetadata,
 	TTMLRomanWord,
@@ -909,36 +910,42 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				line.romanLyric = lineRoman?.main ?? "";
 			}
 
-			const translatedLyricByLang: Record<string, string> = {};
+			const translatedLyricByLang: Record<string, TTMLLangData<string>> = {};
 			for (const [lang, translations] of itunesTranslationsByLang.entries()) {
 				const timedTranslations = itunesTimedTranslationsByLang.get(lang);
 				const langTrans =
 					timedTranslations?.get(itunesKey) ?? translations.get(itunesKey);
 				if (!langTrans) continue;
-				translatedLyricByLang[lang] = isBG
-					? (langTrans.bg ?? "")
-					: (langTrans.main ?? "");
+				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
+				const isAutoFilled = lang === "und";
+				translatedLyricByLang[lang] = {
+					data: isBG ? (langTrans.bg ?? "") : (langTrans.main ?? ""),
+					isAutoFilled,
+				};
 			}
 			if (Object.keys(translatedLyricByLang).length > 0) {
 				line.translatedLyricByLang = translatedLyricByLang;
 			}
 
-			const romanLyricByLang: Record<string, string> = {};
+			const romanLyricByLang: Record<string, TTMLLangData<string>> = {};
 			for (const [
 				lang,
 				romanizations,
 			] of itunesLineRomanizationsByLang.entries()) {
 				const langRoman = romanizations.get(itunesKey);
 				if (!langRoman) continue;
-				romanLyricByLang[lang] = isBG
-					? (langRoman.bg ?? "")
-					: (langRoman.main ?? "");
+				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
+				const isAutoFilled = lang === "und";
+				romanLyricByLang[lang] = {
+					data: isBG ? (langRoman.bg ?? "") : (langRoman.main ?? ""),
+					isAutoFilled,
+				};
 			}
 			if (Object.keys(romanLyricByLang).length > 0) {
 				line.romanLyricByLang = romanLyricByLang;
 			}
 
-			const wordRomanizationByLang: Record<string, TTMLRomanWord[]> = {};
+			const wordRomanizationByLang: Record<string, TTMLLangData<TTMLRomanWord[]>> = {};
 			for (const [
 				lang,
 				romanizations,
@@ -946,7 +953,12 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				const langRoman = romanizations.get(itunesKey);
 				const romanList = isBG ? langRoman?.bg : langRoman?.main;
 				if (!romanList || romanList.length === 0) continue;
-				wordRomanizationByLang[lang] = romanList;
+				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
+				const isAutoFilled = lang === "und";
+				wordRomanizationByLang[lang] = {
+					data: romanList,
+					isAutoFilled,
+				};
 			}
 			if (Object.keys(wordRomanizationByLang).length > 0) {
 				line.wordRomanizationByLang = wordRomanizationByLang;
@@ -983,15 +995,20 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						haveBg = true;
 					} else if (role === "x-translation") {
 						// 读取 xml:lang 属性，如果没有则使用默认翻译语言代码
-						const transLang =
+						const transLangAttr =
 							wordEl.getAttribute("xml:lang") ??
-							wordEl.getAttribute("lang") ??
-							DEFAULT_TRANSLATION_LANG;
+							wordEl.getAttribute("lang");
+						const transLang = transLangAttr ?? DEFAULT_TRANSLATION_LANG;
+						// 标记是否为自动填充（没有 xml:lang 属性）
+						const isAutoFilled = !transLangAttr;
 						if (!line.translatedLyricByLang) {
 							line.translatedLyricByLang = {};
 						}
 						if (!line.translatedLyricByLang[transLang]) {
-							line.translatedLyricByLang[transLang] = wordEl.innerHTML;
+							line.translatedLyricByLang[transLang] = {
+								data: wordEl.innerHTML,
+								isAutoFilled,
+							};
 						}
 					} else if (role === "x-roman") {
 						// 内嵌音译使用默认音译语言代码存储到 romanLyricByLang
@@ -999,7 +1016,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							line.romanLyricByLang = {};
 						}
 						if (!line.romanLyricByLang[defaultRomanLang]) {
-							line.romanLyricByLang[defaultRomanLang] = wordEl.innerHTML;
+							line.romanLyricByLang[defaultRomanLang] = {
+								data: wordEl.innerHTML,
+								// 内嵌音译使用默认语言代码，视为自动填充
+								isAutoFilled: true,
+							};
 						}
 					}
 				} else {
@@ -1024,9 +1045,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 		// 处理逐字翻译：只处理被标记为逐字翻译的语言
 		if (itunesKey) {
-			const wordTranslationByLang: Record<string, TTMLTranslationWord[]> = {};
+			const wordTranslationByLang: Record<string, TTMLLangData<TTMLTranslationWord[]>> = {};
 			// 只遍历被标记为逐字翻译的语言
 			for (const lang of wordByWordLangs) {
+				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
+				const isAutoFilled = lang === "und";
 				const translations = itunesWordTranslationsByLang.get(lang);
 				if (translations) {
 					const langWordTrans = translations.get(itunesKey);
@@ -1034,7 +1057,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						// 已经有逐字翻译（带时间戳的 span 格式）
 						const transList = isBG ? langWordTrans.bg : langWordTrans.main;
 						if (transList && transList.length > 0) {
-							wordTranslationByLang[lang] = transList;
+							wordTranslationByLang[lang] = {
+								data: transList,
+								isAutoFilled,
+							};
 						}
 					}
 				}
@@ -1053,7 +1079,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							transText,
 						);
 						if (distributed.length > 0) {
-							wordTranslationByLang[lang] = distributed;
+							wordTranslationByLang[lang] = {
+								data: distributed,
+								isAutoFilled,
+							};
 						}
 					}
 				}

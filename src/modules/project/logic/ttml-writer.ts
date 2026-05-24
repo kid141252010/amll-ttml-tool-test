@@ -18,6 +18,7 @@
 import type {
 	LyricLine,
 	LyricWord,
+	TTMLLangData,
 	TTMLLyric,
 	TTMLRomanWord,
 	TTMLTranslationWord,
@@ -28,7 +29,51 @@ import { msToTimestamp } from "../../../utils/timestamp.ts";
 type LineMetadata = {
 	main: string;
 	bg: string;
+	isAutoFilled?: boolean;
 };
+
+type WordTransMetadata = {
+	mainWords: LyricWord[];
+	bgWords: LyricWord[];
+	mainTrans: TTMLTranslationWord[];
+	bgTrans: TTMLTranslationWord[];
+	isAutoFilled?: boolean;
+};
+
+type WordRomanMetadata = {
+	mainWords: LyricWord[];
+	bgWords: LyricWord[];
+	mainRoman: TTMLRomanWord[];
+	bgRoman: TTMLRomanWord[];
+	isAutoFilled?: boolean;
+};
+
+/**
+ * 辅助函数：从 TTMLLangData 或旧格式的字符串/数组中提取数据
+ * 兼容旧数据格式：字符串或数组直接作为数据，isAutoFilled 默认为 false
+ */
+function getLangData<T>(
+	value: TTMLLangData<T> | T | undefined,
+	defaultValue: T,
+): { data: T; isAutoFilled: boolean } {
+	if (value === undefined) {
+		return { data: defaultValue, isAutoFilled: false };
+	}
+	// 如果是 TTMLLangData 对象
+	if (
+		typeof value === "object" &&
+		value !== null &&
+		"data" in value &&
+		!Array.isArray(value)
+	) {
+		return {
+			data: value.data ?? defaultValue,
+			isAutoFilled: value.isAutoFilled ?? false,
+		};
+	}
+	// 兼容旧数据：直接是字符串或数组
+	return { data: value as T, isAutoFilled: false };
+}
 
 export default function exportTTMLText(
 	ttmlLyric: TTMLLyric,
@@ -477,16 +522,23 @@ export default function exportTTMLText(
 				...Object.keys(bgLine?.translatedLyricByLang ?? {}),
 			]);
 			// 处理有语言代码的翻译（跳过 und）
-			for (const lang of translationLangs) {
-				if (lang === "und") continue; // 跳过 und，不输出
-				const main = line.translatedLyricByLang?.[lang] ?? "";
-				const bg = bgLine?.translatedLyricByLang?.[lang] ?? "";
-				if (main.trim().length === 0 && bg.trim().length === 0) continue;
-				if (!translationByLangMap.has(lang)) {
-					translationByLangMap.set(lang, new Map());
-				}
-				translationByLangMap.get(lang)?.set(itunesKey, { main, bg });
+		for (const lang of translationLangs) {
+			if (lang === "und") continue; // 跳过 und，不输出
+			const mainData = line.translatedLyricByLang?.[lang];
+			const bgData = bgLine?.translatedLyricByLang?.[lang];
+			// 使用辅助函数兼容旧数据格式
+			const mainParsed = getLangData(mainData, "");
+			const bgParsed = getLangData(bgData, "");
+			const main = mainParsed.data;
+			const bg = bgParsed.data;
+			// 检查是否为自动填充的语言代码
+			const isAutoFilled = mainParsed.isAutoFilled || bgParsed.isAutoFilled;
+			if (main.trim().length === 0 && bg.trim().length === 0) continue;
+			if (!translationByLangMap.has(lang)) {
+				translationByLangMap.set(lang, new Map());
 			}
+			translationByLangMap.get(lang)?.set(itunesKey, { main, bg, isAutoFilled });
+		}
 			// 注意：不输出无语言代码的 translatedLyric
 
 			// 2. 然后收集逐字翻译（wordTranslationByLang），会覆盖逐行翻译
@@ -495,23 +547,31 @@ export default function exportTTMLText(
 				...Object.keys(bgLine?.wordTranslationByLang ?? {}),
 			]);
 			// 处理有语言代码的逐字翻译（跳过 und）
-			for (const lang of wordTransLangs) {
-				if (lang === "und") continue; // 跳过 und，不输出
-				const mainTrans = line.wordTranslationByLang?.[lang] ?? [];
-				const bgTrans = bgLine?.wordTranslationByLang?.[lang] ?? [];
-				if (mainTrans.length === 0 && bgTrans.length === 0) continue;
-				// 逐字翻译优先：删除相同语言的逐行翻译
-				translationByLangMap.delete(lang);
-				if (!wordTranslationByLangMap.has(lang)) {
-					wordTranslationByLangMap.set(lang, new Map());
-				}
-				wordTranslationByLangMap.get(lang)?.set(itunesKey, {
-					mainWords,
-					bgWords,
-					mainTrans,
-					bgTrans,
-				});
+		for (const lang of wordTransLangs) {
+			if (lang === "und") continue; // 跳过 und，不输出
+			const mainData = line.wordTranslationByLang?.[lang];
+			const bgData = bgLine?.wordTranslationByLang?.[lang];
+			// 使用辅助函数兼容旧数据格式
+			const mainParsed = getLangData(mainData, []);
+			const bgParsed = getLangData(bgData, []);
+			const mainTrans = mainParsed.data;
+			const bgTrans = bgParsed.data;
+			// 检查是否为自动填充的语言代码
+			const isAutoFilled = mainParsed.isAutoFilled || bgParsed.isAutoFilled;
+			if (mainTrans.length === 0 && bgTrans.length === 0) continue;
+			// 逐字翻译优先：删除相同语言的逐行翻译
+			translationByLangMap.delete(lang);
+			if (!wordTranslationByLangMap.has(lang)) {
+				wordTranslationByLangMap.set(lang, new Map());
 			}
+			wordTranslationByLangMap.get(lang)?.set(itunesKey, {
+				mainWords,
+				bgWords,
+				mainTrans,
+				bgTrans,
+				isAutoFilled,
+			});
+		}
 
 			// 收集音译数据：逐字音译优先于逐行音译
 			// 1. 首先收集逐行音译（romanLyricByLang）
@@ -520,16 +580,23 @@ export default function exportTTMLText(
 				...Object.keys(bgLine?.romanLyricByLang ?? {}),
 			]);
 			// 处理有语言代码的逐行音译（跳过 und）
-			for (const lang of romanLangs) {
-				if (lang === "und") continue; // 跳过 und，不输出
-				const main = line.romanLyricByLang?.[lang] ?? "";
-				const bg = bgLine?.romanLyricByLang?.[lang] ?? "";
-				if (main.trim().length === 0 && bg.trim().length === 0) continue;
-				if (!romanizationByLangMap.has(lang)) {
-					romanizationByLangMap.set(lang, new Map());
-				}
-				romanizationByLangMap.get(lang)?.set(itunesKey, { main, bg });
+		for (const lang of romanLangs) {
+			if (lang === "und") continue; // 跳过 und，不输出
+			const mainData = line.romanLyricByLang?.[lang];
+			const bgData = bgLine?.romanLyricByLang?.[lang];
+			// 使用辅助函数兼容旧数据格式
+			const mainParsed = getLangData(mainData, "");
+			const bgParsed = getLangData(bgData, "");
+			const main = mainParsed.data;
+			const bg = bgParsed.data;
+			// 检查是否为自动填充的语言代码
+			const isAutoFilled = mainParsed.isAutoFilled || bgParsed.isAutoFilled;
+			if (main.trim().length === 0 && bg.trim().length === 0) continue;
+			if (!romanizationByLangMap.has(lang)) {
+				romanizationByLangMap.set(lang, new Map());
 			}
+			romanizationByLangMap.get(lang)?.set(itunesKey, { main, bg, isAutoFilled });
+		}
 			// 注意：不输出无语言代码的 romanLyric
 
 			// 2. 然后收集逐字音译（wordRomanizationByLang），会覆盖逐行音译
@@ -538,23 +605,31 @@ export default function exportTTMLText(
 				...Object.keys(bgLine?.wordRomanizationByLang ?? {}),
 			]);
 			// 处理有语言代码的逐字音译（跳过 und）
-			for (const lang of wordRomanLangs) {
-				if (lang === "und") continue; // 跳过 und，不输出
-				const mainRoman = line.wordRomanizationByLang?.[lang] ?? [];
-				const bgRoman = bgLine?.wordRomanizationByLang?.[lang] ?? [];
-				if (mainRoman.length === 0 && bgRoman.length === 0) continue;
-				// 逐字音译优先：删除相同语言的逐行音译
-				romanizationByLangMap.delete(lang);
-				if (!wordRomanizationByLangMap.has(lang)) {
-					wordRomanizationByLangMap.set(lang, new Map());
-				}
-				wordRomanizationByLangMap.get(lang)?.set(itunesKey, {
-					mainWords,
-					bgWords,
-					mainRoman,
-					bgRoman,
-				});
+		for (const lang of wordRomanLangs) {
+			if (lang === "und") continue; // 跳过 und，不输出
+			const mainData = line.wordRomanizationByLang?.[lang];
+			const bgData = bgLine?.wordRomanizationByLang?.[lang];
+			// 使用辅助函数兼容旧数据格式
+			const mainParsed = getLangData(mainData, []);
+			const bgParsed = getLangData(bgData, []);
+			const mainRoman = mainParsed.data;
+			const bgRoman = bgParsed.data;
+			// 检查是否为自动填充的语言代码
+			const isAutoFilled = mainParsed.isAutoFilled || bgParsed.isAutoFilled;
+			if (mainRoman.length === 0 && bgRoman.length === 0) continue;
+			// 逐字音译优先：删除相同语言的逐行音译
+			romanizationByLangMap.delete(lang);
+			if (!wordRomanizationByLangMap.has(lang)) {
+				wordRomanizationByLangMap.set(lang, new Map());
 			}
+			wordRomanizationByLangMap.get(lang)?.set(itunesKey, {
+				mainWords,
+				bgWords,
+				mainRoman,
+				bgRoman,
+				isAutoFilled,
+			});
+		}
 			// 注意：不输出无语言代码的 word.romanWord
 
 			paramDiv.appendChild(lineP);
@@ -607,14 +682,17 @@ export default function exportTTMLText(
 			const translationCache = new Map<string, Element>();
 
 			// 辅助函数：获取或创建 translation 元素
-			const getOrCreateTranslation = (lang: string, type: string): Element => {
+			const getOrCreateTranslation = (lang: string, type: string, isAutoFilled?: boolean): Element => {
 				const cacheKey = `${lang}:${type}`;
 				const cached = translationCache.get(cacheKey);
 				if (cached) {
 					return cached;
 				}
 				const translation = doc.createElement("translation");
-				translation.setAttribute("xml:lang", lang);
+				// 如果不是自动填充的语言代码，才设置 xml:lang 属性
+				if (!isAutoFilled) {
+					translation.setAttribute("xml:lang", lang);
+				}
 				translation.setAttribute("type", type);
 				translations.appendChild(translation);
 				translationCache.set(cacheKey, translation);
@@ -623,7 +701,7 @@ export default function exportTTMLText(
 
 			// 2.1 处理逐行翻译（translationByLangMap）- type="subtitle"
 			for (const [lang, entries] of translationByLangMap.entries()) {
-				for (const [key, { main, bg }] of entries.entries()) {
+				for (const [key, { main, bg, isAutoFilled }] of entries.entries()) {
 					const textEl = doc.createElement("text");
 					textEl.setAttribute("for", key);
 					if (main.trim().length > 0) {
@@ -640,7 +718,7 @@ export default function exportTTMLText(
 						bgSpan.appendChild(doc.createTextNode(bg));
 						textEl.appendChild(bgSpan);
 					}
-					const translation = getOrCreateTranslation(lang, "subtitle");
+					const translation = getOrCreateTranslation(lang, "subtitle", isAutoFilled);
 					translation.appendChild(textEl);
 				}
 			}
@@ -713,8 +791,7 @@ export default function exportTTMLText(
 							textEl.appendChild(bgSpan);
 						}
 					}
-
-					const translation = getOrCreateTranslation(lang, "replacement");
+					const translation = getOrCreateTranslation(lang, "replacement", data.isAutoFilled);
 					translation.appendChild(textEl);
 				}
 			}
@@ -729,13 +806,16 @@ export default function exportTTMLText(
 			const transliterationCache = new Map<string, Element>();
 
 			// 辅助函数：获取或创建 transliteration 元素
-			const getOrCreateTransliteration = (lang: string): Element => {
+			const getOrCreateTransliteration = (lang: string, isAutoFilled?: boolean): Element => {
 				const cached = transliterationCache.get(lang);
 				if (cached) {
 					return cached;
 				}
 				const transliteration = doc.createElement("transliteration");
-				transliteration.setAttribute("xml:lang", lang);
+				// 如果不是自动填充的语言代码，才设置 xml:lang 属性
+				if (!isAutoFilled) {
+					transliteration.setAttribute("xml:lang", lang);
+				}
 				transliterations.appendChild(transliteration);
 				transliterationCache.set(lang, transliteration);
 				return transliteration;
@@ -743,7 +823,7 @@ export default function exportTTMLText(
 
 			// 处理逐行音译（romanizationByLangMap）
 			for (const [lang, entries] of romanizationByLangMap.entries()) {
-				for (const [key, { main, bg }] of entries.entries()) {
+				for (const [key, { main, bg, isAutoFilled }] of entries.entries()) {
 					const textEl = doc.createElement("text");
 					textEl.setAttribute("for", key);
 					if (main.trim().length > 0) {
@@ -760,7 +840,7 @@ export default function exportTTMLText(
 						bgSpan.appendChild(doc.createTextNode(bg));
 						textEl.appendChild(bgSpan);
 					}
-					const transliteration = getOrCreateTransliteration(lang);
+					const transliteration = getOrCreateTransliteration(lang, isAutoFilled);
 					transliteration.appendChild(textEl);
 				}
 			}
@@ -834,7 +914,7 @@ export default function exportTTMLText(
 						}
 					}
 
-					const transliteration = getOrCreateTransliteration(lang);
+					const transliteration = getOrCreateTransliteration(lang, data.isAutoFilled);
 					transliteration.appendChild(textEl);
 				}
 			}
