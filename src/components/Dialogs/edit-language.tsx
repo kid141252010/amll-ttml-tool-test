@@ -363,19 +363,21 @@ export const EditLanguageDialog = () => {
 
 	// 判断是否为逐字音译（不需要内容编辑）
 	const isWordRomanization = dialogState.target === "word-romanization";
+	// 判断是否为主要内容（不需要内容编辑）
+	const isPrimary = dialogState.target === "primary";
 
 	// 确认按钮是否禁用
 	const canSubmit = useMemo(() => {
 		const trimmed = newLang.trim();
 		// 语言代码不能为空，不能是 und，不能与当前相同
-		if (isWordRomanization) {
+		if (isWordRomanization || isPrimary) {
 			return (
 				trimmed.length > 0 &&
 				trimmed !== "und" &&
 				trimmed !== dialogState.currentLang
 			);
 		}
-		// 对于非逐字音译，检查是否有内容且不溢出
+		// 对于非逐字音译且非主要内容，检查是否有内容且不溢出
 		const hasContent = validContentLines.some(line => line.trim().length > 0);
 		return (
 			trimmed.length > 0 &&
@@ -384,7 +386,7 @@ export const EditLanguageDialog = () => {
 			hasContent &&
 			!hasOverflow
 		);
-	}, [newLang, dialogState.currentLang, validContentLines, hasOverflow, isWordRomanization]);
+	}, [newLang, dialogState.currentLang, validContentLines, hasOverflow, isWordRomanization, isPrimary]);
 
 	const handleClose = () => {
 		setDialogState({ ...dialogState, open: false });
@@ -641,7 +643,7 @@ export const EditLanguageDialog = () => {
 						)}
 						onChange={(e) => setNewLang(e.currentTarget.value)}
 					/>
-					{!isWordRomanization && (
+					{!isWordRomanization && !isPrimary && (
 						<>
 							<Text size="2">
 								{t("editLanguageDialog.content", "内容")}

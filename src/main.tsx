@@ -24,6 +24,7 @@ import "./index.css";
 import "./utils/pwa.tsx";
 import { wasm_start } from "@applemusic-like-lyrics/lyric";
 import { globalStore } from "./states/store.ts";
+import { lyricLinesAtom } from "./states/main.ts";
 
 async function startApp() {
 	try {
@@ -44,6 +45,20 @@ async function startApp() {
 	if (!rootEl) {
 		throw new Error("Could not find root element");
 	}
+
+	// 将歌词对象暴露到全局，便于在控制台中访问
+	Object.defineProperty(window, "lyrics", {
+		get: () => globalStore.get(lyricLinesAtom),
+		configurable: true,
+	});
+	Object.defineProperty(window, "lyricStore", {
+		get: () => globalStore,
+		configurable: true,
+	});
+	Object.defineProperty(window, "lyricAtom", {
+		get: () => lyricLinesAtom,
+		configurable: true,
+	});
 
 	createRoot(rootEl).render(
 		<StrictMode>

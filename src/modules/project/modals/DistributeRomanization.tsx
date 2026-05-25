@@ -119,19 +119,26 @@ export const DistributeRomanizationDialog = () => {
 								);
 							}
 							line.romanLyric = "";
-							// 将逐字音译保存到对应语言
-							if (targetLang) {
-								line.wordRomanizationByLang ??= {};
-								line.wordRomanizationByLang[targetLang] = {
-									data: line.words
-										.filter((word) => word.romanWord.trim().length > 0)
-										.map((word) => ({
-											startTime: word.startTime,
-											endTime: word.endTime,
-											text: word.romanWord,
-										})),
-								};
-							}
+						// 将逐字音译保存到对应语言，如果没有匹配的语言则使用默认语言代码
+						const getDefaultRomanizationLang = (lyricLang: string | undefined): string => {
+							if (!lyricLang) return "unknown";
+							if (lyricLang.startsWith("zh-Hant")) return "zh-Latn-jyutping";
+							if (lyricLang.startsWith("zh-Hans")) return "zh-Latn-pinyin";
+							return `${lyricLang}-Latn`;
+						};
+						const finalTargetLang = targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
+						const isAutoFilled = targetLang === undefined;
+						line.wordRomanizationByLang ??= {};
+						line.wordRomanizationByLang[finalTargetLang] = {
+							data: line.words
+								.filter((word) => word.romanWord.trim().length > 0)
+								.map((word) => ({
+									startTime: word.startTime,
+									endTime: word.endTime,
+									text: word.romanWord,
+								})),
+							isAutoFilled,
+						};
 						} catch (e) {
 							console.error(
 								`Failed to distribute romanization for line ${index + 1}`,

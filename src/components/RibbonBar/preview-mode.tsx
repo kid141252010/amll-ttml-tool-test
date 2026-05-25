@@ -127,10 +127,15 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		// 处理编辑语言代码
 		const handleEditLanguage = useCallback(() => {
 			if (!selectedLang) return;
+			// 获取原文行内容
+			const originalLines = lyricLines.lyricLines.map((line) =>
+				line.words.map((w) => w.word).join(""),
+			);
 			setEditLanguageDialog({
 				open: true,
 				target: "translation",
 				currentLang: selectedLang,
+				originalLines,
 				onSubmit: (newLang) => {
 					const trimmed = newLang.trim();
 					if (!trimmed || trimmed === selectedLang) return;
@@ -146,7 +151,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 					setSelectedLang(trimmed);
 				},
 			});
-		}, [selectedLang, languageFonts, setLanguageFonts, setEditLanguageDialog]);
+		}, [selectedLang, languageFonts, lyricLines.lyricLines, setLanguageFonts, setEditLanguageDialog]);
 
 		// 处理删除语言字体
 		const handleDeleteLanguage = useCallback(

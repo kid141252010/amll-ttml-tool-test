@@ -275,17 +275,13 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	};
 	const defaultRomanLang = getDefaultRomanizationLang(lyricLang);
 
-	// 判断是否为逐字翻译：type="replacement" 或 歌词和翻译语言都以 zh 开头
+	// 判断是否为逐字翻译：仅当 type="replacement" 时
 	const isWordByWordTranslation = (
 		translationEl: Element,
-		lang: string,
+		_lang: string,
 	): boolean => {
 		const typeAttr = translationEl.getAttribute("type");
 		if (typeAttr === "replacement") return true;
-		// 当 autoLang 为 true 时，不根据语言代码自动判断逐字翻译
-		if (autoLang) return false;
-		// 如果歌词语言和翻译语言都以 zh 开头，视为逐字翻译
-		if (lyricLang.startsWith("zh") && lang.startsWith("zh")) return true;
 		return false;
 	};
 

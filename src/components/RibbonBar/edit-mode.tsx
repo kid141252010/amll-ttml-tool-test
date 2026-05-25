@@ -25,6 +25,7 @@ import {
 import {
 	Add16Regular,
 	ArrowSwap16Regular,
+	ArrowSync16Regular,
 	Delete16Regular,
 	Edit16Regular,
 } from "@fluentui/react-icons";
@@ -50,6 +51,7 @@ import {
 	showWordRomanizationInputAtom,
 } from "$/modules/settings/states";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
+import { distributeRomanizationByCharCount } from "$/modules/segmentation/utils/Transliteration/distributor";
 import {
 	customSongPartPresetsAtom,
 	editingTimeFieldAtom,
@@ -65,6 +67,7 @@ import {
 import {
 	addLanguageDialogAtom,
 	confirmDialogAtom,
+	distributeTranslationDialogAtom,
 	editLanguageDialogAtom,
 } from "$/states/dialogs";
 import {
@@ -433,7 +436,6 @@ function EditField<
 function CheckboxField<
 	L extends Word extends true ? LyricWord : LyricLine,
 	F extends keyof L,
-	V extends L[F] extends boolean ? boolean : never,
 	Word extends boolean | undefined = undefined,
 >({
 	label,
@@ -444,7 +446,7 @@ function CheckboxField<
 	label: string;
 	isWordField: Word;
 	fieldName: F;
-	defaultValue: V;
+	defaultValue: boolean;
 }) {
 	const itemAtom = useMemo(
 		() => (isWordField ? selectedWordsAtom : selectedLinesAtom),
@@ -1319,7 +1321,8 @@ const PrimaryContentField: FC = () => {
 		const languages = new Set<string>();
 		for (const line of lyricLines.lyricLines) {
 			if (!line.wordTranslationByLang) continue;
-			for (const [lang, words] of Object.entries(line.wordTranslationByLang)) {
+			for (const [lang, wordsData] of Object.entries(line.wordTranslationByLang)) {
+				const words = wordsData?.data ?? [];
 				if (words.length > 0) {
 					languages.add(lang);
 				}
@@ -1381,10 +1384,13 @@ const PrimaryContentField: FC = () => {
 
 				// 2. 对每一行，逐个音节互换 words 和 wordTranslationByLang[targetLang]
 				for (const line of state.lyricLines) {
-					const targetWordTranslations =
+					const targetWordTranslationsData =
 						line.wordTranslationByLang?.[targetLang];
+					// 兼容旧数据：获取 data 数组
+					const targetWordTranslations: TTMLTranslationWord[] =
+						targetWordTranslationsData?.data ?? [];
 
-					if (!targetWordTranslations || targetWordTranslations.length === 0) {
+					if (targetWordTranslations.length === 0) {
 						// 如果目标语言没有逐字翻译，跳过
 						continue;
 					}
@@ -1396,12 +1402,20 @@ const PrimaryContentField: FC = () => {
 
 					// 初始化当前歌词语言的逐字翻译数组（如果不存在）
 					if (!line.wordTranslationByLang[currentLyricLang]) {
-						line.wordTranslationByLang[currentLyricLang] = [];
+						line.wordTranslationByLang[currentLyricLang] = {
+							data: [],
+							isAutoFilled: false,
+						};
 					}
 
 					// 获取当前歌词语言的逐字翻译数组
-					const currentWordTranslations =
+					const currentWordTranslationsData =
 						line.wordTranslationByLang[currentLyricLang];
+					// 兼容旧数据：如果 data 不是数组，则初始化为空数组
+					const currentWordTranslations: TTMLTranslationWord[] =
+						Array.isArray(currentWordTranslationsData.data)
+							? currentWordTranslationsData.data
+							: [];
 
 					// 收集非空格单词的索引（这些是有对应翻译的音节）
 					const nonSpaceWordIndices: number[] = [];
@@ -1441,10 +1455,15 @@ const PrimaryContentField: FC = () => {
 					delete line.wordTranslationByLang[targetLang];
 
 					// 清理：如果 currentWordTranslations 中有 undefined 项，过滤掉
-					line.wordTranslationByLang[currentLyricLang] =
-						currentWordTranslations.filter(
-							(t): t is TTMLTranslationWord => t !== undefined,
-						);
+					const filteredTranslations = currentWordTranslations.filter(
+						(t): t is TTMLTranslationWord => t !== undefined,
+					);
+
+					// 赋值给当前歌词语言的逐字翻译
+					line.wordTranslationByLang[currentLyricLang] = {
+						data: filteredTranslations,
+						isAutoFilled: false,
+					};
 
 					// 如果 wordTranslationByLang 为空，删除整个属性
 					if (Object.keys(line.wordTranslationByLang).length === 0) {
@@ -1466,10 +1485,15 @@ const PrimaryContentField: FC = () => {
 	const openEditPrimaryLangDialog = useCallback(() => {
 		const currentLang = lyricLines.lyricLang || selectedPrimaryLang;
 		if (!currentLang) return;
+		// 获取原文行内容
+		const originalLines = lyricLines.lyricLines.map((line) =>
+			line.words.map((w) => w.word).join(""),
+		);
 		setEditLanguageDialog({
 			open: true,
 			target: "primary",
 			currentLang,
+			originalLines,
 			onSubmit: (newLang) => {
 				const trimmed = newLang.trim();
 				if (!trimmed || trimmed === currentLang) return;
@@ -1490,6 +1514,7 @@ const PrimaryContentField: FC = () => {
 		});
 	}, [
 		lyricLines.lyricLang,
+		lyricLines.lyricLines,
 		selectedPrimaryLang,
 		languageOptions,
 		setEditLanguageDialog,
@@ -1591,6 +1616,7 @@ const MultilingualField: FC = () => {
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
 	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
+	const setDistributeTranslationDialog = useSetAtom(distributeTranslationDialogAtom);
 	const [selectedTranslationLang, setSelectedTranslationLang] = useAtom(
 		selectedTranslationLangAtom,
 	);
@@ -1670,12 +1696,18 @@ const MultilingualField: FC = () => {
 	const applyTranslationLang = useCallback(
 		function applyTranslationLangInner(lang: string) {
 			if (lang === "und") {
+				// 获取原文行内容
+				const originalLines = lyricLines.lyricLines.map((line) =>
+					line.words.map((w) => w.word).join(""),
+				);
 				setAddLanguageDialog({
 					open: true,
 					target: "translation",
-					onSubmit: (nextLang) => {
+					originalLines,
+					onSubmit: (nextLang, contentLines) => {
 						editLyricLines((state) => {
-							for (const line of state.lyricLines) {
+							for (let i = 0; i < state.lyricLines.length; i++) {
+								const line = state.lyricLines[i];
 								const byLang = line.translatedLyricByLang;
 								if (!byLang || !byLang.und) continue;
 								// 获取当前语言的值
@@ -1684,8 +1716,12 @@ const MultilingualField: FC = () => {
 								const currentData = typeof currentValue === "string"
 									? { data: currentValue, isAutoFilled: false }
 									: { ...currentValue, isAutoFilled: false };
-								// 重命名时设置 isAutoFilled 为 false
-								byLang[nextLang] = currentData;
+								// 如果有提供内容，则更新内容
+								if (contentLines[i] !== undefined) {
+									byLang[nextLang] = { data: contentLines[i], isAutoFilled: false };
+								} else {
+									byLang[nextLang] = currentData;
+								}
 								delete byLang.und;
 							}
 						});
@@ -1703,18 +1739,81 @@ const MultilingualField: FC = () => {
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog, setSelectedTranslationLang],
+		[lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedTranslationLang],
+	);
+
+	// 将逐行翻译转为逐字翻译
+	const distributeTranslation = useCallback(
+		function distributeTranslationInner(lang: string) {
+			editLyricLines((state) => {
+				for (const line of state.lyricLines) {
+					const value = line.translatedLyricByLang?.[lang];
+					if (!value) continue;
+					// 兼容旧数据：如果 value 是字符串，则直接使用
+					const translationText = typeof value === "string" ? value : value?.data ?? "";
+					if (!translationText.trim()) continue;
+
+					// 使用 distributor 分配翻译
+					const distributed = distributeRomanizationByCharCount(line.words, translationText);
+
+					// 创建逐字翻译
+					const wordTranslation: TTMLTranslationWord[] = distributed.map((text, i) => ({
+						text,
+						startTime: line.words[i]?.startTime ?? line.startTime,
+						endTime: line.words[i]?.endTime ?? line.endTime,
+					}));
+
+					// 设置逐字翻译
+					if (!line.wordTranslationByLang) {
+						line.wordTranslationByLang = {};
+					}
+					line.wordTranslationByLang[lang] = {
+						data: wordTranslation,
+						isAutoFilled: false,
+					};
+
+					// 删除逐行翻译
+					if (line.translatedLyricByLang?.[lang]) {
+						delete line.translatedLyricByLang[lang];
+						// 如果该语言没有翻译了，删除整个对象
+						if (Object.keys(line.translatedLyricByLang).length === 0) {
+							delete line.translatedLyricByLang;
+						}
+					}
+					// 如果当前显示的翻译是该语言，清空显示
+					if (line.translatedLyric === translationText) {
+						line.translatedLyric = "";
+					}
+				}
+			});
+		},
+		[editLyricLines],
+	);
+
+	// 检查语言是否符合转换为逐字翻译的条件（歌词语言和翻译语言都以 "zh" 开头）
+	const isDistributableLang = useCallback(
+		function isDistributableLangInner(lang: string) {
+			const lyricLang = lyricLines.lyricLang ?? "";
+			return lyricLang.startsWith("zh") && lang.startsWith("zh");
+		},
+		[lyricLines.lyricLang],
 	);
 
 	const applyRomanizationLang = useCallback(
 		function applyRomanizationLangInner(lang: string) {
 			if (lang === "und") {
+				// 获取原文行内容
+				const originalLines = lyricLines.lyricLines.map((line) =>
+					line.words.map((w) => w.word).join(""),
+				);
 				setAddLanguageDialog({
 					open: true,
 					target: "romanization",
-					onSubmit: (nextLang) => {
+					originalLines,
+					onSubmit: (nextLang, contentLines) => {
 						editLyricLines((state) => {
-							for (const line of state.lyricLines) {
+							for (let i = 0; i < state.lyricLines.length; i++) {
+								const line = state.lyricLines[i];
 								const byLang = line.romanLyricByLang;
 								if (!byLang || !byLang.und) continue;
 								// 获取当前语言的值
@@ -1723,8 +1822,12 @@ const MultilingualField: FC = () => {
 								const currentData = typeof currentValue === "string"
 									? { data: currentValue, isAutoFilled: false }
 									: { ...currentValue, isAutoFilled: false };
-								// 重命名时设置 isAutoFilled 为 false
-								byLang[nextLang] = currentData;
+								// 如果有提供内容，则更新内容
+								if (contentLines[i] !== undefined) {
+									byLang[nextLang] = { data: contentLines[i], isAutoFilled: false };
+								} else {
+									byLang[nextLang] = currentData;
+								}
 								delete byLang.und;
 							}
 						});
@@ -1742,7 +1845,7 @@ const MultilingualField: FC = () => {
 				}
 			});
 		},
-		[editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang],
+		[lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang],
 	);
 
 	const applyWordRomanizationLang = useCallback(
@@ -2058,7 +2161,7 @@ const MultilingualField: FC = () => {
 		setSelectedWordRomanizationLang,
 	]);
 
-	return (
+	return (<>
 		<Grid
 			columns="auto 0fr 1fr auto"
 			gap="2"
@@ -2089,22 +2192,48 @@ const MultilingualField: FC = () => {
 					{translationLanguages.map((lang) => (
 						<Box key={lang} position="relative">
 							<Select.Item value={lang}>
-								<Text style={{ paddingRight: "2rem" }}>{lang}</Text>
+								<Text style={{ paddingRight: isDistributableLang(lang) ? "4rem" : "2rem" }}>{lang}</Text>
 							</Select.Item>
-							<Box
+							<Flex
 								position="absolute"
 								right="6px"
 								top="50%"
+								gap="1"
 								style={{
 									transform: "translateY(-50%)",
 									zIndex: 10,
 								}}
 							>
+								{isDistributableLang(lang) && (
+								<Tooltip
+									content={t(
+										"ribbonBar.editMode.distributeTranslation",
+										"将逐行翻译转为逐字",
+									)}
+								>
+									<IconButton
+										size="1"
+										variant="soft"
+										color="blue"
+										onClick={(e) => {
+											e.stopPropagation();
+											distributeTranslation(lang);
+										}}
+										aria-label={t(
+											"ribbonBar.editMode.distributeTranslation",
+											"将逐行翻译转为逐字",
+										)}
+									>
+										<ArrowSync16Regular />
+									</IconButton>
+								</Tooltip>
+								)}
 								<IconButton
 									size="1"
 									variant="soft"
 									color="red"
-									onClick={() => {
+									onClick={(e) => {
+										e.stopPropagation();
 										// 删除该语言的翻译数据
 										editLyricLines((state) => {
 											for (const line of state.lyricLines) {
@@ -2134,19 +2263,21 @@ const MultilingualField: FC = () => {
 								>
 									<Delete16Regular />
 								</IconButton>
-							</Box>
+							</Flex>
 						</Box>
 					))}
 				</Select.Content>
 			</Select.Root>
-			<IconButton
-				variant="soft"
-				size="1"
-				onClick={openAddTranslationDialog}
-				aria-label={t("addLanguageDialog.addTranslation", "新增翻译语言")}
-			>
-				<Add16Regular />
-			</IconButton>
+			<Flex gap="1">
+				<IconButton
+					variant="soft"
+					size="1"
+					onClick={openAddTranslationDialog}
+					aria-label={t("addLanguageDialog.addTranslation", "新增翻译语言")}
+				>
+					<Add16Regular />
+				</IconButton>
+			</Flex>
 			<IconButton
 				variant="soft"
 				size="1"
@@ -2305,6 +2436,7 @@ const MultilingualField: FC = () => {
 				</Select.Content>
 			</Select.Root>
 		</Grid>
+		</>
 	);
 };
 
