@@ -97,6 +97,7 @@
 			"wordRomanization": "逐字音译",
 			"multilingual": "附加内容",
 			"multilingualPlaceholder": "请选择语言",
+			"distributeTranslation": "将逐行翻译转为逐字",
 			"duration": "持续时间",
 			"layoutMode": "布局模式",
 			"auxiliaryLineDisplay": "辅助行显示",
@@ -646,6 +647,12 @@
 	"distributeRomanDialog": {
 		"title": "应用逐行音译到逐字",
 		"warning": "此功能将读取整行音译并自动分配给每个单词。算法专为日语罗马音设计，对其他语言可能效果不佳。"
+	},
+	"distributeTranslationDialog": {
+		"title": "将逐行翻译转为逐字",
+		"warning": "此功能将读取整行翻译并按字数自动分配给每个单词。转换后，逐行翻译数据将被删除并替换为逐字翻译数据。",
+		"targetLang": "目标语言",
+		"noTranslation": "没有可用的逐行翻译"
 	},
 	"globalDragOverlay": {
 		"title": "拖放到此处以加载"
