@@ -15,6 +15,7 @@ import {
 	distributeRomanizationBySpace,
 } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import {
 	segmentLyricLines,
 	segmentWord,
@@ -62,7 +63,6 @@ import {
 import {
 	type LyricWord,
 	type LyricWordBase,
-	type TTMLLangData,
 	newLyricWord,
 } from "$/types/ttml";
 import { error, log } from "$/utils/logging.ts";
@@ -538,6 +538,19 @@ export const useTopMenuActions = () => {
 		});
 	}, [editLyricLines]);
 
+	const onGenerateRubyForAllWords = useCallback(() => {
+		editLyricLines((draft) => {
+			for (const line of draft.lyricLines) {
+				line.words.forEach((word, wordIndex) => {
+					applyGeneratedRuby(word, {
+						lineWords: line.words,
+						wordIndex,
+					});
+				});
+			}
+		});
+	}, [editLyricLines]);
+
 	const onDistributeRomanizationBySpace = useCallback(() => {
 		editLyricLines((draft) => {
 			for (const line of draft.lyricLines) {
@@ -567,19 +580,26 @@ export const useTopMenuActions = () => {
 								}
 							});
 						}
-						// 将逐字音译保存到对应语言
-						if (targetLang) {
-							line.wordRomanizationByLang ??= {};
-							line.wordRomanizationByLang[targetLang] = {
-								data: line.words
-									.filter((word) => word.romanWord.length > 0)
-									.map((word) => ({
-										startTime: word.startTime,
-										endTime: word.endTime,
-										text: word.romanWord,
-									})),
-							};
-						}
+						// 将逐字音译保存到对应语言，如果没有匹配的语言则使用默认语言代码
+						const getDefaultRomanizationLang = (lyricLang: string | undefined): string => {
+							if (!lyricLang) return "unknown";
+							if (lyricLang.startsWith("zh-Hant")) return "zh-Latn-jyutping";
+							if (lyricLang.startsWith("zh-Hans")) return "zh-Latn-pinyin";
+							return `${lyricLang}-Latn`;
+						};
+						const finalTargetLang = targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
+						const isAutoFilled = targetLang === undefined;
+						line.wordRomanizationByLang ??= {};
+						line.wordRomanizationByLang[finalTargetLang] = {
+							data: line.words
+								.filter((word) => word.romanWord.length > 0)
+								.map((word) => ({
+									startTime: word.startTime,
+									endTime: word.endTime,
+									text: word.romanWord,
+								})),
+							isAutoFilled,
+						};
 						// 如果还有其他语言的行音译，切换到第一个可用的语言
 						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
 						if (remainingLangs.length > 0) {
@@ -629,19 +649,26 @@ export const useTopMenuActions = () => {
 								}
 							});
 						}
-						// 将逐字音译保存到对应语言
-						if (targetLang) {
-							line.wordRomanizationByLang ??= {};
-							line.wordRomanizationByLang[targetLang] = {
-								data: line.words
-									.filter((word) => word.romanWord.length > 0)
-									.map((word) => ({
-										startTime: word.startTime,
-										endTime: word.endTime,
-										text: word.romanWord,
-									})),
-							};
-						}
+						// 将逐字音译保存到对应语言，如果没有匹配的语言则使用默认语言代码
+						const getDefaultRomanizationLang = (lyricLang: string | undefined): string => {
+							if (!lyricLang) return "unknown";
+							if (lyricLang.startsWith("zh-Hant")) return "zh-Latn-jyutping";
+							if (lyricLang.startsWith("zh-Hans")) return "zh-Latn-pinyin";
+							return `${lyricLang}-Latn`;
+						};
+						const finalTargetLang = targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
+						const isAutoFilled = targetLang === undefined;
+						line.wordRomanizationByLang ??= {};
+						line.wordRomanizationByLang[finalTargetLang] = {
+							data: line.words
+								.filter((word) => word.romanWord.trim().length > 0)
+								.map((word) => ({
+									startTime: word.startTime,
+									endTime: word.endTime,
+									text: word.romanWord,
+								})),
+							isAutoFilled,
+						};
 						// 如果还有其他语言的行音译，切换到第一个可用的语言
 						const remainingLangs = Object.keys(line.romanLyricByLang ?? {});
 						if (remainingLangs.length > 0) {
@@ -922,6 +949,7 @@ export const useTopMenuActions = () => {
 		onReduceStutter,
 		onOpenDistributeRomanization,
 		onCheckRomanizationWarnings,
+		onGenerateRubyForAllWords,
 		onDistributeRomanizationBySpace,
 		onDistributeRomanizationByCharCount,
 		onAutoTransliterationPinyin,
