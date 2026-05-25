@@ -116,3 +116,6 @@ export const reduceStutterDialogAtom = atom<{
 }>({
 	open: false,
 });
+
+// 将逐行翻译转为逐字翻译对话框
+export const distributeTranslationDialogAtom = atom(false);
