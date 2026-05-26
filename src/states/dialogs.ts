@@ -18,7 +18,8 @@ export const distributeRomanizationDialogAtom = atom(false);
 export const notificationCenterDialogAtom = atom(false);
 export type AddLanguageDialogTarget =
 	| "translation"
-	| "romanization";
+	| "romanization"
+	| "word-romanization";
 export const addLanguageDialogAtom = atom<{
 	open: boolean;
 	target: AddLanguageDialogTarget;

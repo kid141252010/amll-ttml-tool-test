@@ -356,15 +356,13 @@ export const AddLanguageDialog = () => {
 	// 确认按钮是否禁用
 	const canSubmit = useMemo(() => {
 		const trimmed = customLang.trim();
-		// 语言代码不能为空，不能是 und，且必须有内容
+		if (trimmed.length === 0 || trimmed === "und") return false;
+		// 逐字音译只需要语言代码，不需要填写内容
+		if (dialogState.target === "word-romanization") return true;
+		// 翻译/音译必须有内容
 		const hasContent = validContentLines.some(line => line.trim().length > 0);
-		return (
-			trimmed.length > 0 &&
-			trimmed !== "und" &&
-			hasContent &&
-			!hasOverflow
-		);
-	}, [customLang, validContentLines, hasOverflow]);
+		return hasContent && !hasOverflow;
+	}, [customLang, validContentLines, hasOverflow, dialogState.target]);
 
 	const handleClose = () => {
 		setDialogState({ ...dialogState, open: false });
@@ -373,7 +371,12 @@ export const AddLanguageDialog = () => {
 	const handleSubmit = () => {
 		const trimmed = customLang.trim();
 		if (!trimmed || trimmed === "und") return;
-		dialogState.onSubmit?.(trimmed, validContentLines);
+		// 逐字音译只传递语言代码，不传递内容
+		if (dialogState.target === "word-romanization") {
+			dialogState.onSubmit?.(trimmed, []);
+		} else {
+			dialogState.onSubmit?.(trimmed, validContentLines);
+		}
 		setCustomLang("");
 		setContentLines([]);
 		setDialogState({ ...dialogState, open: false });
@@ -568,6 +571,8 @@ export const AddLanguageDialog = () => {
 				return t("addLanguageDialog.targetTranslation", "翻译");
 			case "romanization":
 				return t("addLanguageDialog.targetRomanization", "音译");
+			case "word-romanization":
+				return t("addLanguageDialog.targetWordRomanization", "逐字音译");
 			default:
 				return "";
 		}
@@ -615,66 +620,68 @@ export const AddLanguageDialog = () => {
 						)}
 						onChange={(e) => setCustomLang(e.currentTarget.value)}
 					/>
-					<Text size="2">
-						{t("addLanguageDialog.content", "内容")}
-						{hasOverflow && (
-							<Text size="2" color="red" ml="2">
-								{t(
-									"addLanguageDialog.overflowWarning",
-									"警告：翻译/音译行数超过原文行数",
-								)}
-							</Text>
-						)}
-					</Text>
-					<Flex gap="2" style={{ flex: 1, minHeight: 0 }}>
-						{/* 原文列 */}
-						<Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
-							<Text size="1" weight="bold">
-								{t("addLanguageDialog.original", "原文")}
-							</Text>
-							<div
-								ref={leftScrollRef}
-								onScroll={handleLeftScroll}
-								style={{
-									flex: 1,
-									maxHeight: "400px",
-									overflow: "auto",
-									scrollbarWidth: "none",
-									msOverflowStyle: "none",
-								}}
-							>
-								<style>{`
-									div[ref="${leftScrollRef}"]::-webkit-scrollbar {
-										display: none;
-									}
-								`}</style>
-								<Flex direction="column" gap="1">
-									{dialogState.originalLines.map((line, index) => (
-										<div
-											key={index}
-											style={{
-												padding: "4px 8px",
-											backgroundColor: "var(--gray-3)",
-											borderRadius: "4px",
-											height: "28px",
-											lineHeight: "20px",
-											whiteSpace: "nowrap",
-											overflow: "hidden",
-											textOverflow: "ellipsis",
-											fontSize: "14px",
-										}}
-											title={line}
-										>
-											{line || "\u00A0"}
-										</div>
-									))}
-								</Flex>
-							</div>
-						</Flex>
-						{/* 翻译/音译列 */}
-						<Flex
-							direction="column"
-							gap="1"
+					{dialogState.target !== "word-romanization" && (
+						<>
+						<Text size="2">
+							{t("addLanguageDialog.content", "内容")}
+							{hasOverflow && (
+								<Text size="2" color="red" ml="2">
+									{t(
+										"addLanguageDialog.overflowWarning",
+										"警告：翻译/音译行数超过原文行数",
+									)}
+								</Text>
+							)}
+						</Text>
+						<Flex gap="2" style={{ flex: 1, minHeight: 0 }}>
+							{/* 原文列 */}
+							<Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+								<Text size="1" weight="bold">
+									{t("addLanguageDialog.original", "原文")}
+								</Text>
+								<div
+									ref={leftScrollRef}
+									onScroll={handleLeftScroll}
+									style={{
+										flex: 1,
+										maxHeight: "400px",
+										overflow: "auto",
+										scrollbarWidth: "none",
+										msOverflowStyle: "none",
+									}}
+								>
+									<style>{`
+										div[ref="${leftScrollRef}"]::-webkit-scrollbar {
+											display: none;
+										}
+									`}</style>
+									<Flex direction="column" gap="1">
+										{dialogState.originalLines.map((line, index) => (
+											<div
+												key={index}
+												style={{
+													padding: "4px 8px",
+												backgroundColor: "var(--gray-3)",
+												borderRadius: "4px",
+												height: "28px",
+												lineHeight: "20px",
+												whiteSpace: "nowrap",
+												overflow: "hidden",
+												textOverflow: "ellipsis",
+												fontSize: "14px",
+											}}
+												title={line}
+											>
+												{line || "\u00A0"}
+											</div>
+										))}
+									</Flex>
+								</div>
+							</Flex>
+							{/* 翻译/音译列 */}
+							<Flex
+								direction="column"
+								gap="1"
 							style={{ flex: 1, minWidth: 0 }}
 						>
 							<Text size="1" weight="bold">
@@ -759,14 +766,16 @@ export const AddLanguageDialog = () => {
 											onEditNext={() => handleEditNext(actualIndex)}
 										onEditPrevious={() => handleEditPrevious(actualIndex)}
 										isOverflow={true}
-										cursorPosition={editingIndex === actualIndex ? cursorPosition : null}
-									/>
-								);
-							})}
+												cursorPosition={editingIndex === actualIndex ? cursorPosition : null}
+											/>
+										);
+									})}
+								</Flex>
+								</div>
+							</Flex>
 						</Flex>
-							</div>
-						</Flex>
-					</Flex>
+						</>
+					)}
 				</Flex>
 				<Flex gap="3" mt="4" justify="end">
 					<Button variant="soft" color="gray" onClick={handleClose}>
