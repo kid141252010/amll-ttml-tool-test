@@ -25,3 +25,9 @@
 .warning {
 	background-color: var(--orange-a3);
 }
+
+.romanWordView.disabled {
+	background-color: var(--gray-a3);
+	color: var(--gray-a8);
+	cursor: not-allowed;
+}

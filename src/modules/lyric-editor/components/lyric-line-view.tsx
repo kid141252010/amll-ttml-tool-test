@@ -63,6 +63,9 @@ import {
 	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
+	selectedTranslationLangAtom,
+	selectedRomanizationLangAtom,
+	selectedWordRomanizationLangAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
@@ -201,6 +204,17 @@ const SubLineEdit = memo(
 		const [editing, setEditing] = useState(false);
 		const [inputValue, setInputValue] = useState("");
 		const { t } = useTranslation();
+		const selectedTranslationLang = useAtomValue(selectedTranslationLangAtom);
+		const selectedRomanizationLang = useAtomValue(selectedRomanizationLangAtom);
+
+		const disabled = type === "translatedLyric" ? !selectedTranslationLang : !selectedRomanizationLang;
+
+		// 当禁用时，退出编辑模式
+		useEffect(() => {
+			if (disabled) {
+				setEditing(false);
+			}
+		}, [disabled]);
 
 		const onEnter = useCallback(
 			(evt: SyntheticEvent<HTMLInputElement>) => {
@@ -285,7 +299,7 @@ const SubLineEdit = memo(
 		return (
 			<Flex align="baseline">
 				<Text size="2">{label}</Text>
-				{editing ? (
+				{editing && !disabled ? (
 					<TextField.Root
 						autoFocus
 						size="1"
@@ -297,6 +311,10 @@ const SubLineEdit = memo(
 							if (evt.key === "Enter") onEnter(evt);
 						}}
 					/>
+				) : disabled ? (
+					<Text size="2" color="gray">
+						{line[type] || t("lyricLineView.empty", "无")}
+					</Text>
 				) : (
 					<Button
 						size="2"
@@ -417,6 +435,7 @@ export const LyricLineView: FC<{
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
+	const selectedWordRomanizationLang = useAtomValue(selectedWordRomanizationLangAtom);
 	const editingRomanWordIndexAtom = useMemo(
 		() => atom<number | null>(null),
 		[],
@@ -848,14 +867,15 @@ export const LyricLineView: FC<{
 														lineIndex={lineIndex}
 													/>
 													{toolMode === ToolMode.Edit &&
-														showWordRomanizationInput && (
-															<RomanWordView
-																wordAtom={wordAtom}
-																wordIndex={wi}
-																editingIndexAtom={editingRomanWordIndexAtom}
-																suggestedRoman={suggestedRomans[wi]}
-															/>
-														)}
+												showWordRomanizationInput &&
+												selectedWordRomanizationLang && (
+													<RomanWordView
+														wordAtom={wordAtom}
+														wordIndex={wi}
+														editingIndexAtom={editingRomanWordIndexAtom}
+														suggestedRoman={suggestedRomans[wi]}
+													/>
+												)}
 												</Flex>
 											</Fragment>
 										);

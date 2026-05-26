@@ -9,7 +9,10 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { lyricLinesAtom } from "$/states/main";
+import {
+	lyricLinesAtom,
+	selectedWordRomanizationLangAtom,
+} from "$/states/main";
 import type { LyricWord } from "$/types/ttml";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import styles from "./roman-word-view.module.css";
@@ -30,10 +33,21 @@ export const RomanWordView = ({
 	const word = useAtomValue(wordAtom);
 	const [editingIndex, setEditingIndex] = useAtom(editingIndexAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const selectedWordRomanizationLang = useAtomValue(
+		selectedWordRomanizationLangAtom,
+	);
 	const [inputValue, setInputValue] = useState(word.romanWord);
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const isEditing = editingIndex === wordIndex;
+	const disabled = !selectedWordRomanizationLang;
+
+	// 当禁用时，退出编辑模式
+	useEffect(() => {
+		if (disabled && isEditing) {
+			setEditingIndex(null);
+		}
+	}, [disabled, isEditing, setEditingIndex]);
 
 	const saveAndStopEditing = useCallback(
 		(newValue: string) => {
@@ -95,7 +109,7 @@ export const RomanWordView = ({
 		}
 	};
 
-	if (isEditing) {
+	if (isEditing && !disabled) {
 		return (
 			<TextField.Root
 				ref={inputRef}
@@ -109,6 +123,21 @@ export const RomanWordView = ({
 				onBlur={(e) => saveAndStopEditing(e.currentTarget.value)}
 				onKeyDown={handleKeyDown}
 			/>
+		);
+	}
+
+	if (disabled) {
+		return (
+			<span
+				className={classNames(
+					styles.romanWordView,
+					styles.disabled,
+					!word.romanWord && styles.placeholder,
+					word.romanWarning && styles.warning,
+				)}
+			>
+				{word.romanWord || ""}
+			</span>
 		);
 	}
 
