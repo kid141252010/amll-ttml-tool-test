@@ -15,6 +15,7 @@ import { AdvancedSegmentationDialog } from "$/modules/segmentation/components/Ad
 import { SplitWordDialog } from "$/modules/segmentation/components/split-word.tsx";
 import { SettingsDialog } from "$/modules/settings/modals/index.tsx";
 import { AddLanguageDialog } from "./add-language.tsx";
+import { AddLanguageFontDialog } from "./add-language-font.tsx";
 import { EditLanguageDialog } from "./edit-language.tsx";
 import { ConfirmationDialog } from "./confirmation.tsx";
 import { RiskConfirmationDialog } from "./risk-confirmation.tsx";
@@ -44,6 +45,7 @@ export const Dialogs = () => {
 			<TimeShiftDialog />
 			<DistributeRomanizationDialog />
 			<AddLanguageDialog />
+			<AddLanguageFontDialog />
 			<EditLanguageDialog />
 			<NotificationCenterDialog />
 			<ReviewReportDialog />

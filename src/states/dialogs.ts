@@ -120,3 +120,14 @@ export const reduceStutterDialogAtom = atom<{
 
 // 将逐行翻译转为逐字翻译对话框
 export const distributeTranslationDialogAtom = atom(false);
+
+// 添加语言字体对话框
+export const addLanguageFontDialogAtom = atom<{
+	open: boolean;
+	// 已存在的语言字体列表，用于检查重复
+	existingLangs: string[];
+	onSubmit?: (lang: string, font: string) => void;
+}>({
+	open: false,
+	existingLangs: [],
+});
