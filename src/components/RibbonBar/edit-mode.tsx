@@ -554,7 +554,7 @@ function CheckboxField<
 	);
 	const isDisabledBase = useAtomValue(isDisabledAtom);
 
-	// 对于 isDuet 字段，检查选中的行是否设置了 agent
+	// 对于 isDuet 字段，检查选中的行是否设置了有意义的 agent
 	const hasAgentAtom = useMemo(
 		() =>
 			atom((get) => {
@@ -562,6 +562,52 @@ function CheckboxField<
 				const selectedItems = get(itemAtom);
 				const lyricLines = get(lyricLinesAtom);
 				if (selectedItems.size === 0) return false;
+
+				// 检查 agent 配置是否有意义（足以支持对唱功能）
+				const agents = lyricLines.agents ?? [];
+				const hasMeaningfulAgents = (() => {
+					// 情况1: 没有 Agent
+					if (agents.length === 0) return false;
+
+					// 情况2: 只有一个没有 name 的 person Agent
+					if (agents.length === 1) {
+						const agent = agents[0];
+						if (
+							agent.type === "person" &&
+							(!agent.names ||
+								agent.names.length === 0 ||
+								agent.names.every((n) => !n.trim()))
+						) {
+							return false;
+						}
+					}
+
+					// 情况3: 只有一个没有 name 的 person Agent 和一个没有 name 的 other Agent
+					if (agents.length === 2) {
+						const personAgent = agents.find((a) => a.type === "person");
+						const otherAgent = agents.find((a) => a.type === "other");
+						const hasGroupAgent = agents.some((a) => a.type === "group");
+
+						if (personAgent && otherAgent && !hasGroupAgent) {
+							const personHasNoName =
+								!personAgent.names ||
+								personAgent.names.length === 0 ||
+								personAgent.names.every((n) => !n.trim());
+							const otherHasNoName =
+								!otherAgent.names ||
+								otherAgent.names.length === 0 ||
+								otherAgent.names.every((n) => !n.trim());
+
+							if (personHasNoName && otherHasNoName) return false;
+						}
+					}
+
+					return true;
+				})();
+
+				// 如果 agent 配置无意义，则不禁用对唱歌词选框
+				if (!hasMeaningfulAgents) return false;
+
 				const selectedLines = selectedItems as Set<string>;
 				for (const line of lyricLines.lyricLines) {
 					if (selectedLines.has(line.id)) {
@@ -1081,9 +1127,54 @@ const AgentField: FC = () => {
 		return { person, group, other };
 	}, [lyricLines.agents]);
 
+	// 检查 agent 配置是否有意义（足以支持对唱功能）
+	const hasMeaningfulAgents = useMemo(() => {
+		const agents = lyricLines.agents ?? [];
+
+		// 情况1: 没有 Agent
+		if (agents.length === 0) return false;
+
+		// 情况2: 只有一个没有 name 的 person Agent
+		if (agents.length === 1) {
+			const agent = agents[0];
+			if (
+				agent.type === "person" &&
+				(!agent.names ||
+					agent.names.length === 0 ||
+					agent.names.every((n) => !n.trim()))
+			) {
+				return false;
+			}
+		}
+
+		// 情况3: 只有一个没有 name 的 person Agent 和一个没有 name 的 other Agent
+		if (agents.length === 2) {
+			const personAgent = agents.find((a) => a.type === "person");
+			const otherAgent = agents.find((a) => a.type === "other");
+			const hasGroupAgent = agents.some((a) => a.type === "group");
+
+			if (personAgent && otherAgent && !hasGroupAgent) {
+				const personHasNoName =
+					!personAgent.names ||
+					personAgent.names.length === 0 ||
+					personAgent.names.every((n) => !n.trim());
+				const otherHasNoName =
+					!otherAgent.names ||
+					otherAgent.names.length === 0 ||
+					otherAgent.names.every((n) => !n.trim());
+
+				if (personHasNoName && otherHasNoName) return false;
+			}
+		}
+
+		return true;
+	}, [lyricLines.agents]);
+
 	// 获取当前选中行的 agent 值（包括背景行）
 	const currentAgent = useMemo(() => {
 		if (selectedLines.size === 0) return undefined;
+		// 如果 agent 配置无意义，不显示行的 agent 值
+		if (!hasMeaningfulAgents) return NONE_VALUE;
 		const values = new Set<string | undefined>();
 		for (const line of lyricLines.lyricLines) {
 			if (selectedLines.has(line.id)) {
@@ -1096,7 +1187,7 @@ const AgentField: FC = () => {
 			return value ?? NONE_VALUE;
 		}
 		return undefined;
-	}, [selectedLines, lyricLines]);
+	}, [selectedLines, lyricLines, hasMeaningfulAgents]);
 
 	const handleAgentChange = useCallback(
 		(value: string) => {
@@ -1215,7 +1306,7 @@ const AgentField: FC = () => {
 	const agentsList = lyricLines.agents ?? [];
 	const hasAgents = agentsList.length > 0;
 
-	const isAgentSelectDisabled = selectedLines.size === 0 || !hasAgents;
+	const isAgentSelectDisabled = selectedLines.size === 0 || !hasMeaningfulAgents;
 
 	return (
 		<>
