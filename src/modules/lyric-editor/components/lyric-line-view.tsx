@@ -462,6 +462,54 @@ export const LyricLineView: FC<{
 		if (!lyricLines.agents || lyricLines.agents.length === 0) {
 			return false;
 		}
+
+		// 检查 agent 配置是否有意义（足以支持对唱功能）
+		const agents = lyricLines.agents;
+		const hasMeaningfulAgents = (() => {
+			// 情况1: 没有 Agent（已在上面检查）
+			if (agents.length === 0) return false;
+
+			// 情况2: 只有一个没有 name 的 person Agent
+			if (agents.length === 1) {
+				const agent = agents[0];
+				if (
+					agent.type === "person" &&
+					(!agent.names ||
+						agent.names.length === 0 ||
+						agent.names.every((n) => !n.trim()))
+				) {
+					return false;
+				}
+			}
+
+			// 情况3: 只有一个没有 name 的 person Agent 和一个没有 name 的 other Agent
+			if (agents.length === 2) {
+				const personAgent = agents.find((a) => a.type === "person");
+				const otherAgent = agents.find((a) => a.type === "other");
+				const hasGroupAgent = agents.some((a) => a.type === "group");
+
+				if (personAgent && otherAgent && !hasGroupAgent) {
+					const personHasNoName =
+						!personAgent.names ||
+						personAgent.names.length === 0 ||
+						personAgent.names.every((n) => !n.trim());
+					const otherHasNoName =
+						!otherAgent.names ||
+						otherAgent.names.length === 0 ||
+						otherAgent.names.every((n) => !n.trim());
+
+					if (personHasNoName && otherHasNoName) return false;
+				}
+			}
+
+			return true;
+		})();
+
+		// 如果 agent 配置无意义，不需要警告
+		if (!hasMeaningfulAgents) {
+			return false;
+		}
+
 		// 如果该行没有设置 Agent，显示警告
 		return !line.agent;
 	}, [lyricLines.agents, line.agent, line.isBG]);
