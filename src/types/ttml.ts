@@ -153,6 +153,12 @@ export interface LyricLine extends AMLLLyricLine {
 	 * @description 该行是否为从右到左（RTL）显示
 	 */
 	isRtl?: boolean;
+	/**
+	 * @description 该行的 itunes:key
+	 * - 主行: "L0", "L1", "L2"...
+	 * - 背景行: "B0", "B1", "B2"...
+	 */
+	itunesKey?: string;
 }
 
 export const newLyricLine = (): LyricLine => ({

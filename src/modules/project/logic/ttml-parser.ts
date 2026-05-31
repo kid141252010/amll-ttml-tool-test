@@ -52,6 +52,8 @@ const PREDEFINED_SONG_PARTS = new Set([
 interface LineMetadata {
 	main: string;
 	bg: string;
+	// 多背景行翻译映射：itunesKey -> 翻译文本
+	bgByKey?: Map<string, string>;
 }
 
 interface WordRomanMetadata {
@@ -368,13 +370,24 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	): LineMetadata | null => {
 		let main = "";
 		let bg = "";
+		const bgByKey = new Map<string, string>();
 
 		for (const node of Array.from(textEl.childNodes)) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				main += node.textContent ?? "";
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				if ((node as Element).getAttribute("ttm:role") === "x-bg") {
-					bg += node.textContent ?? "";
+				const el = node as Element;
+				if (el.getAttribute("ttm:role") === "x-bg") {
+					// 检查是否有 for 属性（多背景行支持）
+					const forKey = el.getAttribute("for");
+					const bgText = el.textContent ?? "";
+					if (forKey) {
+						// 多背景行格式：使用 for 属性指定 key
+						bgByKey.set(forKey, bgText.trim());
+					} else {
+						// 旧格式：直接累加到 bg
+						bg += bgText;
+					}
 				}
 			}
 		}
@@ -387,7 +400,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			.trim();
 
 		// 如果没有背景行，尝试从主行文本中解析括号格式："主行翻译 (背景行翻译)"
-		if (!bg && main) {
+		if (!bg && main && bgByKey.size === 0) {
 			const match = main.match(/^(.*?)\s*[（(]([^)）]+)[)）]\s*$/);
 			if (match) {
 				main = match[1].trim();
@@ -395,8 +408,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 		}
 
-		if (main.length > 0 || bg.length > 0) {
-			return { main, bg };
+		if (main.length > 0 || bg.length > 0 || bgByKey.size > 0) {
+			return { main, bg, bgByKey };
 		}
 
 		return null;
@@ -879,9 +892,27 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 		let haveBg = false;
 
-		const itunesKey = isBG
-			? parentItunesKey
-			: lineEl.getAttribute("itunes:key");
+		// 获取或生成 itunesKey
+		let itunesKey: string | null = null;
+		if (isBG) {
+			// 背景行：优先使用自己的 itunes:key
+			itunesKey = lineEl.getAttribute("itunes:key");
+			if (!itunesKey) {
+				// 没有 key 时分配 B 编号
+				itunesKey = `B${bCounter}`;
+				bCounter++;
+			}
+		} else {
+			// 主行：直接使用自己的 itunes:key
+			itunesKey = lineEl.getAttribute("itunes:key");
+			if (!itunesKey) {
+				// 没有 key 时分配 L 编号
+				itunesKey = `L${lCounter}`;
+				lCounter++;
+			}
+		}
+		// 保存 itunesKey 到行对象
+		line.itunesKey = itunesKey;
 
 		const romanWordData = itunesKey
 			? itunesWordRomanizations.get(itunesKey)
@@ -894,7 +925,13 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			const lineTrans = itunesTranslations.get(itunesKey);
 
 			if (isBG) {
-				line.translatedLyric = timedTrans?.bg ?? lineTrans?.bg ?? "";
+				// 多背景行支持：优先从 bgByKey 中查找，然后回退到旧的 bg 字段
+				const bgByKey = timedTrans?.bgByKey ?? lineTrans?.bgByKey;
+				if (bgByKey && itunesKey) {
+					line.translatedLyric = bgByKey.get(itunesKey) ?? "";
+				} else {
+					line.translatedLyric = timedTrans?.bg ?? lineTrans?.bg ?? "";
+				}
 			} else {
 				line.translatedLyric = timedTrans?.main ?? lineTrans?.main ?? "";
 			}
@@ -914,8 +951,20 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				if (!langTrans) continue;
 				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
 				const isAutoFilled = lang === "und";
+				let transData: string;
+				if (isBG) {
+					// 多背景行支持：优先从 bgByKey 中查找
+					const bgByKey = langTrans.bgByKey;
+					if (bgByKey && itunesKey) {
+						transData = bgByKey.get(itunesKey) ?? langTrans.bg ?? "";
+					} else {
+						transData = langTrans.bg ?? "";
+					}
+				} else {
+					transData = langTrans.main ?? "";
+				}
 				translatedLyricByLang[lang] = {
-					data: isBG ? (langTrans.bg ?? "") : (langTrans.main ?? ""),
+					data: transData,
 					isAutoFilled,
 				};
 			}
@@ -980,11 +1029,13 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 				if (wordEl.nodeName === "span" && role) {
 					if (role === "x-bg") {
+						// 获取子背景行的 itunes:key（如果存在）
+						const bgItunesKey = wordEl.getAttribute("itunes:key");
 						parseLineElement(
 							wordEl,
 							true,
 							line.isDuet,
-							itunesKey,
+							bgItunesKey ?? itunesKey, // 优先使用子背景行的 key，否则使用父行的 key
 							line.vocal?.length ? line.vocal : null,
 							null, // 背景行不传递 songPart
 						);
@@ -1137,6 +1188,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 	// 用于存储文件中出现的自定义 song-part 值（不在预设列表中的）
 	const customSongParts = new Set<string>();
+
+	// L 和 B 计数器，用于为没有 itunes:key 的行分配编号
+	// L 从 0 开始 (L0, L1, L2...)，B 从 1 开始 (B1, B2, B3...)
+	let lCounter = 0;
+	let bCounter = 1;
 
 	// 先遍历所有 div，解析 song-part 属性，然后处理其中的 p 标签
 	const divElements = ttmlDoc.querySelectorAll("body div[begin][end]");
