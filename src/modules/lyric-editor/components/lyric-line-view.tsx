@@ -385,10 +385,60 @@ export const LyricLineView: FC<{
 
 	// 创建一个仅订阅当前行显示行号的 atom，优化性能
 	const displayNumberAtom = useMemo(
-		() => atom((get) => get(lineDisplayNumbersAtom)[lineIndex]),
-		[lineIndex],
+		() =>
+			atom((get) => {
+				const mainNumber = get(lineDisplayNumbersAtom)[lineIndex];
+				const currentLine = get(lineAtom);
+				// 背景行显示为 "主行号-itunesKey" 格式（如: 1-B0）
+				if (currentLine.isBG && currentLine.itunesKey) {
+					return `${mainNumber}-${currentLine.itunesKey}`;
+				}
+				return `${mainNumber}`;
+			}),
+		[lineIndex, lineAtom],
 	);
 	const displayNumber = useAtomValue(displayNumberAtom);
+
+	// 监听 isBG 变化，自动更新 itunesKey
+	// 注意：这个 effect 只处理单行状态变化（如导入、解析等场景）
+	// 批量操作（如右键菜单切换多行）应在操作源头统一处理
+	useEffect(() => {
+		// 检查当前行的 itunesKey 是否与 isBG 状态匹配
+		const currentKey = line.itunesKey;
+		const isBG = line.isBG;
+
+		// 如果当前行已经有正确的 key 前缀，不需要更新
+		if (isBG && currentKey?.startsWith("B")) return;
+		if (!isBG && currentKey?.startsWith("L")) return;
+
+		// 分配新的 key - 在回调内部计算，确保基于最新状态
+		editLyricLines((state) => {
+			const targetLine = state.lyricLines.find((l) => l.id === line.id);
+			if (!targetLine) return;
+
+			if (isBG) {
+				// 转为背景行：分配 B 编号
+				let maxB = 0;
+				for (const l of state.lyricLines) {
+					if (l.itunesKey?.startsWith("B")) {
+						const num = Number.parseInt(l.itunesKey.slice(1));
+						if (!Number.isNaN(num) && num > maxB) maxB = num;
+					}
+				}
+				targetLine.itunesKey = `B${maxB + 1}`;
+			} else {
+				// 转为主行：分配 L 编号
+				let maxL = -1;
+				for (const l of state.lyricLines) {
+					if (l.itunesKey?.startsWith("L")) {
+						const num = Number.parseInt(l.itunesKey.slice(1));
+						if (!Number.isNaN(num) && num > maxL) maxL = num;
+					}
+				}
+				targetLine.itunesKey = `L${maxL + 1}`;
+			}
+		});
+	}, [line.isBG, line.id, line.itunesKey, editLyricLines]);
 
 	const hasError = useMemo(() => {
 		if (line.startTime > line.endTime) {
