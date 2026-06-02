@@ -917,7 +917,15 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const romanWordData = itunesKey
 			? itunesWordRomanizations.get(itunesKey)
 			: undefined;
-		const sourceRomanList = isBG ? romanWordData?.bg : romanWordData?.main;
+		// 背景行：如果用自己的 itunesKey 找不到逐字音译，尝试用父行的 key 查找
+		const parentRomanWordData =
+			isBG && parentItunesKey && !romanWordData
+				? itunesWordRomanizations.get(parentItunesKey)
+				: undefined;
+		const effectiveRomanData = romanWordData ?? parentRomanWordData;
+		const sourceRomanList = isBG
+			? effectiveRomanData?.bg
+			: effectiveRomanData?.main;
 		const availableRomanWords = sourceRomanList ? [...sourceRomanList] : [];
 
 		if (itunesKey) {
@@ -995,7 +1003,11 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				lang,
 				romanizations,
 			] of itunesWordRomanizationsByLang.entries()) {
-				const langRoman = romanizations.get(itunesKey);
+				let langRoman = romanizations.get(itunesKey);
+				// 背景行：如果用自己的 itunesKey 找不到，尝试用父行的 key 查找
+				if (isBG && parentItunesKey && !langRoman) {
+					langRoman = romanizations.get(parentItunesKey);
+				}
 				const romanList = isBG ? langRoman?.bg : langRoman?.main;
 				if (!romanList || romanList.length === 0) continue;
 				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
