@@ -14,7 +14,6 @@ import {
 	selectedWordRomanizationLangAtom,
 } from "$/states/main";
 import type { LyricWord } from "$/types/ttml";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import styles from "./roman-word-view.module.css";
 
 interface RomanWordViewProps {
@@ -58,10 +57,6 @@ export const RomanWordView = ({
 						if (wordIndex === -1) continue;
 						const targetWord = line.words[wordIndex];
 						targetWord.romanWord = newValue;
-						applyGeneratedRuby(targetWord, {
-							lineWords: line.words,
-							wordIndex,
-						});
 						break;
 					}
 				});

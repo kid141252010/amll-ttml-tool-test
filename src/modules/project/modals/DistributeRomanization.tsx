@@ -14,10 +14,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
-import type { TTMLLangData } from "$/types/ttml";
 
 type Scope = "all" | "selected" | "selected-following" | "custom";
 
@@ -96,10 +94,6 @@ export const DistributeRomanizationDialog = () => {
 							line.words.forEach((word, wordIndex) => {
 								if (results[wordIndex]) {
 									word.romanWord = results[wordIndex];
-									applyGeneratedRuby(word, {
-										lineWords: line.words,
-										wordIndex,
-									});
 								}
 							});
 							applyRomanizationWarnings(line.words);
