@@ -176,24 +176,13 @@ export const AMLLWrapper = memo(() => {
 		hideInvalidRomanization,
 	]);
 
-	const optimizeOptions = useMemo(
-		() => ({
-			normalizeSpaces,
-			resetLineTimestamps,
-			convertExcessiveBackgroundLines,
-			syncMainAndBackgroundLines,
-			cleanUnintentionalOverlaps,
-			tryAdvanceStartTime,
-		}),
-		[
-			normalizeSpaces,
-			resetLineTimestamps,
-			convertExcessiveBackgroundLines,
-			syncMainAndBackgroundLines,
-			cleanUnintentionalOverlaps,
-			tryAdvanceStartTime,
-		],
-	);
+	useEffect(() => {
+		const lyricPlayer = playerRef.current?.lyricPlayer;
+		if (lyricPlayer) {
+			lyricPlayer.setLyricLines(lyricLines, currentTime * 1000);
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	useEffect(() => {
 		setTimeout(() => {
