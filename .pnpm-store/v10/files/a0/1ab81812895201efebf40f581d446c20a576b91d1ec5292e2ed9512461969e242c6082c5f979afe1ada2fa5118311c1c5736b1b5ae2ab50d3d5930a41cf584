@@ -1,0 +1,15 @@
+const require_unplugin = require('./unplugin-BDx8Bfqn.cjs');
+let unplugin = require("unplugin");
+unplugin = require_unplugin.__toESM(unplugin);
+
+//#region src/webpack.ts
+var webpack_default = (0, unplugin.createWebpackPlugin)(require_unplugin.unpluginFactory);
+
+//#endregion
+Object.defineProperty(exports, 'webpack_default', {
+  enumerable: true,
+  get: function () {
+    return webpack_default;
+  }
+});
+exports.default = module.exports;

@@ -1,0 +1,14 @@
+import type { WritableAtom } from 'jotai/vanilla';
+import { REDO, RESET, UNDO } from './actions.js';
+import type { withHistory } from './withHistory.js';
+export type Indicators = {
+    canUndo: boolean;
+    canRedo: boolean;
+};
+/**
+ * @param targetAtom a primitive atom or equivalent
+ * @param limit the maximum number of history states to keep
+ * @returns an atom with undo/redo capabilities
+ */
+export declare function withUndo<Value, Args extends unknown[], Result>(historyAtom: ReturnType<typeof withHistory>, targetAtom: WritableAtom<Value, Args, Result>, limit: number, getArgs?: (value: Value) => Args): WritableAtom<Indicators, [UNDO | REDO | RESET], void>;
+//# sourceMappingURL=withUndo.d.ts.map

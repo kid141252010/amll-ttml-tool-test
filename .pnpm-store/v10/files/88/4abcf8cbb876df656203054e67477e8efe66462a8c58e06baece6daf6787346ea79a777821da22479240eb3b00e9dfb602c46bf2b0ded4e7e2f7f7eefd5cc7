@@ -1,0 +1,12 @@
+import { produce, nothing } from 'immer';
+import { atom } from 'jotai/vanilla';
+const cache1 = new WeakMap();
+const memo1 = (create, dep1) => (cache1.has(dep1) ? cache1 : cache1.set(dep1, create())).get(dep1);
+export function withImmer(anAtom) {
+    return memo1(() => {
+        const derivedAtom = atom((get) => get(anAtom), (get, set, fn) => set(anAtom, produce(get(anAtom), typeof fn === 'function'
+            ? fn
+            : () => (fn === undefined ? nothing : fn))));
+        return derivedAtom;
+    }, anAtom);
+}

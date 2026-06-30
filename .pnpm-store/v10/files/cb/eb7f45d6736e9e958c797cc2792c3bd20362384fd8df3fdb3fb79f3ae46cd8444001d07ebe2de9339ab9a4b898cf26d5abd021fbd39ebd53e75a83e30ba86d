@@ -1,0 +1,54 @@
+import { g as Generator } from "./unplugin-D_3T3e7l.js";
+
+//#region src/core/context/generator/code-generator.ts
+/**
+* 纯代码生成器
+* 从 AST 节点生成代码字符串，不依赖 MagicString
+*/
+var CodeGenerator = class CodeGenerator extends Generator {
+	constructor(..._args) {
+		super(..._args);
+		this.generatedCode = [];
+	}
+	/**
+	* 添加代码片段到生成结果
+	*/
+	append(code) {
+		this.generatedCode.push(code);
+	}
+	/**
+	* 处理 CodeStatement 节点
+	*/
+	handleCodeStatement(node) {
+		this.append(node.value);
+	}
+	/**
+	* 处理自定义生成器返回的结果
+	*/
+	handleGeneratorResult(node, result) {
+		this.append(result);
+	}
+	/**
+	* 保留节点（用于 unhandled: 'keep' 策略）
+	*/
+	handleKeepNode(node) {
+		if ("value" in node && typeof node.value === "string") this.append(node.value);
+	}
+	/**
+	* 生成最终代码
+	*/
+	generate() {
+		this.generatedCode = [];
+		this.walk(this.node);
+		return this.generatedCode.join("");
+	}
+	/**
+	* 静态方法：从 AST 节点生成代码
+	*/
+	static generate(node, generates = [], options = {}) {
+		return new CodeGenerator(node, generates, options).generate();
+	}
+};
+
+//#endregion
+export { CodeGenerator as t };

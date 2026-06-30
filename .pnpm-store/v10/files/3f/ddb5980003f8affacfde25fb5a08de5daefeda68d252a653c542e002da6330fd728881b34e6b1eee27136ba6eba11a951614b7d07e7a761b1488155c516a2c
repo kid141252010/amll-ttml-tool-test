@@ -1,0 +1,2886 @@
+import { createRequire } from "node:module";
+import remapping from "@jridgewell/remapping";
+import { createUnplugin } from "unplugin";
+import process$1 from "node:process";
+import MagicString from "magic-string";
+import fs, { existsSync, readFileSync } from "node:fs";
+import path, { isAbsolute, resolve } from "node:path";
+import { isAbsolute as isAbsolute$1, posix, resolve as resolve$1, win32 } from "path";
+import { expand } from "dotenv-expand";
+import readline from "node:readline";
+import colors from "picocolors";
+
+//#region rolldown:runtime
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod) => function() {
+	return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __copyProps = (to, from, except, desc) => {
+	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+		key = keys[i];
+		if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
+			get: ((k) => from[k]).bind(null, key),
+			enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+		});
+	}
+	return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
+	value: mod,
+	enumerable: true
+}) : target, mod));
+var __require = /* @__PURE__ */ createRequire(import.meta.url);
+
+//#endregion
+//#region node_modules/.pnpm/dotenv@16.6.1/node_modules/dotenv/package.json
+var require_package = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/dotenv@16.6.1/node_modules/dotenv/package.json": ((exports, module) => {
+	module.exports = {
+		"name": "dotenv",
+		"version": "16.6.1",
+		"description": "Loads environment variables from .env file",
+		"main": "lib/main.js",
+		"types": "lib/main.d.ts",
+		"exports": {
+			".": {
+				"types": "./lib/main.d.ts",
+				"require": "./lib/main.js",
+				"default": "./lib/main.js"
+			},
+			"./config": "./config.js",
+			"./config.js": "./config.js",
+			"./lib/env-options": "./lib/env-options.js",
+			"./lib/env-options.js": "./lib/env-options.js",
+			"./lib/cli-options": "./lib/cli-options.js",
+			"./lib/cli-options.js": "./lib/cli-options.js",
+			"./package.json": "./package.json"
+		},
+		"scripts": {
+			"dts-check": "tsc --project tests/types/tsconfig.json",
+			"lint": "standard",
+			"pretest": "npm run lint && npm run dts-check",
+			"test": "tap run --allow-empty-coverage --disable-coverage --timeout=60000",
+			"test:coverage": "tap run --show-full-coverage --timeout=60000 --coverage-report=text --coverage-report=lcov",
+			"prerelease": "npm test",
+			"release": "standard-version"
+		},
+		"repository": {
+			"type": "git",
+			"url": "git://github.com/motdotla/dotenv.git"
+		},
+		"homepage": "https://github.com/motdotla/dotenv#readme",
+		"funding": "https://dotenvx.com",
+		"keywords": [
+			"dotenv",
+			"env",
+			".env",
+			"environment",
+			"variables",
+			"config",
+			"settings"
+		],
+		"readmeFilename": "README.md",
+		"license": "BSD-2-Clause",
+		"devDependencies": {
+			"@types/node": "^18.11.3",
+			"decache": "^4.6.2",
+			"sinon": "^14.0.1",
+			"standard": "^17.0.0",
+			"standard-version": "^9.5.0",
+			"tap": "^19.2.0",
+			"typescript": "^4.8.4"
+		},
+		"engines": { "node": ">=12" },
+		"browser": { "fs": false }
+	};
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/dotenv@16.6.1/node_modules/dotenv/lib/main.js
+var require_main = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/dotenv@16.6.1/node_modules/dotenv/lib/main.js": ((exports, module) => {
+	const fs$1 = __require("fs");
+	const path$1 = __require("path");
+	const os = __require("os");
+	const crypto = __require("crypto");
+	const version = require_package().version;
+	const LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/gm;
+	function parse$3(src) {
+		const obj = {};
+		let lines = src.toString();
+		lines = lines.replace(/\r\n?/gm, "\n");
+		let match;
+		while ((match = LINE.exec(lines)) != null) {
+			const key = match[1];
+			let value = match[2] || "";
+			value = value.trim();
+			const maybeQuote = value[0];
+			value = value.replace(/^(['"`])([\s\S]*)\1$/gm, "$2");
+			if (maybeQuote === "\"") {
+				value = value.replace(/\\n/g, "\n");
+				value = value.replace(/\\r/g, "\r");
+			}
+			obj[key] = value;
+		}
+		return obj;
+	}
+	function _parseVault(options) {
+		options = options || {};
+		const vaultPath = _vaultPath(options);
+		options.path = vaultPath;
+		const result = DotenvModule.configDotenv(options);
+		if (!result.parsed) {
+			const err = /* @__PURE__ */ new Error(`MISSING_DATA: Cannot parse ${vaultPath} for an unknown reason`);
+			err.code = "MISSING_DATA";
+			throw err;
+		}
+		const keys = _dotenvKey(options).split(",");
+		const length = keys.length;
+		let decrypted;
+		for (let i = 0; i < length; i++) try {
+			const attrs = _instructions(result, keys[i].trim());
+			decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key);
+			break;
+		} catch (error) {
+			if (i + 1 >= length) throw error;
+		}
+		return DotenvModule.parse(decrypted);
+	}
+	function _warn(message) {
+		console.log(`[dotenv@${version}][WARN] ${message}`);
+	}
+	function _debug(message) {
+		console.log(`[dotenv@${version}][DEBUG] ${message}`);
+	}
+	function _log(message) {
+		console.log(`[dotenv@${version}] ${message}`);
+	}
+	function _dotenvKey(options) {
+		if (options && options.DOTENV_KEY && options.DOTENV_KEY.length > 0) return options.DOTENV_KEY;
+		if (process.env.DOTENV_KEY && process.env.DOTENV_KEY.length > 0) return process.env.DOTENV_KEY;
+		return "";
+	}
+	function _instructions(result, dotenvKey) {
+		let uri;
+		try {
+			uri = new URL(dotenvKey);
+		} catch (error) {
+			if (error.code === "ERR_INVALID_URL") {
+				const err = /* @__PURE__ */ new Error("INVALID_DOTENV_KEY: Wrong format. Must be in valid uri format like dotenv://:key_1234@dotenvx.com/vault/.env.vault?environment=development");
+				err.code = "INVALID_DOTENV_KEY";
+				throw err;
+			}
+			throw error;
+		}
+		const key = uri.password;
+		if (!key) {
+			const err = /* @__PURE__ */ new Error("INVALID_DOTENV_KEY: Missing key part");
+			err.code = "INVALID_DOTENV_KEY";
+			throw err;
+		}
+		const environment = uri.searchParams.get("environment");
+		if (!environment) {
+			const err = /* @__PURE__ */ new Error("INVALID_DOTENV_KEY: Missing environment part");
+			err.code = "INVALID_DOTENV_KEY";
+			throw err;
+		}
+		const environmentKey = `DOTENV_VAULT_${environment.toUpperCase()}`;
+		const ciphertext = result.parsed[environmentKey];
+		if (!ciphertext) {
+			const err = /* @__PURE__ */ new Error(`NOT_FOUND_DOTENV_ENVIRONMENT: Cannot locate environment ${environmentKey} in your .env.vault file.`);
+			err.code = "NOT_FOUND_DOTENV_ENVIRONMENT";
+			throw err;
+		}
+		return {
+			ciphertext,
+			key
+		};
+	}
+	function _vaultPath(options) {
+		let possibleVaultPath = null;
+		if (options && options.path && options.path.length > 0) if (Array.isArray(options.path)) {
+			for (const filepath of options.path) if (fs$1.existsSync(filepath)) possibleVaultPath = filepath.endsWith(".vault") ? filepath : `${filepath}.vault`;
+		} else possibleVaultPath = options.path.endsWith(".vault") ? options.path : `${options.path}.vault`;
+		else possibleVaultPath = path$1.resolve(process.cwd(), ".env.vault");
+		if (fs$1.existsSync(possibleVaultPath)) return possibleVaultPath;
+		return null;
+	}
+	function _resolveHome(envPath) {
+		return envPath[0] === "~" ? path$1.join(os.homedir(), envPath.slice(1)) : envPath;
+	}
+	function _configVault(options) {
+		const debug = Boolean(options && options.debug);
+		const quiet = options && "quiet" in options ? options.quiet : true;
+		if (debug || !quiet) _log("Loading env from encrypted .env.vault");
+		const parsed = DotenvModule._parseVault(options);
+		let processEnv = process.env;
+		if (options && options.processEnv != null) processEnv = options.processEnv;
+		DotenvModule.populate(processEnv, parsed, options);
+		return { parsed };
+	}
+	function configDotenv(options) {
+		const dotenvPath = path$1.resolve(process.cwd(), ".env");
+		let encoding = "utf8";
+		const debug = Boolean(options && options.debug);
+		const quiet = options && "quiet" in options ? options.quiet : true;
+		if (options && options.encoding) encoding = options.encoding;
+		else if (debug) _debug("No encoding is specified. UTF-8 is used by default");
+		let optionPaths = [dotenvPath];
+		if (options && options.path) if (!Array.isArray(options.path)) optionPaths = [_resolveHome(options.path)];
+		else {
+			optionPaths = [];
+			for (const filepath of options.path) optionPaths.push(_resolveHome(filepath));
+		}
+		let lastError;
+		const parsedAll = {};
+		for (const path$2 of optionPaths) try {
+			const parsed = DotenvModule.parse(fs$1.readFileSync(path$2, { encoding }));
+			DotenvModule.populate(parsedAll, parsed, options);
+		} catch (e) {
+			if (debug) _debug(`Failed to load ${path$2} ${e.message}`);
+			lastError = e;
+		}
+		let processEnv = process.env;
+		if (options && options.processEnv != null) processEnv = options.processEnv;
+		DotenvModule.populate(processEnv, parsedAll, options);
+		if (debug || !quiet) {
+			const keysCount = Object.keys(parsedAll).length;
+			const shortPaths = [];
+			for (const filePath of optionPaths) try {
+				const relative = path$1.relative(process.cwd(), filePath);
+				shortPaths.push(relative);
+			} catch (e) {
+				if (debug) _debug(`Failed to load ${filePath} ${e.message}`);
+				lastError = e;
+			}
+			_log(`injecting env (${keysCount}) from ${shortPaths.join(",")}`);
+		}
+		if (lastError) return {
+			parsed: parsedAll,
+			error: lastError
+		};
+		else return { parsed: parsedAll };
+	}
+	function config(options) {
+		if (_dotenvKey(options).length === 0) return DotenvModule.configDotenv(options);
+		const vaultPath = _vaultPath(options);
+		if (!vaultPath) {
+			_warn(`You set DOTENV_KEY but you are missing a .env.vault file at ${vaultPath}. Did you forget to build it?`);
+			return DotenvModule.configDotenv(options);
+		}
+		return DotenvModule._configVault(options);
+	}
+	function decrypt(encrypted, keyStr) {
+		const key = Buffer.from(keyStr.slice(-64), "hex");
+		let ciphertext = Buffer.from(encrypted, "base64");
+		const nonce = ciphertext.subarray(0, 12);
+		const authTag = ciphertext.subarray(-16);
+		ciphertext = ciphertext.subarray(12, -16);
+		try {
+			const aesgcm = crypto.createDecipheriv("aes-256-gcm", key, nonce);
+			aesgcm.setAuthTag(authTag);
+			return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
+		} catch (error) {
+			const isRange = error instanceof RangeError;
+			const invalidKeyLength = error.message === "Invalid key length";
+			const decryptionFailed = error.message === "Unsupported state or unable to authenticate data";
+			if (isRange || invalidKeyLength) {
+				const err = /* @__PURE__ */ new Error("INVALID_DOTENV_KEY: It must be 64 characters long (or more)");
+				err.code = "INVALID_DOTENV_KEY";
+				throw err;
+			} else if (decryptionFailed) {
+				const err = /* @__PURE__ */ new Error("DECRYPTION_FAILED: Please check your DOTENV_KEY");
+				err.code = "DECRYPTION_FAILED";
+				throw err;
+			} else throw error;
+		}
+	}
+	function populate(processEnv, parsed, options = {}) {
+		const debug = Boolean(options && options.debug);
+		const override = Boolean(options && options.override);
+		if (typeof parsed !== "object") {
+			const err = /* @__PURE__ */ new Error("OBJECT_REQUIRED: Please check the processEnv argument being passed to populate");
+			err.code = "OBJECT_REQUIRED";
+			throw err;
+		}
+		for (const key of Object.keys(parsed)) if (Object.prototype.hasOwnProperty.call(processEnv, key)) {
+			if (override === true) processEnv[key] = parsed[key];
+			if (debug) if (override === true) _debug(`"${key}" is already defined and WAS overwritten`);
+			else _debug(`"${key}" is already defined and was NOT overwritten`);
+		} else processEnv[key] = parsed[key];
+	}
+	const DotenvModule = {
+		configDotenv,
+		_configVault,
+		_parseVault,
+		config,
+		decrypt,
+		parse: parse$3,
+		populate
+	};
+	module.exports.configDotenv = DotenvModule.configDotenv;
+	module.exports._configVault = DotenvModule._configVault;
+	module.exports._parseVault = DotenvModule._parseVault;
+	module.exports.config = DotenvModule.config;
+	module.exports.decrypt = DotenvModule.decrypt;
+	module.exports.parse = DotenvModule.parse;
+	module.exports.populate = DotenvModule.populate;
+	module.exports = DotenvModule;
+}) });
+
+//#endregion
+//#region src/core/utils/env.ts
+var import_main = /* @__PURE__ */ __toESM(require_main(), 1);
+function arraify(target) {
+	return Array.isArray(target) ? target : [target];
+}
+const windowsSlashRE = /\\/g;
+function slash(p) {
+	return p.replace(windowsSlashRE, "/");
+}
+const isWindows = process$1.platform === "win32";
+function normalizePath$1(id) {
+	return path.posix.normalize(isWindows ? slash(id) : id);
+}
+function tryStatSync(file) {
+	try {
+		return fs.statSync(file, { throwIfNoEntry: false });
+	} catch {}
+}
+function getEnvFilesForMode(mode, envDir) {
+	if (envDir !== false) return [
+		`.env`,
+		`.env.local`,
+		`.env.${mode}`,
+		`.env.${mode}.local`
+	].map((file) => normalizePath$1(path.join(envDir, file)));
+	return [];
+}
+function loadEnv(mode, envDir, prefixes = "VITE_") {
+	if (mode === "local") throw new Error("\"local\" cannot be used as a mode name because it conflicts with the .local postfix for .env files.");
+	prefixes = arraify(prefixes);
+	const env = {};
+	const envFiles = getEnvFilesForMode(mode, envDir);
+	const parsed = Object.fromEntries(envFiles.flatMap((filePath) => {
+		if (!tryStatSync(filePath)?.isFile()) return [];
+		return Object.entries((0, import_main.parse)(fs.readFileSync(filePath)));
+	}));
+	if (parsed.NODE_ENV && process$1.env.VITE_USER_NODE_ENV === void 0) process$1.env.VITE_USER_NODE_ENV = parsed.NODE_ENV;
+	if (parsed.BROWSER && process$1.env.BROWSER === void 0) process$1.env.BROWSER = parsed.BROWSER;
+	if (parsed.BROWSER_ARGS && process$1.env.BROWSER_ARGS === void 0) process$1.env.BROWSER_ARGS = parsed.BROWSER_ARGS;
+	expand({
+		parsed,
+		processEnv: { ...process$1.env }
+	});
+	for (const [key, value] of Object.entries(parsed)) if (prefixes.some((prefix) => key.startsWith(prefix))) env[key] = value;
+	for (const key in process$1.env) if (prefixes.some((prefix) => key.startsWith(prefix))) env[key] = process$1.env[key];
+	return env;
+}
+
+//#endregion
+//#region node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/constants.js
+var require_constants = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/constants.js": ((exports, module) => {
+	const WIN_SLASH = "\\\\/";
+	const WIN_NO_SLASH = `[^${WIN_SLASH}]`;
+	/**
+	* Posix glob regex
+	*/
+	const DOT_LITERAL = "\\.";
+	const PLUS_LITERAL = "\\+";
+	const QMARK_LITERAL = "\\?";
+	const SLASH_LITERAL = "\\/";
+	const ONE_CHAR = "(?=.)";
+	const QMARK = "[^/]";
+	const END_ANCHOR = `(?:${SLASH_LITERAL}|$)`;
+	const START_ANCHOR = `(?:^|${SLASH_LITERAL})`;
+	const DOTS_SLASH = `${DOT_LITERAL}{1,2}${END_ANCHOR}`;
+	const POSIX_CHARS = {
+		DOT_LITERAL,
+		PLUS_LITERAL,
+		QMARK_LITERAL,
+		SLASH_LITERAL,
+		ONE_CHAR,
+		QMARK,
+		END_ANCHOR,
+		DOTS_SLASH,
+		NO_DOT: `(?!${DOT_LITERAL})`,
+		NO_DOTS: `(?!${START_ANCHOR}${DOTS_SLASH})`,
+		NO_DOT_SLASH: `(?!${DOT_LITERAL}{0,1}${END_ANCHOR})`,
+		NO_DOTS_SLASH: `(?!${DOTS_SLASH})`,
+		QMARK_NO_DOT: `[^.${SLASH_LITERAL}]`,
+		STAR: `${QMARK}*?`,
+		START_ANCHOR,
+		SEP: "/"
+	};
+	/**
+	* Windows glob regex
+	*/
+	const WINDOWS_CHARS = {
+		...POSIX_CHARS,
+		SLASH_LITERAL: `[${WIN_SLASH}]`,
+		QMARK: WIN_NO_SLASH,
+		STAR: `${WIN_NO_SLASH}*?`,
+		DOTS_SLASH: `${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$)`,
+		NO_DOT: `(?!${DOT_LITERAL})`,
+		NO_DOTS: `(?!(?:^|[${WIN_SLASH}])${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$))`,
+		NO_DOT_SLASH: `(?!${DOT_LITERAL}{0,1}(?:[${WIN_SLASH}]|$))`,
+		NO_DOTS_SLASH: `(?!${DOT_LITERAL}{1,2}(?:[${WIN_SLASH}]|$))`,
+		QMARK_NO_DOT: `[^.${WIN_SLASH}]`,
+		START_ANCHOR: `(?:^|[${WIN_SLASH}])`,
+		END_ANCHOR: `(?:[${WIN_SLASH}]|$)`,
+		SEP: "\\"
+	};
+	/**
+	* POSIX Bracket Regex
+	*/
+	const POSIX_REGEX_SOURCE$1 = {
+		alnum: "a-zA-Z0-9",
+		alpha: "a-zA-Z",
+		ascii: "\\x00-\\x7F",
+		blank: " \\t",
+		cntrl: "\\x00-\\x1F\\x7F",
+		digit: "0-9",
+		graph: "\\x21-\\x7E",
+		lower: "a-z",
+		print: "\\x20-\\x7E ",
+		punct: "\\-!\"#$%&'()\\*+,./:;<=>?@[\\]^_`{|}~",
+		space: " \\t\\r\\n\\v\\f",
+		upper: "A-Z",
+		word: "A-Za-z0-9_",
+		xdigit: "A-Fa-f0-9"
+	};
+	module.exports = {
+		MAX_LENGTH: 1024 * 64,
+		POSIX_REGEX_SOURCE: POSIX_REGEX_SOURCE$1,
+		REGEX_BACKSLASH: /\\(?![*+?^${}(|)[\]])/g,
+		REGEX_NON_SPECIAL_CHARS: /^[^@![\].,$*+?^{}()|\\/]+/,
+		REGEX_SPECIAL_CHARS: /[-*+?.^${}(|)[\]]/,
+		REGEX_SPECIAL_CHARS_BACKREF: /(\\?)((\W)(\3*))/g,
+		REGEX_SPECIAL_CHARS_GLOBAL: /([-*+?.^${}(|)[\]])/g,
+		REGEX_REMOVE_BACKSLASH: /(?:\[.*?[^\\]\]|\\(?=.))/g,
+		REPLACEMENTS: {
+			__proto__: null,
+			"***": "*",
+			"**/**": "**",
+			"**/**/**": "**"
+		},
+		CHAR_0: 48,
+		CHAR_9: 57,
+		CHAR_UPPERCASE_A: 65,
+		CHAR_LOWERCASE_A: 97,
+		CHAR_UPPERCASE_Z: 90,
+		CHAR_LOWERCASE_Z: 122,
+		CHAR_LEFT_PARENTHESES: 40,
+		CHAR_RIGHT_PARENTHESES: 41,
+		CHAR_ASTERISK: 42,
+		CHAR_AMPERSAND: 38,
+		CHAR_AT: 64,
+		CHAR_BACKWARD_SLASH: 92,
+		CHAR_CARRIAGE_RETURN: 13,
+		CHAR_CIRCUMFLEX_ACCENT: 94,
+		CHAR_COLON: 58,
+		CHAR_COMMA: 44,
+		CHAR_DOT: 46,
+		CHAR_DOUBLE_QUOTE: 34,
+		CHAR_EQUAL: 61,
+		CHAR_EXCLAMATION_MARK: 33,
+		CHAR_FORM_FEED: 12,
+		CHAR_FORWARD_SLASH: 47,
+		CHAR_GRAVE_ACCENT: 96,
+		CHAR_HASH: 35,
+		CHAR_HYPHEN_MINUS: 45,
+		CHAR_LEFT_ANGLE_BRACKET: 60,
+		CHAR_LEFT_CURLY_BRACE: 123,
+		CHAR_LEFT_SQUARE_BRACKET: 91,
+		CHAR_LINE_FEED: 10,
+		CHAR_NO_BREAK_SPACE: 160,
+		CHAR_PERCENT: 37,
+		CHAR_PLUS: 43,
+		CHAR_QUESTION_MARK: 63,
+		CHAR_RIGHT_ANGLE_BRACKET: 62,
+		CHAR_RIGHT_CURLY_BRACE: 125,
+		CHAR_RIGHT_SQUARE_BRACKET: 93,
+		CHAR_SEMICOLON: 59,
+		CHAR_SINGLE_QUOTE: 39,
+		CHAR_SPACE: 32,
+		CHAR_TAB: 9,
+		CHAR_UNDERSCORE: 95,
+		CHAR_VERTICAL_LINE: 124,
+		CHAR_ZERO_WIDTH_NOBREAK_SPACE: 65279,
+		extglobChars(chars) {
+			return {
+				"!": {
+					type: "negate",
+					open: "(?:(?!(?:",
+					close: `))${chars.STAR})`
+				},
+				"?": {
+					type: "qmark",
+					open: "(?:",
+					close: ")?"
+				},
+				"+": {
+					type: "plus",
+					open: "(?:",
+					close: ")+"
+				},
+				"*": {
+					type: "star",
+					open: "(?:",
+					close: ")*"
+				},
+				"@": {
+					type: "at",
+					open: "(?:",
+					close: ")"
+				}
+			};
+		},
+		globChars(win32$1) {
+			return win32$1 === true ? WINDOWS_CHARS : POSIX_CHARS;
+		}
+	};
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/utils.js
+var require_utils = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/utils.js": ((exports) => {
+	const { REGEX_BACKSLASH, REGEX_REMOVE_BACKSLASH, REGEX_SPECIAL_CHARS, REGEX_SPECIAL_CHARS_GLOBAL } = require_constants();
+	exports.isObject = (val) => val !== null && typeof val === "object" && !Array.isArray(val);
+	exports.hasRegexChars = (str) => REGEX_SPECIAL_CHARS.test(str);
+	exports.isRegexChar = (str) => str.length === 1 && exports.hasRegexChars(str);
+	exports.escapeRegex = (str) => str.replace(REGEX_SPECIAL_CHARS_GLOBAL, "\\$1");
+	exports.toPosixSlashes = (str) => str.replace(REGEX_BACKSLASH, "/");
+	exports.isWindows = () => {
+		if (typeof navigator !== "undefined" && navigator.platform) {
+			const platform = navigator.platform.toLowerCase();
+			return platform === "win32" || platform === "windows";
+		}
+		if (typeof process !== "undefined" && process.platform) return process.platform === "win32";
+		return false;
+	};
+	exports.removeBackslashes = (str) => {
+		return str.replace(REGEX_REMOVE_BACKSLASH, (match) => {
+			return match === "\\" ? "" : match;
+		});
+	};
+	exports.escapeLast = (input, char, lastIdx) => {
+		const idx = input.lastIndexOf(char, lastIdx);
+		if (idx === -1) return input;
+		if (input[idx - 1] === "\\") return exports.escapeLast(input, char, idx - 1);
+		return `${input.slice(0, idx)}\\${input.slice(idx)}`;
+	};
+	exports.removePrefix = (input, state = {}) => {
+		let output = input;
+		if (output.startsWith("./")) {
+			output = output.slice(2);
+			state.prefix = "./";
+		}
+		return output;
+	};
+	exports.wrapOutput = (input, state = {}, options = {}) => {
+		let output = `${options.contains ? "" : "^"}(?:${input})${options.contains ? "" : "$"}`;
+		if (state.negated === true) output = `(?:^(?!${output}).*$)`;
+		return output;
+	};
+	exports.basename = (path$2, { windows } = {}) => {
+		const segs = path$2.split(windows ? /[\\/]/ : "/");
+		const last = segs[segs.length - 1];
+		if (last === "") return segs[segs.length - 2];
+		return last;
+	};
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/scan.js
+var require_scan = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/scan.js": ((exports, module) => {
+	const utils$3 = require_utils();
+	const { CHAR_ASTERISK, CHAR_AT, CHAR_BACKWARD_SLASH, CHAR_COMMA, CHAR_DOT, CHAR_EXCLAMATION_MARK, CHAR_FORWARD_SLASH, CHAR_LEFT_CURLY_BRACE, CHAR_LEFT_PARENTHESES, CHAR_LEFT_SQUARE_BRACKET, CHAR_PLUS, CHAR_QUESTION_MARK, CHAR_RIGHT_CURLY_BRACE, CHAR_RIGHT_PARENTHESES, CHAR_RIGHT_SQUARE_BRACKET } = require_constants();
+	const isPathSeparator = (code) => {
+		return code === CHAR_FORWARD_SLASH || code === CHAR_BACKWARD_SLASH;
+	};
+	const depth = (token) => {
+		if (token.isPrefix !== true) token.depth = token.isGlobstar ? Infinity : 1;
+	};
+	/**
+	* Quickly scans a glob pattern and returns an object with a handful of
+	* useful properties, like `isGlob`, `path` (the leading non-glob, if it exists),
+	* `glob` (the actual pattern), `negated` (true if the path starts with `!` but not
+	* with `!(`) and `negatedExtglob` (true if the path starts with `!(`).
+	*
+	* ```js
+	* const pm = require('picomatch');
+	* console.log(pm.scan('foo/bar/*.js'));
+	* { isGlob: true, input: 'foo/bar/*.js', base: 'foo/bar', glob: '*.js' }
+	* ```
+	* @param {String} `str`
+	* @param {Object} `options`
+	* @return {Object} Returns an object with tokens and regex source string.
+	* @api public
+	*/
+	const scan$1 = (input, options) => {
+		const opts = options || {};
+		const length = input.length - 1;
+		const scanToEnd = opts.parts === true || opts.scanToEnd === true;
+		const slashes = [];
+		const tokens = [];
+		const parts = [];
+		let str = input;
+		let index = -1;
+		let start = 0;
+		let lastIndex = 0;
+		let isBrace = false;
+		let isBracket = false;
+		let isGlob = false;
+		let isExtglob = false;
+		let isGlobstar = false;
+		let braceEscaped = false;
+		let backslashes = false;
+		let negated = false;
+		let negatedExtglob = false;
+		let finished = false;
+		let braces = 0;
+		let prev;
+		let code;
+		let token = {
+			value: "",
+			depth: 0,
+			isGlob: false
+		};
+		const eos = () => index >= length;
+		const peek = () => str.charCodeAt(index + 1);
+		const advance = () => {
+			prev = code;
+			return str.charCodeAt(++index);
+		};
+		while (index < length) {
+			code = advance();
+			let next;
+			if (code === CHAR_BACKWARD_SLASH) {
+				backslashes = token.backslashes = true;
+				code = advance();
+				if (code === CHAR_LEFT_CURLY_BRACE) braceEscaped = true;
+				continue;
+			}
+			if (braceEscaped === true || code === CHAR_LEFT_CURLY_BRACE) {
+				braces++;
+				while (eos() !== true && (code = advance())) {
+					if (code === CHAR_BACKWARD_SLASH) {
+						backslashes = token.backslashes = true;
+						advance();
+						continue;
+					}
+					if (code === CHAR_LEFT_CURLY_BRACE) {
+						braces++;
+						continue;
+					}
+					if (braceEscaped !== true && code === CHAR_DOT && (code = advance()) === CHAR_DOT) {
+						isBrace = token.isBrace = true;
+						isGlob = token.isGlob = true;
+						finished = true;
+						if (scanToEnd === true) continue;
+						break;
+					}
+					if (braceEscaped !== true && code === CHAR_COMMA) {
+						isBrace = token.isBrace = true;
+						isGlob = token.isGlob = true;
+						finished = true;
+						if (scanToEnd === true) continue;
+						break;
+					}
+					if (code === CHAR_RIGHT_CURLY_BRACE) {
+						braces--;
+						if (braces === 0) {
+							braceEscaped = false;
+							isBrace = token.isBrace = true;
+							finished = true;
+							break;
+						}
+					}
+				}
+				if (scanToEnd === true) continue;
+				break;
+			}
+			if (code === CHAR_FORWARD_SLASH) {
+				slashes.push(index);
+				tokens.push(token);
+				token = {
+					value: "",
+					depth: 0,
+					isGlob: false
+				};
+				if (finished === true) continue;
+				if (prev === CHAR_DOT && index === start + 1) {
+					start += 2;
+					continue;
+				}
+				lastIndex = index + 1;
+				continue;
+			}
+			if (opts.noext !== true) {
+				if ((code === CHAR_PLUS || code === CHAR_AT || code === CHAR_ASTERISK || code === CHAR_QUESTION_MARK || code === CHAR_EXCLAMATION_MARK) === true && peek() === CHAR_LEFT_PARENTHESES) {
+					isGlob = token.isGlob = true;
+					isExtglob = token.isExtglob = true;
+					finished = true;
+					if (code === CHAR_EXCLAMATION_MARK && index === start) negatedExtglob = true;
+					if (scanToEnd === true) {
+						while (eos() !== true && (code = advance())) {
+							if (code === CHAR_BACKWARD_SLASH) {
+								backslashes = token.backslashes = true;
+								code = advance();
+								continue;
+							}
+							if (code === CHAR_RIGHT_PARENTHESES) {
+								isGlob = token.isGlob = true;
+								finished = true;
+								break;
+							}
+						}
+						continue;
+					}
+					break;
+				}
+			}
+			if (code === CHAR_ASTERISK) {
+				if (prev === CHAR_ASTERISK) isGlobstar = token.isGlobstar = true;
+				isGlob = token.isGlob = true;
+				finished = true;
+				if (scanToEnd === true) continue;
+				break;
+			}
+			if (code === CHAR_QUESTION_MARK) {
+				isGlob = token.isGlob = true;
+				finished = true;
+				if (scanToEnd === true) continue;
+				break;
+			}
+			if (code === CHAR_LEFT_SQUARE_BRACKET) {
+				while (eos() !== true && (next = advance())) {
+					if (next === CHAR_BACKWARD_SLASH) {
+						backslashes = token.backslashes = true;
+						advance();
+						continue;
+					}
+					if (next === CHAR_RIGHT_SQUARE_BRACKET) {
+						isBracket = token.isBracket = true;
+						isGlob = token.isGlob = true;
+						finished = true;
+						break;
+					}
+				}
+				if (scanToEnd === true) continue;
+				break;
+			}
+			if (opts.nonegate !== true && code === CHAR_EXCLAMATION_MARK && index === start) {
+				negated = token.negated = true;
+				start++;
+				continue;
+			}
+			if (opts.noparen !== true && code === CHAR_LEFT_PARENTHESES) {
+				isGlob = token.isGlob = true;
+				if (scanToEnd === true) {
+					while (eos() !== true && (code = advance())) {
+						if (code === CHAR_LEFT_PARENTHESES) {
+							backslashes = token.backslashes = true;
+							code = advance();
+							continue;
+						}
+						if (code === CHAR_RIGHT_PARENTHESES) {
+							finished = true;
+							break;
+						}
+					}
+					continue;
+				}
+				break;
+			}
+			if (isGlob === true) {
+				finished = true;
+				if (scanToEnd === true) continue;
+				break;
+			}
+		}
+		if (opts.noext === true) {
+			isExtglob = false;
+			isGlob = false;
+		}
+		let base = str;
+		let prefix = "";
+		let glob = "";
+		if (start > 0) {
+			prefix = str.slice(0, start);
+			str = str.slice(start);
+			lastIndex -= start;
+		}
+		if (base && isGlob === true && lastIndex > 0) {
+			base = str.slice(0, lastIndex);
+			glob = str.slice(lastIndex);
+		} else if (isGlob === true) {
+			base = "";
+			glob = str;
+		} else base = str;
+		if (base && base !== "" && base !== "/" && base !== str) {
+			if (isPathSeparator(base.charCodeAt(base.length - 1))) base = base.slice(0, -1);
+		}
+		if (opts.unescape === true) {
+			if (glob) glob = utils$3.removeBackslashes(glob);
+			if (base && backslashes === true) base = utils$3.removeBackslashes(base);
+		}
+		const state = {
+			prefix,
+			input,
+			start,
+			base,
+			glob,
+			isBrace,
+			isBracket,
+			isGlob,
+			isExtglob,
+			isGlobstar,
+			negated,
+			negatedExtglob
+		};
+		if (opts.tokens === true) {
+			state.maxDepth = 0;
+			if (!isPathSeparator(code)) tokens.push(token);
+			state.tokens = tokens;
+		}
+		if (opts.parts === true || opts.tokens === true) {
+			let prevIndex;
+			for (let idx = 0; idx < slashes.length; idx++) {
+				const n = prevIndex ? prevIndex + 1 : start;
+				const i = slashes[idx];
+				const value = input.slice(n, i);
+				if (opts.tokens) {
+					if (idx === 0 && start !== 0) {
+						tokens[idx].isPrefix = true;
+						tokens[idx].value = prefix;
+					} else tokens[idx].value = value;
+					depth(tokens[idx]);
+					state.maxDepth += tokens[idx].depth;
+				}
+				if (idx !== 0 || value !== "") parts.push(value);
+				prevIndex = i;
+			}
+			if (prevIndex && prevIndex + 1 < input.length) {
+				const value = input.slice(prevIndex + 1);
+				parts.push(value);
+				if (opts.tokens) {
+					tokens[tokens.length - 1].value = value;
+					depth(tokens[tokens.length - 1]);
+					state.maxDepth += tokens[tokens.length - 1].depth;
+				}
+			}
+			state.slashes = slashes;
+			state.parts = parts;
+		}
+		return state;
+	};
+	module.exports = scan$1;
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/parse.js
+var require_parse = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/parse.js": ((exports, module) => {
+	const constants$1 = require_constants();
+	const utils$2 = require_utils();
+	/**
+	* Constants
+	*/
+	const { MAX_LENGTH, POSIX_REGEX_SOURCE, REGEX_NON_SPECIAL_CHARS, REGEX_SPECIAL_CHARS_BACKREF, REPLACEMENTS } = constants$1;
+	/**
+	* Helpers
+	*/
+	const expandRange = (args, options) => {
+		if (typeof options.expandRange === "function") return options.expandRange(...args, options);
+		args.sort();
+		const value = `[${args.join("-")}]`;
+		try {
+			new RegExp(value);
+		} catch (ex) {
+			return args.map((v) => utils$2.escapeRegex(v)).join("..");
+		}
+		return value;
+	};
+	/**
+	* Create the message for a syntax error
+	*/
+	const syntaxError = (type, char) => {
+		return `Missing ${type}: "${char}" - use "\\\\${char}" to match literal characters`;
+	};
+	/**
+	* Parse the given input string.
+	* @param {String} input
+	* @param {Object} options
+	* @return {Object}
+	*/
+	const parse$1 = (input, options) => {
+		if (typeof input !== "string") throw new TypeError("Expected a string");
+		input = REPLACEMENTS[input] || input;
+		const opts = { ...options };
+		const max = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
+		let len = input.length;
+		if (len > max) throw new SyntaxError(`Input length: ${len}, exceeds maximum allowed length: ${max}`);
+		const bos = {
+			type: "bos",
+			value: "",
+			output: opts.prepend || ""
+		};
+		const tokens = [bos];
+		const capture = opts.capture ? "" : "?:";
+		const PLATFORM_CHARS = constants$1.globChars(opts.windows);
+		const EXTGLOB_CHARS = constants$1.extglobChars(PLATFORM_CHARS);
+		const { DOT_LITERAL: DOT_LITERAL$1, PLUS_LITERAL: PLUS_LITERAL$1, SLASH_LITERAL: SLASH_LITERAL$1, ONE_CHAR: ONE_CHAR$1, DOTS_SLASH: DOTS_SLASH$1, NO_DOT, NO_DOT_SLASH, NO_DOTS_SLASH, QMARK: QMARK$1, QMARK_NO_DOT, STAR, START_ANCHOR: START_ANCHOR$1 } = PLATFORM_CHARS;
+		const globstar = (opts$1) => {
+			return `(${capture}(?:(?!${START_ANCHOR$1}${opts$1.dot ? DOTS_SLASH$1 : DOT_LITERAL$1}).)*?)`;
+		};
+		const nodot = opts.dot ? "" : NO_DOT;
+		const qmarkNoDot = opts.dot ? QMARK$1 : QMARK_NO_DOT;
+		let star = opts.bash === true ? globstar(opts) : STAR;
+		if (opts.capture) star = `(${star})`;
+		if (typeof opts.noext === "boolean") opts.noextglob = opts.noext;
+		const state = {
+			input,
+			index: -1,
+			start: 0,
+			dot: opts.dot === true,
+			consumed: "",
+			output: "",
+			prefix: "",
+			backtrack: false,
+			negated: false,
+			brackets: 0,
+			braces: 0,
+			parens: 0,
+			quotes: 0,
+			globstar: false,
+			tokens
+		};
+		input = utils$2.removePrefix(input, state);
+		len = input.length;
+		const extglobs = [];
+		const braces = [];
+		const stack = [];
+		let prev = bos;
+		let value;
+		/**
+		* Tokenizing helpers
+		*/
+		const eos = () => state.index === len - 1;
+		const peek = state.peek = (n = 1) => input[state.index + n];
+		const advance = state.advance = () => input[++state.index] || "";
+		const remaining = () => input.slice(state.index + 1);
+		const consume = (value$1 = "", num = 0) => {
+			state.consumed += value$1;
+			state.index += num;
+		};
+		const append = (token) => {
+			state.output += token.output != null ? token.output : token.value;
+			consume(token.value);
+		};
+		const negate = () => {
+			let count = 1;
+			while (peek() === "!" && (peek(2) !== "(" || peek(3) === "?")) {
+				advance();
+				state.start++;
+				count++;
+			}
+			if (count % 2 === 0) return false;
+			state.negated = true;
+			state.start++;
+			return true;
+		};
+		const increment = (type) => {
+			state[type]++;
+			stack.push(type);
+		};
+		const decrement = (type) => {
+			state[type]--;
+			stack.pop();
+		};
+		/**
+		* Push tokens onto the tokens array. This helper speeds up
+		* tokenizing by 1) helping us avoid backtracking as much as possible,
+		* and 2) helping us avoid creating extra tokens when consecutive
+		* characters are plain text. This improves performance and simplifies
+		* lookbehinds.
+		*/
+		const push = (tok) => {
+			if (prev.type === "globstar") {
+				const isBrace = state.braces > 0 && (tok.type === "comma" || tok.type === "brace");
+				const isExtglob = tok.extglob === true || extglobs.length && (tok.type === "pipe" || tok.type === "paren");
+				if (tok.type !== "slash" && tok.type !== "paren" && !isBrace && !isExtglob) {
+					state.output = state.output.slice(0, -prev.output.length);
+					prev.type = "star";
+					prev.value = "*";
+					prev.output = star;
+					state.output += prev.output;
+				}
+			}
+			if (extglobs.length && tok.type !== "paren") extglobs[extglobs.length - 1].inner += tok.value;
+			if (tok.value || tok.output) append(tok);
+			if (prev && prev.type === "text" && tok.type === "text") {
+				prev.output = (prev.output || prev.value) + tok.value;
+				prev.value += tok.value;
+				return;
+			}
+			tok.prev = prev;
+			tokens.push(tok);
+			prev = tok;
+		};
+		const extglobOpen = (type, value$1) => {
+			const token = {
+				...EXTGLOB_CHARS[value$1],
+				conditions: 1,
+				inner: ""
+			};
+			token.prev = prev;
+			token.parens = state.parens;
+			token.output = state.output;
+			const output = (opts.capture ? "(" : "") + token.open;
+			increment("parens");
+			push({
+				type,
+				value: value$1,
+				output: state.output ? "" : ONE_CHAR$1
+			});
+			push({
+				type: "paren",
+				extglob: true,
+				value: advance(),
+				output
+			});
+			extglobs.push(token);
+		};
+		const extglobClose = (token) => {
+			let output = token.close + (opts.capture ? ")" : "");
+			let rest;
+			if (token.type === "negate") {
+				let extglobStar = star;
+				if (token.inner && token.inner.length > 1 && token.inner.includes("/")) extglobStar = globstar(opts);
+				if (extglobStar !== star || eos() || /^\)+$/.test(remaining())) output = token.close = `)$))${extglobStar}`;
+				if (token.inner.includes("*") && (rest = remaining()) && /^\.[^\\/.]+$/.test(rest)) output = token.close = `)${parse$1(rest, {
+					...options,
+					fastpaths: false
+				}).output})${extglobStar})`;
+				if (token.prev.type === "bos") state.negatedExtglob = true;
+			}
+			push({
+				type: "paren",
+				extglob: true,
+				value,
+				output
+			});
+			decrement("parens");
+		};
+		/**
+		* Fast paths
+		*/
+		if (opts.fastpaths !== false && !/(^[*!]|[/()[\]{}"])/.test(input)) {
+			let backslashes = false;
+			let output = input.replace(REGEX_SPECIAL_CHARS_BACKREF, (m, esc, chars, first, rest, index) => {
+				if (first === "\\") {
+					backslashes = true;
+					return m;
+				}
+				if (first === "?") {
+					if (esc) return esc + first + (rest ? QMARK$1.repeat(rest.length) : "");
+					if (index === 0) return qmarkNoDot + (rest ? QMARK$1.repeat(rest.length) : "");
+					return QMARK$1.repeat(chars.length);
+				}
+				if (first === ".") return DOT_LITERAL$1.repeat(chars.length);
+				if (first === "*") {
+					if (esc) return esc + first + (rest ? star : "");
+					return star;
+				}
+				return esc ? m : `\\${m}`;
+			});
+			if (backslashes === true) if (opts.unescape === true) output = output.replace(/\\/g, "");
+			else output = output.replace(/\\+/g, (m) => {
+				return m.length % 2 === 0 ? "\\\\" : m ? "\\" : "";
+			});
+			if (output === input && opts.contains === true) {
+				state.output = input;
+				return state;
+			}
+			state.output = utils$2.wrapOutput(output, state, options);
+			return state;
+		}
+		/**
+		* Tokenize input until we reach end-of-string
+		*/
+		while (!eos()) {
+			value = advance();
+			if (value === "\0") continue;
+			/**
+			* Escaped characters
+			*/
+			if (value === "\\") {
+				const next = peek();
+				if (next === "/" && opts.bash !== true) continue;
+				if (next === "." || next === ";") continue;
+				if (!next) {
+					value += "\\";
+					push({
+						type: "text",
+						value
+					});
+					continue;
+				}
+				const match = /^\\+/.exec(remaining());
+				let slashes = 0;
+				if (match && match[0].length > 2) {
+					slashes = match[0].length;
+					state.index += slashes;
+					if (slashes % 2 !== 0) value += "\\";
+				}
+				if (opts.unescape === true) value = advance();
+				else value += advance();
+				if (state.brackets === 0) {
+					push({
+						type: "text",
+						value
+					});
+					continue;
+				}
+			}
+			/**
+			* If we're inside a regex character class, continue
+			* until we reach the closing bracket.
+			*/
+			if (state.brackets > 0 && (value !== "]" || prev.value === "[" || prev.value === "[^")) {
+				if (opts.posix !== false && value === ":") {
+					const inner = prev.value.slice(1);
+					if (inner.includes("[")) {
+						prev.posix = true;
+						if (inner.includes(":")) {
+							const idx = prev.value.lastIndexOf("[");
+							const pre = prev.value.slice(0, idx);
+							const posix$1 = POSIX_REGEX_SOURCE[prev.value.slice(idx + 2)];
+							if (posix$1) {
+								prev.value = pre + posix$1;
+								state.backtrack = true;
+								advance();
+								if (!bos.output && tokens.indexOf(prev) === 1) bos.output = ONE_CHAR$1;
+								continue;
+							}
+						}
+					}
+				}
+				if (value === "[" && peek() !== ":" || value === "-" && peek() === "]") value = `\\${value}`;
+				if (value === "]" && (prev.value === "[" || prev.value === "[^")) value = `\\${value}`;
+				if (opts.posix === true && value === "!" && prev.value === "[") value = "^";
+				prev.value += value;
+				append({ value });
+				continue;
+			}
+			/**
+			* If we're inside a quoted string, continue
+			* until we reach the closing double quote.
+			*/
+			if (state.quotes === 1 && value !== "\"") {
+				value = utils$2.escapeRegex(value);
+				prev.value += value;
+				append({ value });
+				continue;
+			}
+			/**
+			* Double quotes
+			*/
+			if (value === "\"") {
+				state.quotes = state.quotes === 1 ? 0 : 1;
+				if (opts.keepQuotes === true) push({
+					type: "text",
+					value
+				});
+				continue;
+			}
+			/**
+			* Parentheses
+			*/
+			if (value === "(") {
+				increment("parens");
+				push({
+					type: "paren",
+					value
+				});
+				continue;
+			}
+			if (value === ")") {
+				if (state.parens === 0 && opts.strictBrackets === true) throw new SyntaxError(syntaxError("opening", "("));
+				const extglob = extglobs[extglobs.length - 1];
+				if (extglob && state.parens === extglob.parens + 1) {
+					extglobClose(extglobs.pop());
+					continue;
+				}
+				push({
+					type: "paren",
+					value,
+					output: state.parens ? ")" : "\\)"
+				});
+				decrement("parens");
+				continue;
+			}
+			/**
+			* Square brackets
+			*/
+			if (value === "[") {
+				if (opts.nobracket === true || !remaining().includes("]")) {
+					if (opts.nobracket !== true && opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "]"));
+					value = `\\${value}`;
+				} else increment("brackets");
+				push({
+					type: "bracket",
+					value
+				});
+				continue;
+			}
+			if (value === "]") {
+				if (opts.nobracket === true || prev && prev.type === "bracket" && prev.value.length === 1) {
+					push({
+						type: "text",
+						value,
+						output: `\\${value}`
+					});
+					continue;
+				}
+				if (state.brackets === 0) {
+					if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("opening", "["));
+					push({
+						type: "text",
+						value,
+						output: `\\${value}`
+					});
+					continue;
+				}
+				decrement("brackets");
+				const prevValue = prev.value.slice(1);
+				if (prev.posix !== true && prevValue[0] === "^" && !prevValue.includes("/")) value = `/${value}`;
+				prev.value += value;
+				append({ value });
+				if (opts.literalBrackets === false || utils$2.hasRegexChars(prevValue)) continue;
+				const escaped = utils$2.escapeRegex(prev.value);
+				state.output = state.output.slice(0, -prev.value.length);
+				if (opts.literalBrackets === true) {
+					state.output += escaped;
+					prev.value = escaped;
+					continue;
+				}
+				prev.value = `(${capture}${escaped}|${prev.value})`;
+				state.output += prev.value;
+				continue;
+			}
+			/**
+			* Braces
+			*/
+			if (value === "{" && opts.nobrace !== true) {
+				increment("braces");
+				const open = {
+					type: "brace",
+					value,
+					output: "(",
+					outputIndex: state.output.length,
+					tokensIndex: state.tokens.length
+				};
+				braces.push(open);
+				push(open);
+				continue;
+			}
+			if (value === "}") {
+				const brace = braces[braces.length - 1];
+				if (opts.nobrace === true || !brace) {
+					push({
+						type: "text",
+						value,
+						output: value
+					});
+					continue;
+				}
+				let output = ")";
+				if (brace.dots === true) {
+					const arr = tokens.slice();
+					const range = [];
+					for (let i = arr.length - 1; i >= 0; i--) {
+						tokens.pop();
+						if (arr[i].type === "brace") break;
+						if (arr[i].type !== "dots") range.unshift(arr[i].value);
+					}
+					output = expandRange(range, opts);
+					state.backtrack = true;
+				}
+				if (brace.comma !== true && brace.dots !== true) {
+					const out = state.output.slice(0, brace.outputIndex);
+					const toks = state.tokens.slice(brace.tokensIndex);
+					brace.value = brace.output = "\\{";
+					value = output = "\\}";
+					state.output = out;
+					for (const t of toks) state.output += t.output || t.value;
+				}
+				push({
+					type: "brace",
+					value,
+					output
+				});
+				decrement("braces");
+				braces.pop();
+				continue;
+			}
+			/**
+			* Pipes
+			*/
+			if (value === "|") {
+				if (extglobs.length > 0) extglobs[extglobs.length - 1].conditions++;
+				push({
+					type: "text",
+					value
+				});
+				continue;
+			}
+			/**
+			* Commas
+			*/
+			if (value === ",") {
+				let output = value;
+				const brace = braces[braces.length - 1];
+				if (brace && stack[stack.length - 1] === "braces") {
+					brace.comma = true;
+					output = "|";
+				}
+				push({
+					type: "comma",
+					value,
+					output
+				});
+				continue;
+			}
+			/**
+			* Slashes
+			*/
+			if (value === "/") {
+				if (prev.type === "dot" && state.index === state.start + 1) {
+					state.start = state.index + 1;
+					state.consumed = "";
+					state.output = "";
+					tokens.pop();
+					prev = bos;
+					continue;
+				}
+				push({
+					type: "slash",
+					value,
+					output: SLASH_LITERAL$1
+				});
+				continue;
+			}
+			/**
+			* Dots
+			*/
+			if (value === ".") {
+				if (state.braces > 0 && prev.type === "dot") {
+					if (prev.value === ".") prev.output = DOT_LITERAL$1;
+					const brace = braces[braces.length - 1];
+					prev.type = "dots";
+					prev.output += value;
+					prev.value += value;
+					brace.dots = true;
+					continue;
+				}
+				if (state.braces + state.parens === 0 && prev.type !== "bos" && prev.type !== "slash") {
+					push({
+						type: "text",
+						value,
+						output: DOT_LITERAL$1
+					});
+					continue;
+				}
+				push({
+					type: "dot",
+					value,
+					output: DOT_LITERAL$1
+				});
+				continue;
+			}
+			/**
+			* Question marks
+			*/
+			if (value === "?") {
+				if (!(prev && prev.value === "(") && opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+					extglobOpen("qmark", value);
+					continue;
+				}
+				if (prev && prev.type === "paren") {
+					const next = peek();
+					let output = value;
+					if (prev.value === "(" && !/[!=<:]/.test(next) || next === "<" && !/<([!=]|\w+>)/.test(remaining())) output = `\\${value}`;
+					push({
+						type: "text",
+						value,
+						output
+					});
+					continue;
+				}
+				if (opts.dot !== true && (prev.type === "slash" || prev.type === "bos")) {
+					push({
+						type: "qmark",
+						value,
+						output: QMARK_NO_DOT
+					});
+					continue;
+				}
+				push({
+					type: "qmark",
+					value,
+					output: QMARK$1
+				});
+				continue;
+			}
+			/**
+			* Exclamation
+			*/
+			if (value === "!") {
+				if (opts.noextglob !== true && peek() === "(") {
+					if (peek(2) !== "?" || !/[!=<:]/.test(peek(3))) {
+						extglobOpen("negate", value);
+						continue;
+					}
+				}
+				if (opts.nonegate !== true && state.index === 0) {
+					negate();
+					continue;
+				}
+			}
+			/**
+			* Plus
+			*/
+			if (value === "+") {
+				if (opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+					extglobOpen("plus", value);
+					continue;
+				}
+				if (prev && prev.value === "(" || opts.regex === false) {
+					push({
+						type: "plus",
+						value,
+						output: PLUS_LITERAL$1
+					});
+					continue;
+				}
+				if (prev && (prev.type === "bracket" || prev.type === "paren" || prev.type === "brace") || state.parens > 0) {
+					push({
+						type: "plus",
+						value
+					});
+					continue;
+				}
+				push({
+					type: "plus",
+					value: PLUS_LITERAL$1
+				});
+				continue;
+			}
+			/**
+			* Plain text
+			*/
+			if (value === "@") {
+				if (opts.noextglob !== true && peek() === "(" && peek(2) !== "?") {
+					push({
+						type: "at",
+						extglob: true,
+						value,
+						output: ""
+					});
+					continue;
+				}
+				push({
+					type: "text",
+					value
+				});
+				continue;
+			}
+			/**
+			* Plain text
+			*/
+			if (value !== "*") {
+				if (value === "$" || value === "^") value = `\\${value}`;
+				const match = REGEX_NON_SPECIAL_CHARS.exec(remaining());
+				if (match) {
+					value += match[0];
+					state.index += match[0].length;
+				}
+				push({
+					type: "text",
+					value
+				});
+				continue;
+			}
+			/**
+			* Stars
+			*/
+			if (prev && (prev.type === "globstar" || prev.star === true)) {
+				prev.type = "star";
+				prev.star = true;
+				prev.value += value;
+				prev.output = star;
+				state.backtrack = true;
+				state.globstar = true;
+				consume(value);
+				continue;
+			}
+			let rest = remaining();
+			if (opts.noextglob !== true && /^\([^?]/.test(rest)) {
+				extglobOpen("star", value);
+				continue;
+			}
+			if (prev.type === "star") {
+				if (opts.noglobstar === true) {
+					consume(value);
+					continue;
+				}
+				const prior = prev.prev;
+				const before = prior.prev;
+				const isStart = prior.type === "slash" || prior.type === "bos";
+				const afterStar = before && (before.type === "star" || before.type === "globstar");
+				if (opts.bash === true && (!isStart || rest[0] && rest[0] !== "/")) {
+					push({
+						type: "star",
+						value,
+						output: ""
+					});
+					continue;
+				}
+				const isBrace = state.braces > 0 && (prior.type === "comma" || prior.type === "brace");
+				const isExtglob = extglobs.length && (prior.type === "pipe" || prior.type === "paren");
+				if (!isStart && prior.type !== "paren" && !isBrace && !isExtglob) {
+					push({
+						type: "star",
+						value,
+						output: ""
+					});
+					continue;
+				}
+				while (rest.slice(0, 3) === "/**") {
+					const after = input[state.index + 4];
+					if (after && after !== "/") break;
+					rest = rest.slice(3);
+					consume("/**", 3);
+				}
+				if (prior.type === "bos" && eos()) {
+					prev.type = "globstar";
+					prev.value += value;
+					prev.output = globstar(opts);
+					state.output = prev.output;
+					state.globstar = true;
+					consume(value);
+					continue;
+				}
+				if (prior.type === "slash" && prior.prev.type !== "bos" && !afterStar && eos()) {
+					state.output = state.output.slice(0, -(prior.output + prev.output).length);
+					prior.output = `(?:${prior.output}`;
+					prev.type = "globstar";
+					prev.output = globstar(opts) + (opts.strictSlashes ? ")" : "|$)");
+					prev.value += value;
+					state.globstar = true;
+					state.output += prior.output + prev.output;
+					consume(value);
+					continue;
+				}
+				if (prior.type === "slash" && prior.prev.type !== "bos" && rest[0] === "/") {
+					const end = rest[1] !== void 0 ? "|$" : "";
+					state.output = state.output.slice(0, -(prior.output + prev.output).length);
+					prior.output = `(?:${prior.output}`;
+					prev.type = "globstar";
+					prev.output = `${globstar(opts)}${SLASH_LITERAL$1}|${SLASH_LITERAL$1}${end})`;
+					prev.value += value;
+					state.output += prior.output + prev.output;
+					state.globstar = true;
+					consume(value + advance());
+					push({
+						type: "slash",
+						value: "/",
+						output: ""
+					});
+					continue;
+				}
+				if (prior.type === "bos" && rest[0] === "/") {
+					prev.type = "globstar";
+					prev.value += value;
+					prev.output = `(?:^|${SLASH_LITERAL$1}|${globstar(opts)}${SLASH_LITERAL$1})`;
+					state.output = prev.output;
+					state.globstar = true;
+					consume(value + advance());
+					push({
+						type: "slash",
+						value: "/",
+						output: ""
+					});
+					continue;
+				}
+				state.output = state.output.slice(0, -prev.output.length);
+				prev.type = "globstar";
+				prev.output = globstar(opts);
+				prev.value += value;
+				state.output += prev.output;
+				state.globstar = true;
+				consume(value);
+				continue;
+			}
+			const token = {
+				type: "star",
+				value,
+				output: star
+			};
+			if (opts.bash === true) {
+				token.output = ".*?";
+				if (prev.type === "bos" || prev.type === "slash") token.output = nodot + token.output;
+				push(token);
+				continue;
+			}
+			if (prev && (prev.type === "bracket" || prev.type === "paren") && opts.regex === true) {
+				token.output = value;
+				push(token);
+				continue;
+			}
+			if (state.index === state.start || prev.type === "slash" || prev.type === "dot") {
+				if (prev.type === "dot") {
+					state.output += NO_DOT_SLASH;
+					prev.output += NO_DOT_SLASH;
+				} else if (opts.dot === true) {
+					state.output += NO_DOTS_SLASH;
+					prev.output += NO_DOTS_SLASH;
+				} else {
+					state.output += nodot;
+					prev.output += nodot;
+				}
+				if (peek() !== "*") {
+					state.output += ONE_CHAR$1;
+					prev.output += ONE_CHAR$1;
+				}
+			}
+			push(token);
+		}
+		while (state.brackets > 0) {
+			if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "]"));
+			state.output = utils$2.escapeLast(state.output, "[");
+			decrement("brackets");
+		}
+		while (state.parens > 0) {
+			if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", ")"));
+			state.output = utils$2.escapeLast(state.output, "(");
+			decrement("parens");
+		}
+		while (state.braces > 0) {
+			if (opts.strictBrackets === true) throw new SyntaxError(syntaxError("closing", "}"));
+			state.output = utils$2.escapeLast(state.output, "{");
+			decrement("braces");
+		}
+		if (opts.strictSlashes !== true && (prev.type === "star" || prev.type === "bracket")) push({
+			type: "maybe_slash",
+			value: "",
+			output: `${SLASH_LITERAL$1}?`
+		});
+		if (state.backtrack === true) {
+			state.output = "";
+			for (const token of state.tokens) {
+				state.output += token.output != null ? token.output : token.value;
+				if (token.suffix) state.output += token.suffix;
+			}
+		}
+		return state;
+	};
+	/**
+	* Fast paths for creating regular expressions for common glob patterns.
+	* This can significantly speed up processing and has very little downside
+	* impact when none of the fast paths match.
+	*/
+	parse$1.fastpaths = (input, options) => {
+		const opts = { ...options };
+		const max = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
+		const len = input.length;
+		if (len > max) throw new SyntaxError(`Input length: ${len}, exceeds maximum allowed length: ${max}`);
+		input = REPLACEMENTS[input] || input;
+		const { DOT_LITERAL: DOT_LITERAL$1, SLASH_LITERAL: SLASH_LITERAL$1, ONE_CHAR: ONE_CHAR$1, DOTS_SLASH: DOTS_SLASH$1, NO_DOT, NO_DOTS, NO_DOTS_SLASH, STAR, START_ANCHOR: START_ANCHOR$1 } = constants$1.globChars(opts.windows);
+		const nodot = opts.dot ? NO_DOTS : NO_DOT;
+		const slashDot = opts.dot ? NO_DOTS_SLASH : NO_DOT;
+		const capture = opts.capture ? "" : "?:";
+		const state = {
+			negated: false,
+			prefix: ""
+		};
+		let star = opts.bash === true ? ".*?" : STAR;
+		if (opts.capture) star = `(${star})`;
+		const globstar = (opts$1) => {
+			if (opts$1.noglobstar === true) return star;
+			return `(${capture}(?:(?!${START_ANCHOR$1}${opts$1.dot ? DOTS_SLASH$1 : DOT_LITERAL$1}).)*?)`;
+		};
+		const create = (str) => {
+			switch (str) {
+				case "*": return `${nodot}${ONE_CHAR$1}${star}`;
+				case ".*": return `${DOT_LITERAL$1}${ONE_CHAR$1}${star}`;
+				case "*.*": return `${nodot}${star}${DOT_LITERAL$1}${ONE_CHAR$1}${star}`;
+				case "*/*": return `${nodot}${star}${SLASH_LITERAL$1}${ONE_CHAR$1}${slashDot}${star}`;
+				case "**": return nodot + globstar(opts);
+				case "**/*": return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL$1})?${slashDot}${ONE_CHAR$1}${star}`;
+				case "**/*.*": return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL$1})?${slashDot}${star}${DOT_LITERAL$1}${ONE_CHAR$1}${star}`;
+				case "**/.*": return `(?:${nodot}${globstar(opts)}${SLASH_LITERAL$1})?${DOT_LITERAL$1}${ONE_CHAR$1}${star}`;
+				default: {
+					const match = /^(.*?)\.(\w+)$/.exec(str);
+					if (!match) return;
+					const source$1 = create(match[1]);
+					if (!source$1) return;
+					return source$1 + DOT_LITERAL$1 + match[2];
+				}
+			}
+		};
+		let source = create(utils$2.removePrefix(input, state));
+		if (source && opts.strictSlashes !== true) source += `${SLASH_LITERAL$1}?`;
+		return source;
+	};
+	module.exports = parse$1;
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/picomatch.js
+var require_picomatch$1 = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/lib/picomatch.js": ((exports, module) => {
+	const scan = require_scan();
+	const parse = require_parse();
+	const utils$1 = require_utils();
+	const constants = require_constants();
+	const isObject = (val) => val && typeof val === "object" && !Array.isArray(val);
+	/**
+	* Creates a matcher function from one or more glob patterns. The
+	* returned function takes a string to match as its first argument,
+	* and returns true if the string is a match. The returned matcher
+	* function also takes a boolean as the second argument that, when true,
+	* returns an object with additional information.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* // picomatch(glob[, options]);
+	*
+	* const isMatch = picomatch('*.!(*a)');
+	* console.log(isMatch('a.a')); //=> false
+	* console.log(isMatch('a.b')); //=> true
+	* ```
+	* @name picomatch
+	* @param {String|Array} `globs` One or more glob patterns.
+	* @param {Object=} `options`
+	* @return {Function=} Returns a matcher function.
+	* @api public
+	*/
+	const picomatch$1 = (glob, options, returnState = false) => {
+		if (Array.isArray(glob)) {
+			const fns = glob.map((input) => picomatch$1(input, options, returnState));
+			const arrayMatcher = (str) => {
+				for (const isMatch of fns) {
+					const state$1 = isMatch(str);
+					if (state$1) return state$1;
+				}
+				return false;
+			};
+			return arrayMatcher;
+		}
+		const isState = isObject(glob) && glob.tokens && glob.input;
+		if (glob === "" || typeof glob !== "string" && !isState) throw new TypeError("Expected pattern to be a non-empty string");
+		const opts = options || {};
+		const posix$1 = opts.windows;
+		const regex = isState ? picomatch$1.compileRe(glob, options) : picomatch$1.makeRe(glob, options, false, true);
+		const state = regex.state;
+		delete regex.state;
+		let isIgnored = () => false;
+		if (opts.ignore) {
+			const ignoreOpts = {
+				...options,
+				ignore: null,
+				onMatch: null,
+				onResult: null
+			};
+			isIgnored = picomatch$1(opts.ignore, ignoreOpts, returnState);
+		}
+		const matcher = (input, returnObject = false) => {
+			const { isMatch, match, output } = picomatch$1.test(input, regex, options, {
+				glob,
+				posix: posix$1
+			});
+			const result = {
+				glob,
+				state,
+				regex,
+				posix: posix$1,
+				input,
+				output,
+				match,
+				isMatch
+			};
+			if (typeof opts.onResult === "function") opts.onResult(result);
+			if (isMatch === false) {
+				result.isMatch = false;
+				return returnObject ? result : false;
+			}
+			if (isIgnored(input)) {
+				if (typeof opts.onIgnore === "function") opts.onIgnore(result);
+				result.isMatch = false;
+				return returnObject ? result : false;
+			}
+			if (typeof opts.onMatch === "function") opts.onMatch(result);
+			return returnObject ? result : true;
+		};
+		if (returnState) matcher.state = state;
+		return matcher;
+	};
+	/**
+	* Test `input` with the given `regex`. This is used by the main
+	* `picomatch()` function to test the input string.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* // picomatch.test(input, regex[, options]);
+	*
+	* console.log(picomatch.test('foo/bar', /^(?:([^/]*?)\/([^/]*?))$/));
+	* // { isMatch: true, match: [ 'foo/', 'foo', 'bar' ], output: 'foo/bar' }
+	* ```
+	* @param {String} `input` String to test.
+	* @param {RegExp} `regex`
+	* @return {Object} Returns an object with matching info.
+	* @api public
+	*/
+	picomatch$1.test = (input, regex, options, { glob, posix: posix$1 } = {}) => {
+		if (typeof input !== "string") throw new TypeError("Expected input to be a string");
+		if (input === "") return {
+			isMatch: false,
+			output: ""
+		};
+		const opts = options || {};
+		const format = opts.format || (posix$1 ? utils$1.toPosixSlashes : null);
+		let match = input === glob;
+		let output = match && format ? format(input) : input;
+		if (match === false) {
+			output = format ? format(input) : input;
+			match = output === glob;
+		}
+		if (match === false || opts.capture === true) if (opts.matchBase === true || opts.basename === true) match = picomatch$1.matchBase(input, regex, options, posix$1);
+		else match = regex.exec(output);
+		return {
+			isMatch: Boolean(match),
+			match,
+			output
+		};
+	};
+	/**
+	* Match the basename of a filepath.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* // picomatch.matchBase(input, glob[, options]);
+	* console.log(picomatch.matchBase('foo/bar.js', '*.js'); // true
+	* ```
+	* @param {String} `input` String to test.
+	* @param {RegExp|String} `glob` Glob pattern or regex created by [.makeRe](#makeRe).
+	* @return {Boolean}
+	* @api public
+	*/
+	picomatch$1.matchBase = (input, glob, options) => {
+		return (glob instanceof RegExp ? glob : picomatch$1.makeRe(glob, options)).test(utils$1.basename(input));
+	};
+	/**
+	* Returns true if **any** of the given glob `patterns` match the specified `string`.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* // picomatch.isMatch(string, patterns[, options]);
+	*
+	* console.log(picomatch.isMatch('a.a', ['b.*', '*.a'])); //=> true
+	* console.log(picomatch.isMatch('a.a', 'b.*')); //=> false
+	* ```
+	* @param {String|Array} str The string to test.
+	* @param {String|Array} patterns One or more glob patterns to use for matching.
+	* @param {Object} [options] See available [options](#options).
+	* @return {Boolean} Returns true if any patterns match `str`
+	* @api public
+	*/
+	picomatch$1.isMatch = (str, patterns, options) => picomatch$1(patterns, options)(str);
+	/**
+	* Parse a glob pattern to create the source string for a regular
+	* expression.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* const result = picomatch.parse(pattern[, options]);
+	* ```
+	* @param {String} `pattern`
+	* @param {Object} `options`
+	* @return {Object} Returns an object with useful properties and output to be used as a regex source string.
+	* @api public
+	*/
+	picomatch$1.parse = (pattern, options) => {
+		if (Array.isArray(pattern)) return pattern.map((p) => picomatch$1.parse(p, options));
+		return parse(pattern, {
+			...options,
+			fastpaths: false
+		});
+	};
+	/**
+	* Scan a glob pattern to separate the pattern into segments.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* // picomatch.scan(input[, options]);
+	*
+	* const result = picomatch.scan('!./foo/*.js');
+	* console.log(result);
+	* { prefix: '!./',
+	*   input: '!./foo/*.js',
+	*   start: 3,
+	*   base: 'foo',
+	*   glob: '*.js',
+	*   isBrace: false,
+	*   isBracket: false,
+	*   isGlob: true,
+	*   isExtglob: false,
+	*   isGlobstar: false,
+	*   negated: true }
+	* ```
+	* @param {String} `input` Glob pattern to scan.
+	* @param {Object} `options`
+	* @return {Object} Returns an object with
+	* @api public
+	*/
+	picomatch$1.scan = (input, options) => scan(input, options);
+	/**
+	* Compile a regular expression from the `state` object returned by the
+	* [parse()](#parse) method.
+	*
+	* @param {Object} `state`
+	* @param {Object} `options`
+	* @param {Boolean} `returnOutput` Intended for implementors, this argument allows you to return the raw output from the parser.
+	* @param {Boolean} `returnState` Adds the state to a `state` property on the returned regex. Useful for implementors and debugging.
+	* @return {RegExp}
+	* @api public
+	*/
+	picomatch$1.compileRe = (state, options, returnOutput = false, returnState = false) => {
+		if (returnOutput === true) return state.output;
+		const opts = options || {};
+		const prepend = opts.contains ? "" : "^";
+		const append = opts.contains ? "" : "$";
+		let source = `${prepend}(?:${state.output})${append}`;
+		if (state && state.negated === true) source = `^(?!${source}).*$`;
+		const regex = picomatch$1.toRegex(source, options);
+		if (returnState === true) regex.state = state;
+		return regex;
+	};
+	/**
+	* Create a regular expression from a parsed glob pattern.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* const state = picomatch.parse('*.js');
+	* // picomatch.compileRe(state[, options]);
+	*
+	* console.log(picomatch.compileRe(state));
+	* //=> /^(?:(?!\.)(?=.)[^/]*?\.js)$/
+	* ```
+	* @param {String} `state` The object returned from the `.parse` method.
+	* @param {Object} `options`
+	* @param {Boolean} `returnOutput` Implementors may use this argument to return the compiled output, instead of a regular expression. This is not exposed on the options to prevent end-users from mutating the result.
+	* @param {Boolean} `returnState` Implementors may use this argument to return the state from the parsed glob with the returned regular expression.
+	* @return {RegExp} Returns a regex created from the given pattern.
+	* @api public
+	*/
+	picomatch$1.makeRe = (input, options = {}, returnOutput = false, returnState = false) => {
+		if (!input || typeof input !== "string") throw new TypeError("Expected a non-empty string");
+		let parsed = {
+			negated: false,
+			fastpaths: true
+		};
+		if (options.fastpaths !== false && (input[0] === "." || input[0] === "*")) parsed.output = parse.fastpaths(input, options);
+		if (!parsed.output) parsed = parse(input, options);
+		return picomatch$1.compileRe(parsed, options, returnOutput, returnState);
+	};
+	/**
+	* Create a regular expression from the given regex source string.
+	*
+	* ```js
+	* const picomatch = require('picomatch');
+	* // picomatch.toRegex(source[, options]);
+	*
+	* const { output } = picomatch.parse('*.js');
+	* console.log(picomatch.toRegex(output));
+	* //=> /^(?:(?!\.)(?=.)[^/]*?\.js)$/
+	* ```
+	* @param {String} `source` Regular expression source string.
+	* @param {Object} `options`
+	* @return {RegExp}
+	* @api public
+	*/
+	picomatch$1.toRegex = (source, options) => {
+		try {
+			const opts = options || {};
+			return new RegExp(source, opts.flags || (opts.nocase ? "i" : ""));
+		} catch (err) {
+			if (options && options.debug === true) throw err;
+			return /$^/;
+		}
+	};
+	/**
+	* Picomatch constants.
+	* @return {Object}
+	*/
+	picomatch$1.constants = constants;
+	/**
+	* Expose "picomatch"
+	*/
+	module.exports = picomatch$1;
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/index.js
+var require_picomatch = /* @__PURE__ */ __commonJS({ "node_modules/.pnpm/picomatch@4.0.3/node_modules/picomatch/index.js": ((exports, module) => {
+	const pico = require_picomatch$1();
+	const utils = require_utils();
+	function picomatch(glob, options, returnState = false) {
+		if (options && (options.windows === null || options.windows === void 0)) options = {
+			...options,
+			windows: utils.isWindows()
+		};
+		return pico(glob, options, returnState);
+	}
+	Object.assign(picomatch, pico);
+	module.exports = picomatch;
+}) });
+
+//#endregion
+//#region node_modules/.pnpm/@rollup+pluginutils@5.3.0_rollup@4.50.2/node_modules/@rollup/pluginutils/dist/es/index.js
+var import_picomatch = /* @__PURE__ */ __toESM(require_picomatch(), 1);
+function isArray(arg) {
+	return Array.isArray(arg);
+}
+function ensureArray(thing) {
+	if (isArray(thing)) return thing;
+	if (thing == null) return [];
+	return [thing];
+}
+const normalizePathRegExp = new RegExp(`\\${win32.sep}`, "g");
+const normalizePath = function normalizePath$2(filename) {
+	return filename.replace(normalizePathRegExp, posix.sep);
+};
+function getMatcherString(id, resolutionBase) {
+	if (resolutionBase === false || isAbsolute$1(id) || id.startsWith("**")) return normalizePath(id);
+	const basePath = normalizePath(resolve$1(resolutionBase || "")).replace(/[-^$*+?.()|[\]{}]/g, "\\$&");
+	return posix.join(basePath, normalizePath(id));
+}
+const createFilter$1 = function createFilter$2(include, exclude, options) {
+	const resolutionBase = options && options.resolve;
+	const getMatcher = (id) => id instanceof RegExp ? id : { test: (what) => {
+		return (0, import_picomatch.default)(getMatcherString(id, resolutionBase), { dot: true })(what);
+	} };
+	const includeMatchers = ensureArray(include).map(getMatcher);
+	const excludeMatchers = ensureArray(exclude).map(getMatcher);
+	if (!includeMatchers.length && !excludeMatchers.length) return (id) => typeof id === "string" && !id.includes("\0");
+	return function result(id) {
+		if (typeof id !== "string") return false;
+		if (id.includes("\0")) return false;
+		const pathId = normalizePath(id);
+		for (let i = 0; i < excludeMatchers.length; ++i) {
+			const matcher = excludeMatchers[i];
+			if (matcher instanceof RegExp) matcher.lastIndex = 0;
+			if (matcher.test(pathId)) return false;
+		}
+		for (let i = 0; i < includeMatchers.length; ++i) {
+			const matcher = includeMatchers[i];
+			if (matcher instanceof RegExp) matcher.lastIndex = 0;
+			if (matcher.test(pathId)) return true;
+		}
+		return !includeMatchers.length;
+	};
+};
+const forbiddenIdentifiers = new Set(`break case class catch const continue debugger default delete do else export extends finally for function if import in instanceof let new return super switch this throw try typeof var void while with yield enum await implements package protected static interface private public arguments Infinity NaN undefined null true false eval uneval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent encodeURI encodeURIComponent escape unescape Object Function Boolean Symbol Error EvalError InternalError RangeError ReferenceError SyntaxError TypeError URIError Number Math Date String RegExp Array Int8Array Uint8Array Uint8ClampedArray Int16Array Uint16Array Int32Array Uint32Array Float32Array Float64Array Map Set WeakMap WeakSet SIMD ArrayBuffer DataView JSON Promise Generator GeneratorFunction Reflect Proxy Intl`.split(" "));
+forbiddenIdentifiers.add("");
+const hasStringIsWellFormed = "isWellFormed" in String.prototype;
+
+//#endregion
+//#region src/core/utils/filter.ts
+const createFilter = createFilter$1;
+
+//#endregion
+//#region src/core/utils/logger.ts
+const LogLevels = {
+	silent: 0,
+	error: 1,
+	warn: 2,
+	info: 3
+};
+let lastType;
+let lastMsg;
+let sameCount = 0;
+function clearScreen() {
+	const repeatCount = process$1.stdout.rows - 2;
+	const blank = repeatCount > 0 ? "\n".repeat(repeatCount) : "";
+	console.log(blank);
+	readline.cursorTo(process$1.stdout, 0, 0);
+	readline.clearScreenDown(process$1.stdout);
+}
+let timeFormatter;
+function getTimeFormatter() {
+	timeFormatter ??= new Intl.DateTimeFormat(void 0, {
+		hour: "numeric",
+		minute: "numeric",
+		second: "numeric"
+	});
+	return timeFormatter;
+}
+function createLogger(level = "info", options = {}) {
+	if (options.customLogger) return options.customLogger;
+	const loggedErrors = /* @__PURE__ */ new WeakSet();
+	const { prefix = "[vite]", allowClearScreen = true, console: console$1 = globalThis.console } = options;
+	const thresh = LogLevels[level];
+	const canClearScreen = allowClearScreen && process$1.stdout.isTTY && !process$1.env.CI;
+	const clear = canClearScreen ? clearScreen : () => {};
+	function format(type, msg, options$1 = {}) {
+		if (options$1.timestamp) {
+			let tag = "";
+			if (type === "info") tag = colors.cyan(colors.bold(prefix));
+			else if (type === "warn") tag = colors.yellow(colors.bold(prefix));
+			else tag = colors.red(colors.bold(prefix));
+			const environment = options$1.environment ? `${options$1.environment} ` : "";
+			return `${colors.dim(getTimeFormatter().format(/* @__PURE__ */ new Date()))} ${tag} ${environment}${msg}`;
+		} else return msg;
+	}
+	function output(type, msg, options$1 = {}) {
+		if (thresh >= LogLevels[type]) {
+			const method = type === "info" ? "log" : type;
+			if (options$1.error) loggedErrors.add(options$1.error);
+			if (canClearScreen) if (type === lastType && msg === lastMsg) {
+				sameCount++;
+				clear();
+				console$1[method](format(type, msg, options$1), colors.yellow(`(x${sameCount + 1})`));
+			} else {
+				sameCount = 0;
+				lastMsg = msg;
+				lastType = type;
+				if (options$1.clear) clear();
+				console$1[method](format(type, msg, options$1));
+			}
+			else console$1[method](format(type, msg, options$1));
+		}
+	}
+	const warnedMessages = /* @__PURE__ */ new Set();
+	const logger = {
+		hasWarned: false,
+		info(msg, opts) {
+			output("info", msg, opts);
+		},
+		warn(msg, opts) {
+			logger.hasWarned = true;
+			output("warn", msg, opts);
+		},
+		warnOnce(msg, opts) {
+			if (warnedMessages.has(msg)) return;
+			logger.hasWarned = true;
+			output("warn", msg, opts);
+			warnedMessages.add(msg);
+		},
+		error(msg, opts) {
+			logger.hasWarned = true;
+			output("error", msg, opts);
+		},
+		clearScreen(type) {
+			if (thresh >= LogLevels[type]) clear();
+		},
+		hasErrorLogged(error) {
+			return loggedErrors.has(error);
+		}
+	};
+	return logger;
+}
+
+//#endregion
+//#region src/core/constant.ts
+const comments = [
+	{
+		type: "js",
+		start: "// ",
+		end: "",
+		regex: /^\/\/\s?(.*)$/
+	},
+	{
+		type: "jsx",
+		start: "{/* ",
+		end: " */}",
+		regex: /^\{\s?\/\*\s?(.*)\s?\*\/\s?\}$/
+	},
+	{
+		type: "css",
+		start: "/* ",
+		end: " */",
+		regex: /^\/\*\s?(.*)\*\/$/
+	},
+	{
+		type: "html",
+		start: "<!-- ",
+		end: " -->",
+		regex: /^<!--\s?(.*)-->$/
+	}
+];
+
+//#endregion
+//#region src/core/utils.ts
+function simpleMatchToken(comment, regex) {
+	const match = comment.match(regex);
+	if (match) return {
+		type: match[1],
+		value: match[2]?.trim()
+	};
+}
+function createProgramNode(body = []) {
+	return {
+		type: "Program",
+		body
+	};
+}
+function isComment(line) {
+	return comments.some((comment) => comment.regex.test(line));
+}
+function parseComment(line) {
+	const comment = comments.find((comment$1) => comment$1.start === line.slice(0, comment$1.start.length));
+	const content = comment?.regex.exec(line)?.[1];
+	return {
+		type: comment?.type,
+		content: content?.trim() ?? ""
+	};
+}
+function findComment(type) {
+	return comments.find((comment) => comment.type === type);
+}
+
+//#endregion
+//#region src/core/context/generator/generator.ts
+/**
+* 生成器基类
+* 提供通用的 AST 遍历和节点处理逻辑
+*/
+var Generator = class {
+	constructor(node, generates = [], options = {}) {
+		this.node = node;
+		this.generates = generates;
+		this.options = options;
+	}
+	/**
+	* 遍历 AST 节点
+	*/
+	walk(node) {
+		switch (node.type) {
+			case "Program":
+				for (const child of node.body) this.walk(child);
+				break;
+			case "CodeStatement":
+				this.handleCodeStatement(node);
+				break;
+			default: this.processWithCustomGenerators(node);
+		}
+	}
+	/**
+	* 使用自定义生成器处理节点
+	* 生成器返回值约定：
+	* - string: 处理该节点
+	* - null: 已手动处理
+	* - undefined: 不处理，交给下一个生成器
+	*/
+	processWithCustomGenerators(node) {
+		const comment = node.comment && findComment(node.comment);
+		for (const generate of this.generates) {
+			if (!generate) continue;
+			const result = generate.call(this, node, comment);
+			if (result !== void 0) {
+				if (result !== null) this.handleGeneratorResult(node, String(result));
+				return;
+			}
+		}
+		this.handleUnprocessedNode(node);
+	}
+	/**
+	* 处理未被任何生成器处理的节点
+	*/
+	handleUnprocessedNode(node) {
+		const policy = this.options.unhandled ?? "throw";
+		if (policy === "remove") return;
+		if (policy === "keep") {
+			this.handleKeepNode(node);
+			return;
+		}
+		throw new Error(`Generator: Unhandled node type "${node.type}"${node.start != null && node.end != null ? ` at position ${node.start}-${node.end}` : ""}`);
+	}
+};
+
+//#endregion
+//#region src/core/context/generator/ms-generator.ts
+/**
+* 基于 MagicString 的代码转换器
+* 用于在现有源码基础上进行修改和删除操作
+*/
+var MsGenerator = class MsGenerator extends Generator {
+	constructor(node, generates = [], s, options = {}) {
+		super(node, generates, options);
+		this.s = s;
+		this.keepRanges = [];
+	}
+	keep(node) {
+		if (this.hasValidRange(node)) this.addKeepRange(node.start, node.end);
+	}
+	replace(node, code) {
+		this.validateNodeRange(node, "replace");
+		this.s.overwrite(node.start, node.end, code);
+		this.keep(node);
+	}
+	/**
+	* 处理 CodeStatement 节点
+	*/
+	handleCodeStatement(node) {
+		if (node.value && this.hasValidRange(node)) {
+			if (this.s.original.slice(node.start, node.end) !== node.value) {
+				this.replace(node, node.value);
+				return;
+			}
+		}
+		this.keep(node);
+	}
+	/**
+	* 处理自定义生成器返回的结果
+	*/
+	handleGeneratorResult(node, result) {
+		this.replace(node, result);
+	}
+	/**
+	* 保留节点（用于 unhandled: 'keep' 策略）
+	*/
+	handleKeepNode(node) {
+		this.keep(node);
+	}
+	addKeepRange(start, end) {
+		this.keepRanges.push([start, end]);
+	}
+	mergeKeepRanges() {
+		if (this.keepRanges.length === 0) return [];
+		const sorted = [...this.keepRanges].sort((a, b) => a[0] - b[0]);
+		const merged = [sorted[0]];
+		for (let i = 1; i < sorted.length; i++) {
+			const [currentStart, currentEnd] = sorted[i];
+			const [lastStart, lastEnd] = merged[merged.length - 1];
+			if (currentStart <= lastEnd) merged[merged.length - 1] = [lastStart, Math.max(lastEnd, currentEnd)];
+			else merged.push([currentStart, currentEnd]);
+		}
+		return merged;
+	}
+	applyExclusion() {
+		if (this.keepRanges.length === 0) {
+			this.s.remove(0, this.s.original.length);
+			return;
+		}
+		const mergedRanges = this.mergeKeepRanges();
+		this.removeUnkeptRanges(mergedRanges);
+	}
+	removeUnkeptRanges(mergedRanges) {
+		let lastEnd = 0;
+		for (const [start, end] of mergedRanges) {
+			if (start > lastEnd) this.s.remove(lastEnd, start);
+			lastEnd = end;
+		}
+		if (lastEnd < this.s.original.length) this.s.remove(lastEnd, this.s.original.length);
+	}
+	hasValidRange(node) {
+		return (node.start ?? node.end ?? false) !== false;
+	}
+	validateNodeRange(node, operation) {
+		if (!this.hasValidRange(node)) throw new Error(`Generator.${operation}: node is missing start/end position. Node type: ${node.type}`);
+	}
+	generate() {
+		this.keepRanges = [];
+		this.walk(this.node);
+		this.applyExclusion();
+	}
+	/**
+	* 静态方法：基于 MagicString 转换代码
+	*
+	* @param node - AST 节点
+	* @param generates - 生成器函数数组
+	* @param s - MagicString 实例
+	* @param options - 选项
+	*/
+	static generate(node, generates = [], s, options = {}) {
+		new MsGenerator(node, generates, s, options).generate();
+	}
+};
+
+//#endregion
+//#region src/core/context/lexer.ts
+var Lexer = class Lexer {
+	constructor(code, lexers = []) {
+		this.code = code;
+		this.lexers = lexers;
+		this.current = 0;
+		this.tokens = [];
+	}
+	lex() {
+		const code = this.code;
+		scanner: while (this.current < code.length) {
+			const startIndex = this.current;
+			const newlineMatch = code.slice(startIndex).match(/(\r\n|\n|\r)/);
+			let endIndex;
+			let nextIndex;
+			let newlineChar;
+			if (newlineMatch) {
+				newlineChar = newlineMatch[0];
+				endIndex = startIndex + newlineMatch.index;
+				nextIndex = endIndex + newlineChar.length;
+			} else {
+				endIndex = code.length;
+				nextIndex = code.length;
+			}
+			const rawLine = code.slice(startIndex, nextIndex);
+			const lineWithoutNewline = code.slice(startIndex, endIndex).trim();
+			if (isComment(lineWithoutNewline)) for (const lex of this.lexers) {
+				const comment = parseComment(lineWithoutNewline);
+				const token = lex.bind(this)(comment.content);
+				if (token) {
+					this.tokens.push({
+						comment: comment.type,
+						start: startIndex,
+						end: nextIndex,
+						...token
+					});
+					this.current = nextIndex;
+					continue scanner;
+				}
+			}
+			this.tokens.push({
+				type: "code",
+				value: rawLine,
+				start: startIndex,
+				end: nextIndex
+			});
+			this.current = nextIndex;
+		}
+		return this.tokens;
+	}
+	static lex(code, lexers = []) {
+		return new Lexer(code, lexers).lex();
+	}
+};
+
+//#endregion
+//#region src/core/context/parser.ts
+var Parser = class Parser {
+	constructor(tokens, parsers = []) {
+		this.tokens = tokens;
+		this.parsers = parsers;
+		this.ast = createProgramNode();
+		this.current = 0;
+	}
+	walk() {
+		const token = this.tokens[this.current];
+		if (token.type === "code") {
+			this.current++;
+			return {
+				type: "CodeStatement",
+				value: token.value,
+				start: token.start,
+				end: token.end
+			};
+		}
+		for (const parser of this.parsers) {
+			const node = parser.bind(this)(token);
+			if (node) return {
+				comment: token.comment,
+				start: token.start,
+				end: token.end,
+				...node
+			};
+		}
+		throw new Error(`Parser: Unknown token type: ${token.type}`);
+	}
+	parse() {
+		while (this.current < this.tokens.length) this.ast.body.push(this.walk());
+		return this.ast;
+	}
+	static parse(tokens, parsers = []) {
+		return new Parser(tokens, parsers).parse();
+	}
+};
+
+//#endregion
+//#region src/core/context/transformer.ts
+var Transformer = class Transformer {
+	constructor(program, transforms = []) {
+		this.program = program;
+		this.transforms = transforms;
+	}
+	walk(node) {
+		switch (node.type) {
+			case "Program": return {
+				...node,
+				body: node.body.map(this.walk.bind(this)).filter((n) => !!n)
+			};
+			case "CodeStatement": return node;
+		}
+		for (const transformer of this.transforms) {
+			const transformed = transformer.bind(this)(node);
+			if (transformed) return transformed;
+		}
+		throw new Error(`Transformer: Unknown node type: ${node.type}`);
+	}
+	transform() {
+		return this.walk(this.program);
+	}
+	static transform(program, transforms = []) {
+		return new Transformer(program, transforms).transform();
+	}
+};
+
+//#endregion
+//#region src/core/context/index.ts
+function resolveOptions(options) {
+	return {
+		cwd: process$1.cwd(),
+		include: ["**/*"],
+		exclude: [/[\\/]node_modules[\\/]/, /[\\/]\.git[\\/]/],
+		directives: [],
+		...options
+	};
+}
+function sortUserDirectives(directives) {
+	const preDirectives = [];
+	const postDirectives = [];
+	const normalDirectives = [];
+	if (directives) directives.forEach((p) => {
+		if (p.enforce === "pre") preDirectives.push(p);
+		else if (p.enforce === "post") postDirectives.push(p);
+		else normalDirectives.push(p);
+	});
+	return [
+		preDirectives,
+		normalDirectives,
+		postDirectives
+	];
+}
+var Context = class {
+	constructor(options) {
+		this.env = process$1.env;
+		this.options = resolveOptions(options);
+		this.directives = sortUserDirectives(this.options.directives.map((d) => typeof d === "function" ? d(this) : d)).flat();
+		this.lexers = this.directives.map((d) => d.lex);
+		this.parsers = this.directives.map((d) => d.parse);
+		this.transforms = this.directives.map((d) => d.transform);
+		this.generates = this.directives.map((d) => d.generate);
+		this.filter = createFilter(this.options.include, this.options.exclude);
+		this.logger = createLogger(void 0, { prefix: "unplugin-preprocessor-directives" });
+		this.env = this.loadEnv();
+	}
+	loadEnv(mode = process$1.env.NODE_ENV || "development") {
+		return loadEnv(mode, this.options.cwd, "");
+	}
+	_transform(code, id) {
+		const tokens = Lexer.lex(code, this.lexers);
+		if (!tokens.some((token) => token.type !== "code")) return null;
+		const ast = Parser.parse(tokens, this.parsers);
+		const transformed = Transformer.transform(ast, this.transforms);
+		if (!transformed) return null;
+		const s = new MagicString(code, { filename: id });
+		MsGenerator.generate(transformed, this.generates, s);
+		return s;
+	}
+	transform(code, id) {
+		return this._transform(code, id)?.toString();
+	}
+	transformWithMap(code, id) {
+		const s = this._transform(code, id);
+		if (s) return {
+			map: s.generateMap({
+				hires: true,
+				file: id
+			}),
+			code: s.toString()
+		};
+	}
+};
+
+//#endregion
+//#region src/core/directive.ts
+function defineDirective(directive) {
+	return directive;
+}
+
+//#endregion
+//#region src/core/directives/define.ts
+function resolveDefineNameAndValue(expression, env = process$1.env) {
+	if (/^\w*$/.test(expression)) return [expression, true];
+	else {
+		const evaluateExpression = new Function("env", `with (env){ return {${expression.replace("=", ":")}} }`);
+		return Object.entries(evaluateExpression(env))[0];
+	}
+}
+const theDefineDirective = defineDirective((context) => ({
+	lex(comment) {
+		const defineMath = comment.match(/#define\s?(.*)/);
+		if (defineMath) return {
+			type: "define",
+			value: defineMath[1]?.trim()
+		};
+		const undefMatch = comment.match(/#undef\s?(\w*)/);
+		if (undefMatch) return {
+			type: "undef",
+			value: undefMatch[1]?.trim()
+		};
+	},
+	parse(token) {
+		if (token.type === "define" || token.type === "undef") {
+			this.current++;
+			return {
+				type: "DefineStatement",
+				kind: token.type,
+				value: token.value
+			};
+		}
+	},
+	transform(node) {
+		if (node.type === "DefineStatement") {
+			if (node.kind === "define") {
+				const [name, value] = resolveDefineNameAndValue(node.value, context.env);
+				context.env[name] = value;
+			} else if (node.kind === "undef") context.env[node.value] = false;
+			return node;
+		}
+	},
+	generate(node, comment) {
+		if (node.type === "DefineStatement" && comment) {
+			if (node.kind === "define") return `${comment.start} #${node.kind} ${node.value} ${comment.end}`;
+			else if (node.kind === "undef") return `${comment.start} #${node.kind} ${node.value} ${comment.end}`;
+		}
+	}
+}));
+
+//#endregion
+//#region src/core/directives/if.ts
+function resolveConditional(test, env = process$1.env) {
+	test = test || "true";
+	test = test.trim();
+	test = test.replace(/([^=!])=([^=])/g, "$1==$2");
+	const evaluateCondition = new Function("env", `with (env){ return ( ${test} ) }`);
+	try {
+		return evaluateCondition(env) === "false" ? false : !!evaluateCondition(env);
+	} catch (error) {
+		if (error instanceof ReferenceError) {
+			const match = /(\w*) is not defined/.exec(error.message);
+			if (match && match[1]) {
+				const name = match[1];
+				env[name] = false;
+				return resolveConditional(test, env);
+			}
+		}
+		return false;
+	}
+}
+const ifDirective = defineDirective((context) => {
+	return {
+		lex(comment) {
+			return simpleMatchToken(comment, /#(if|else|elif|endif)\s?(.*)/);
+		},
+		parse(token) {
+			if (token.type === "if" || token.type === "elif" || token.type === "else") {
+				const node = {
+					type: "IfStatement",
+					test: token.value,
+					consequent: [],
+					alternate: [],
+					kind: token.type
+				};
+				this.current++;
+				while (this.current < this.tokens.length) {
+					const nextToken = this.tokens[this.current];
+					if (nextToken.type === "elif" || nextToken.type === "else") {
+						node.alternate.push(this.walk());
+						break;
+					} else if (nextToken.type === "endif") {
+						this.current++;
+						break;
+					} else node.consequent.push(this.walk());
+				}
+				return node;
+			}
+		},
+		transform(node) {
+			if (node.type === "IfStatement") {
+				if (resolveConditional(node.test, context.env)) return {
+					type: "Program",
+					body: node.consequent.map(this.walk.bind(this)).filter((n) => n != null)
+				};
+				else if (node.alternate) return {
+					type: "Program",
+					body: node.alternate.map(this.walk.bind(this)).filter((n) => n != null)
+				};
+			}
+		},
+		generate(node, comment) {
+			if (node.type === "IfStatement" && comment) {
+				let code = "";
+				if (node.kind === "else") code = `${comment.start} ${node.kind} ${comment.end}`;
+				else code = `${comment.start} #${node.kind} ${node.test}${comment.end}`;
+				const consequentCode = node.consequent.map(this.walk.bind(this)).join("\n");
+				code += `\n${consequentCode}`;
+				if (node.alternate.length) {
+					const alternateCode = node.alternate.map(this.walk.bind(this)).join("\n");
+					code += `\n${alternateCode}`;
+				} else code += `\n${comment.start} #endif ${comment.end}`;
+				return code;
+			}
+		}
+	};
+});
+
+//#endregion
+//#region src/core/directives/include.ts
+const includeDirective = defineDirective((context) => {
+	const includedFilesStack = [];
+	return {
+		lex(comment) {
+			return simpleMatchToken(comment, /#(include)\s+["<](.+)[">]/);
+		},
+		parse(token) {
+			if (token.type === "include") {
+				this.current++;
+				return {
+					type: "IncludeStatement",
+					value: token.value
+				};
+			}
+		},
+		transform(node) {
+			if (node.type === "IncludeStatement") {
+				let filePath = node.value;
+				if (!isAbsolute(filePath)) filePath = resolve(context.options.cwd, filePath);
+				if (!existsSync(filePath)) {
+					context.logger.warn(`Include file not found: ${filePath}`);
+					return node;
+				}
+				const currentIncludedFiles = includedFilesStack[includedFilesStack.length - 1] || /* @__PURE__ */ new Set();
+				if (currentIncludedFiles.has(filePath)) {
+					context.logger.warn(`Circular include detected: ${filePath}`);
+					return node;
+				}
+				try {
+					const newIncludedFiles = new Set(currentIncludedFiles);
+					newIncludedFiles.add(filePath);
+					includedFilesStack.push(newIncludedFiles);
+					const fileContent = readFileSync(filePath, "utf-8");
+					const processedContent = context.transform(fileContent, filePath);
+					includedFilesStack.pop();
+					if (processedContent) return {
+						type: "CodeStatement",
+						value: processedContent,
+						start: node.start,
+						end: node.end,
+						comment: node.comment
+					};
+					return {
+						type: "CodeStatement",
+						value: fileContent,
+						start: node.start,
+						end: node.end,
+						comment: node.comment
+					};
+				} catch (error) {
+					includedFilesStack.pop();
+					context.logger.error(`Error including file ${filePath}: ${error}`);
+				}
+			}
+		},
+		generate(node, comment) {
+			if (node.type === "IncludeStatement" && comment) return `${comment.start} #include "${node.value}" ${comment.end}`;
+		}
+	};
+});
+
+//#endregion
+//#region src/core/directives/message.ts
+const MessageDirective = defineDirective((context) => ({
+	lex(comment) {
+		return simpleMatchToken(comment, /#(error|warning|info)\s*(.*)/);
+	},
+	parse(token) {
+		if (token.type === "error" || token.type === "warning" || token.type === "info") {
+			this.current++;
+			return {
+				type: "MessageStatement",
+				kind: token.type,
+				value: token.value
+			};
+		}
+	},
+	transform(node) {
+		if (node.type === "MessageStatement") {
+			switch (node.kind) {
+				case "error":
+					context.logger.error(node.value, { timestamp: true });
+					break;
+				case "warning":
+					context.logger.warn(node.value, { timestamp: true });
+					break;
+				case "info":
+					context.logger.info(node.value, { timestamp: true });
+					break;
+			}
+			return node;
+		}
+	},
+	generate(node, comment) {
+		if (node.type === "MessageStatement" && comment) return `${comment.start} #${node.kind} ${node.value} ${comment.end}`;
+	}
+}));
+
+//#endregion
+//#region src/core/unplugin.ts
+const unpluginFactory = (options) => {
+	const ctx = new Context({
+		...options,
+		directives: [
+			ifDirective,
+			theDefineDirective,
+			includeDirective,
+			MessageDirective,
+			...options?.directives ?? []
+		]
+	});
+	return {
+		name: "unplugin-preprocessor-directives",
+		enforce: "pre",
+		transform: (code, id) => ctx.transform(code, id),
+		transformInclude(id) {
+			return ctx.filter(id);
+		},
+		vite: {
+			configResolved(config$1) {
+				ctx.env = {
+					...ctx.loadEnv(config$1.mode),
+					...config$1.env
+				};
+			},
+			transform(code, id) {
+				if (ctx.filter(id)) {
+					const transformed = ctx.transformWithMap(code, id);
+					if (transformed) {
+						const map = remapping([this.getCombinedSourcemap(), transformed.map], () => null);
+						return {
+							code: transformed.code,
+							map
+						};
+					}
+				}
+			}
+		}
+	};
+};
+const unplugin = /* @__PURE__ */ createUnplugin(unpluginFactory);
+var unplugin_default = unplugin;
+
+//#endregion
+export { comments as S, createProgramNode as _, includeDirective as a, parseComment as b, theDefineDirective as c, resolveOptions as d, sortUserDirectives as f, Generator as g, MsGenerator as h, MessageDirective as i, defineDirective as l, Lexer as m, unpluginFactory as n, ifDirective as o, Parser as p, unplugin_default as r, resolveConditional as s, unplugin as t, Context as u, findComment as v, simpleMatchToken as x, isComment as y };

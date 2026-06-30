@@ -1,0 +1,8 @@
+import { produce, nothing } from 'immer';
+import { atom } from 'jotai/vanilla';
+export function atomWithImmer(initialValue) {
+    const anAtom = atom(initialValue, (get, set, fn) => set(anAtom, produce(get(anAtom), typeof fn === 'function'
+        ? fn
+        : () => (fn === undefined ? nothing : fn))));
+    return anAtom;
+}

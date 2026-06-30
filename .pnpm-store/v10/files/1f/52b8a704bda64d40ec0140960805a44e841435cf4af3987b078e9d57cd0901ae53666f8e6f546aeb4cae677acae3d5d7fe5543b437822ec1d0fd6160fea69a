@@ -1,0 +1,6 @@
+import { n as UserOptions } from "./types-5fYYU353.cjs";
+import * as _farmfe_core0 from "@farmfe/core";
+
+//#region src/farm.d.ts
+declare const _default: (options?: UserOptions | undefined) => _farmfe_core0.JsPlugin;
+export = _default;

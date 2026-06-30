@@ -1,0 +1,115 @@
+import { A as Comment, C as Context, D as Lexer, E as Parser, O as Generator, S as Transform, T as sortUserDirectives, _ as Lex, a as IfToken, b as SimpleNode, c as CodeStatement, d as IncludeStatement, f as MessageStatement, g as Generate, h as FunctionDirective, i as DefineToken, k as GeneratorOptions, l as DefineStatement, m as Directive, n as UserOptions, o as IncludeToken, p as ProgramNode, r as CodeToken, s as MessageToken, t as Options, u as IfStatement, v as ObjectDirective, w as resolveOptions, x as SimpleToken, y as Parse } from "./types-5fYYU353.cjs";
+import MagicString from "magic-string";
+import * as unplugin0 from "unplugin";
+import { UnpluginFactory } from "unplugin";
+
+//#region src/core/context/generator/code-generator.d.ts
+interface CodeGeneratorOptions extends GeneratorOptions {}
+/**
+ * 纯代码生成器
+ * 从 AST 节点生成代码字符串，不依赖 MagicString
+ */
+declare class CodeGenerator extends Generator {
+  private generatedCode;
+  /**
+   * 添加代码片段到生成结果
+   */
+  append(code: string): void;
+  /**
+   * 处理 CodeStatement 节点
+   */
+  protected handleCodeStatement(node: SimpleNode): void;
+  /**
+   * 处理自定义生成器返回的结果
+   */
+  protected handleGeneratorResult(node: SimpleNode, result: string): void;
+  /**
+   * 保留节点（用于 unhandled: 'keep' 策略）
+   */
+  protected handleKeepNode(node: SimpleNode): void;
+  /**
+   * 生成最终代码
+   */
+  private generate;
+  /**
+   * 静态方法：从 AST 节点生成代码
+   */
+  static generate(node: SimpleNode, generates?: (Generate | undefined)[], options?: CodeGeneratorOptions): string;
+}
+//#endregion
+//#region src/core/context/generator/ms-generator.d.ts
+interface MsGeneratorOptions extends GeneratorOptions {}
+/**
+ * 基于 MagicString 的代码转换器
+ * 用于在现有源码基础上进行修改和删除操作
+ */
+declare class MsGenerator extends Generator {
+  readonly s: MagicString;
+  private keepRanges;
+  constructor(node: SimpleNode, generates: (Generate | undefined)[] | undefined, s: MagicString, options?: GeneratorOptions);
+  keep(node: SimpleNode): void;
+  replace(node: SimpleNode, code: string): void;
+  /**
+   * 处理 CodeStatement 节点
+   */
+  protected handleCodeStatement(node: SimpleNode): void;
+  /**
+   * 处理自定义生成器返回的结果
+   */
+  protected handleGeneratorResult(node: SimpleNode, result: string): void;
+  /**
+   * 保留节点（用于 unhandled: 'keep' 策略）
+   */
+  protected handleKeepNode(node: SimpleNode): void;
+  private addKeepRange;
+  private mergeKeepRanges;
+  private applyExclusion;
+  private removeUnkeptRanges;
+  private hasValidRange;
+  private validateNodeRange;
+  private generate;
+  /**
+   * 静态方法：基于 MagicString 转换代码
+   *
+   * @param node - AST 节点
+   * @param generates - 生成器函数数组
+   * @param s - MagicString 实例
+   * @param options - 选项
+   */
+  static generate(node: SimpleNode, generates: (Generate | undefined)[] | undefined, s: MagicString, options?: GeneratorOptions): void;
+}
+//#endregion
+//#region src/core/constant.d.ts
+declare const comments: Comment[];
+//#endregion
+//#region src/core/directive.d.ts
+declare function defineDirective<T extends SimpleToken, N extends SimpleNode>(directive: Directive<T, N>): Directive<T, N>;
+//#endregion
+//#region src/core/directives/define.d.ts
+declare const theDefineDirective: Directive<DefineToken, DefineStatement>;
+//#endregion
+//#region src/core/directives/if.d.ts
+declare function resolveConditional(test: string, env?: NodeJS.ProcessEnv): boolean;
+declare const ifDirective: Directive<IfToken, IfStatement>;
+//#endregion
+//#region src/core/directives/include.d.ts
+declare const includeDirective: Directive<IncludeToken, IncludeStatement>;
+//#endregion
+//#region src/core/directives/message.d.ts
+declare const MessageDirective: Directive<MessageToken, MessageStatement>;
+//#endregion
+//#region src/core/unplugin.d.ts
+declare const unpluginFactory: UnpluginFactory<UserOptions | undefined>;
+declare const unplugin: unplugin0.UnpluginInstance<UserOptions | undefined, boolean>;
+//#endregion
+//#region src/core/utils.d.ts
+declare function simpleMatchToken<T = SimpleToken>(comment: string, regex: RegExp): T | undefined;
+declare function createProgramNode(body?: SimpleNode[]): ProgramNode;
+declare function isComment(line: string): boolean;
+declare function parseComment(line: string): {
+  type: string | undefined;
+  content: string;
+};
+declare function findComment(type: string): Comment;
+//#endregion
+export { CodeGenerator, CodeGeneratorOptions, CodeStatement, CodeToken, Comment, Context, DefineStatement, DefineToken, Directive, FunctionDirective, Generate, Generator, GeneratorOptions, IfStatement, IfToken, IncludeStatement, IncludeToken, Lex, Lexer, MessageDirective, MessageStatement, MessageToken, MsGenerator, MsGeneratorOptions, ObjectDirective, Options, Parse, Parser, ProgramNode, SimpleNode, SimpleToken, Transform, UserOptions, comments, createProgramNode, defineDirective, findComment, ifDirective, includeDirective, isComment, parseComment, resolveConditional, resolveOptions, simpleMatchToken, sortUserDirectives, theDefineDirective, unplugin, unpluginFactory };

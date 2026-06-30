@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.atomWithImmer = atomWithImmer;
+const immer_1 = require("immer");
+const vanilla_1 = require("jotai/vanilla");
+function atomWithImmer(initialValue) {
+    const anAtom = (0, vanilla_1.atom)(initialValue, (get, set, fn) => set(anAtom, (0, immer_1.produce)(get(anAtom), typeof fn === 'function'
+        ? fn
+        : () => (fn === undefined ? immer_1.nothing : fn))));
+    return anAtom;
+}

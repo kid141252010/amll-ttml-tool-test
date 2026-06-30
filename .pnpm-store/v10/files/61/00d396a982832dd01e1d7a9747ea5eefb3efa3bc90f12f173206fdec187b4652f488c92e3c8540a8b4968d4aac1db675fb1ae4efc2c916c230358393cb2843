@@ -1,0 +1,27 @@
+const require_unplugin = require('./unplugin-BDx8Bfqn.cjs');
+const require_src = require('./src-TVqaSbon.cjs');
+require('./types-CBTc19th.cjs');
+
+exports.CodeGenerator = require_src.CodeGenerator;
+exports.Context = require_unplugin.Context;
+exports.Generator = require_unplugin.Generator;
+exports.Lexer = require_unplugin.Lexer;
+exports.MessageDirective = require_unplugin.MessageDirective;
+exports.MsGenerator = require_unplugin.MsGenerator;
+exports.Parser = require_unplugin.Parser;
+exports.comments = require_unplugin.comments;
+exports.createProgramNode = require_unplugin.createProgramNode;
+exports.defineDirective = require_unplugin.defineDirective;
+exports.findComment = require_unplugin.findComment;
+exports.ifDirective = require_unplugin.ifDirective;
+exports.includeDirective = require_unplugin.includeDirective;
+exports.isComment = require_unplugin.isComment;
+exports.parseComment = require_unplugin.parseComment;
+exports.resolveConditional = require_unplugin.resolveConditional;
+exports.resolveOptions = require_unplugin.resolveOptions;
+exports.simpleMatchToken = require_unplugin.simpleMatchToken;
+exports.sortUserDirectives = require_unplugin.sortUserDirectives;
+exports.theDefineDirective = require_unplugin.theDefineDirective;
+exports.unplugin = require_unplugin.unplugin;
+exports.unpluginFactory = require_unplugin.unpluginFactory;
+exports.default = module.exports;

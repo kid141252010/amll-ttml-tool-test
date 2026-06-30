@@ -1,0 +1,6 @@
+import { t as Options } from "./types-C7-babMd.js";
+
+//#region src/astro.d.ts
+declare const _default: (options: Options) => any;
+//#endregion
+export { _default as default };

@@ -1,0 +1,8 @@
+import { n as unpluginFactory } from "./unplugin-D_3T3e7l.js";
+import { createVitePlugin } from "unplugin";
+
+//#region src/vite.ts
+var vite_default = createVitePlugin(unpluginFactory);
+
+//#endregion
+export { vite_default as t };

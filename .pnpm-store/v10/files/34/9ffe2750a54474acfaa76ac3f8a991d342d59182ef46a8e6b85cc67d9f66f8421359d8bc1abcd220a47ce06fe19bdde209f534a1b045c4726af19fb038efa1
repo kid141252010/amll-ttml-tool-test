@@ -1,0 +1,126 @@
+{
+  "name": "mktemp",
+  "description": "create temporary files and directories",
+  "version": "2.0.2",
+  "author": "sasa+1 <sasaplus1@gmail.com>",
+  "contributors": [
+    "Michael Ficarra <github.public.email@michael.ficarra.me>",
+    "rjz <rj@rjzaworski.com>"
+  ],
+  "devDependencies": {
+    "@tsconfig/strictest": "2.0.5",
+    "@types/node": "22.18.1",
+    "@typescript-eslint/eslint-plugin": "8.43.0",
+    "@typescript-eslint/parser": "8.43.0",
+    "@vitest/coverage-v8": "3.2.4",
+    "eslint": "9.35.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-n": "17.21.3",
+    "eslint-plugin-tsdoc": "0.4.0",
+    "fixpack": "4.0.0",
+    "npm-run-all2": "8.0.4",
+    "prettier": "3.6.2",
+    "tsup": "8.5.0",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
+  },
+  "devEngines": {
+    "os": [
+      {
+        "name": "darwin"
+      },
+      {
+        "name": "linux"
+      }
+    ],
+    "cpu": [
+      {
+        "name": "x64"
+      },
+      {
+        "name": "arm64"
+      }
+    ],
+    "runtime": {
+      "name": "node",
+      "version": "20 || 22 || 24"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": "10 || 11"
+    }
+  },
+  "engines": {
+    "node": "20 || 22 || 24"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./*": {
+      "import": {
+        "types": "./dist/*.d.ts",
+        "default": "./dist/*.mjs"
+      },
+      "require": {
+        "types": "./dist/*.d.ts",
+        "default": "./dist/*.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "none",
+    "overrides": [
+      {
+        "files": "*.json",
+        "options": {
+          "parser": "json-stringify"
+        }
+      },
+      {
+        "files": "tsconfig.json",
+        "options": {
+          "parser": "jsonc"
+        }
+      }
+    ]
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "readmeFilename": "README.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sasaplus1/mktemp.git"
+  },
+  "scripts": {
+    "build": "tsup",
+    "fix": "run-p -l fix:*",
+    "fix:eslint": "ESLINT_USE_FLAT_CONFIG=false eslint --fix .",
+    "fix:fixpack": "fixpack",
+    "fix:prettier": "prettier --write .",
+    "lint": "run-p -l lint:*",
+    "lint:eslint": "ESLINT_USE_FLAT_CONFIG=false eslint .",
+    "lint:fixpack": "fixpack --dryRun",
+    "lint:prettier": "prettier --check .",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "sideEffects": false,
+  "types": "./dist/index.d.js"
+}

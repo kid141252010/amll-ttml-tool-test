@@ -1,0 +1,8 @@
+import { n as unpluginFactory } from "./unplugin-D_3T3e7l.js";
+import { createRollupPlugin } from "unplugin";
+
+//#region src/rollup.ts
+var rollup_default = createRollupPlugin(unpluginFactory);
+
+//#endregion
+export { rollup_default as default };

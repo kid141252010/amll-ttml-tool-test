@@ -1,0 +1,4 @@
+export const UNDO = Symbol('undo');
+export const REDO = Symbol('redo');
+export const RESET = Symbol('reset');
+//# sourceMappingURL=actions.js.map

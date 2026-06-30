@@ -1,0 +1,10 @@
+const require_unplugin = require('./unplugin-BDx8Bfqn.cjs');
+let unplugin = require("unplugin");
+unplugin = require_unplugin.__toESM(unplugin);
+
+//#region src/rollup.ts
+var rollup_default = (0, unplugin.createRollupPlugin)(require_unplugin.unpluginFactory);
+
+//#endregion
+module.exports = rollup_default;
+exports.default = module.exports;

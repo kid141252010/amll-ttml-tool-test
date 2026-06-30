@@ -1,0 +1,5 @@
+require('./unplugin-BDx8Bfqn.cjs');
+const require_webpack = require('./webpack-DM4DM4D0.cjs');
+
+module.exports = require_webpack.webpack_default;
+exports.default = module.exports;

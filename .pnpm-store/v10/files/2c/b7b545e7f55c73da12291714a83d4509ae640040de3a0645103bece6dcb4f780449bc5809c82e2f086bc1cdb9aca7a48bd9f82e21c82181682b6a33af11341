@@ -1,0 +1,3 @@
+require('./types-CBTc19th.cjs');
+
+exports.default = module.exports;

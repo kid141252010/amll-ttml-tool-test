@@ -1,0 +1,38 @@
+import { A as CodeGenerator, C as Context, D as Lexer, E as Parser, M as Generator, N as GeneratorOptions, O as MsGenerator, P as Comment, S as Transform, T as sortUserDirectives, _ as Lex, a as IfToken, b as SimpleNode, c as CodeStatement, d as IncludeStatement, f as MessageStatement, g as Generate, h as FunctionDirective, i as DefineToken, j as CodeGeneratorOptions, k as MsGeneratorOptions, l as DefineStatement, m as Directive, n as UserOptions, o as IncludeToken, p as ProgramNode, r as CodeToken, s as MessageToken, t as Options, u as IfStatement, v as ObjectDirective, w as resolveOptions, x as SimpleToken, y as Parse } from "./types-C7-babMd.js";
+import * as unplugin0 from "unplugin";
+import { UnpluginFactory } from "unplugin";
+
+//#region src/core/constant.d.ts
+declare const comments: Comment[];
+//#endregion
+//#region src/core/directive.d.ts
+declare function defineDirective<T extends SimpleToken, N extends SimpleNode>(directive: Directive<T, N>): Directive<T, N>;
+//#endregion
+//#region src/core/directives/define.d.ts
+declare const theDefineDirective: Directive<DefineToken, DefineStatement>;
+//#endregion
+//#region src/core/directives/if.d.ts
+declare function resolveConditional(test: string, env?: NodeJS.ProcessEnv): boolean;
+declare const ifDirective: Directive<IfToken, IfStatement>;
+//#endregion
+//#region src/core/directives/include.d.ts
+declare const includeDirective: Directive<IncludeToken, IncludeStatement>;
+//#endregion
+//#region src/core/directives/message.d.ts
+declare const MessageDirective: Directive<MessageToken, MessageStatement>;
+//#endregion
+//#region src/core/unplugin.d.ts
+declare const unpluginFactory: UnpluginFactory<UserOptions | undefined>;
+declare const unplugin: unplugin0.UnpluginInstance<UserOptions | undefined, boolean>;
+//#endregion
+//#region src/core/utils.d.ts
+declare function simpleMatchToken<T = SimpleToken>(comment: string, regex: RegExp): T | undefined;
+declare function createProgramNode(body?: SimpleNode[]): ProgramNode;
+declare function isComment(line: string): boolean;
+declare function parseComment(line: string): {
+  type: string | undefined;
+  content: string;
+};
+declare function findComment(type: string): Comment;
+//#endregion
+export { CodeGenerator, CodeGeneratorOptions, CodeStatement, CodeToken, Comment, Context, DefineStatement, DefineToken, Directive, FunctionDirective, Generate, Generator, GeneratorOptions, IfStatement, IfToken, IncludeStatement, IncludeToken, Lex, Lexer, MessageDirective, MessageStatement, MessageToken, MsGenerator, MsGeneratorOptions, ObjectDirective, Options, Parse, Parser, ProgramNode, SimpleNode, SimpleToken, Transform, UserOptions, comments, createProgramNode, defineDirective, findComment, ifDirective, includeDirective, isComment, parseComment, resolveConditional, resolveOptions, simpleMatchToken, sortUserDirectives, theDefineDirective, unplugin, unpluginFactory };

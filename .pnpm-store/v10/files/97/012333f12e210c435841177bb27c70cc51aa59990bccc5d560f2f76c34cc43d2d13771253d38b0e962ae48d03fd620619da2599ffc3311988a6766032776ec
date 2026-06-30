@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UNDO = exports.RESET = exports.REDO = exports.withHistory = void 0;
+var withUndoableHistory_1 = require("./withUndoableHistory.js");
+Object.defineProperty(exports, "withHistory", { enumerable: true, get: function () { return withUndoableHistory_1.withUndoableHistory; } });
+var actions_1 = require("./actions.js");
+Object.defineProperty(exports, "REDO", { enumerable: true, get: function () { return actions_1.REDO; } });
+Object.defineProperty(exports, "RESET", { enumerable: true, get: function () { return actions_1.RESET; } });
+Object.defineProperty(exports, "UNDO", { enumerable: true, get: function () { return actions_1.UNDO; } });
+//# sourceMappingURL=index.js.map

@@ -1,0 +1,12 @@
+const require_unplugin = require('./unplugin-BDx8Bfqn.cjs');
+require('./src-TVqaSbon.cjs');
+require('./types-CBTc19th.cjs');
+let unplugin = require("unplugin");
+unplugin = require_unplugin.__toESM(unplugin);
+
+//#region src/farm.ts
+var farm_default = (0, unplugin.createFarmPlugin)(require_unplugin.unpluginFactory);
+
+//#endregion
+module.exports = farm_default;
+exports.default = module.exports;

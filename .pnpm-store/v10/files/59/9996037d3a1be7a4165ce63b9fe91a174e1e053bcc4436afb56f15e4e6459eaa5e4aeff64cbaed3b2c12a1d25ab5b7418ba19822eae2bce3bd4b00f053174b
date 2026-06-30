@@ -1,0 +1,6 @@
+import { n as UserOptions } from "./types-5fYYU353.cjs";
+import * as rollup0 from "rollup";
+
+//#region src/rollup.d.ts
+declare const _default: (options?: UserOptions | undefined) => rollup0.Plugin<any> | rollup0.Plugin<any>[];
+export = _default;

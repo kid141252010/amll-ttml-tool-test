@@ -1,0 +1,13 @@
+import { r as unplugin_default } from "./unplugin-D_3T3e7l.js";
+
+//#region src/astro.ts
+var astro_default = (options) => ({
+	name: "unplugin-starter",
+	hooks: { "astro:config:setup": async (astro) => {
+		astro.config.vite.plugins ||= [];
+		astro.config.vite.plugins.push(unplugin_default.vite(options));
+	} }
+});
+
+//#endregion
+export { astro_default as default };

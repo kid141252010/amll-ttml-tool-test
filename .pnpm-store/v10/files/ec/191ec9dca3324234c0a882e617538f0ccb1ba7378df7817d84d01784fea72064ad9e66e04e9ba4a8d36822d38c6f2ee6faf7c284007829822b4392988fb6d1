@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.withImmer = withImmer;
+const immer_1 = require("immer");
+const vanilla_1 = require("jotai/vanilla");
+const cache1 = new WeakMap();
+const memo1 = (create, dep1) => (cache1.has(dep1) ? cache1 : cache1.set(dep1, create())).get(dep1);
+function withImmer(anAtom) {
+    return memo1(() => {
+        const derivedAtom = (0, vanilla_1.atom)((get) => get(anAtom), (get, set, fn) => set(anAtom, (0, immer_1.produce)(get(anAtom), typeof fn === 'function'
+            ? fn
+            : () => (fn === undefined ? immer_1.nothing : fn))));
+        return derivedAtom;
+    }, anAtom);
+}

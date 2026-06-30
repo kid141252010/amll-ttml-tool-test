@@ -1,0 +1,7 @@
+import { n as UserOptions } from "./types-C7-babMd.js";
+import * as unplugin0 from "unplugin";
+
+//#region src/rspack.d.ts
+declare const _default: (options?: UserOptions | undefined) => unplugin0.RspackPluginInstance;
+//#endregion
+export { _default as default };

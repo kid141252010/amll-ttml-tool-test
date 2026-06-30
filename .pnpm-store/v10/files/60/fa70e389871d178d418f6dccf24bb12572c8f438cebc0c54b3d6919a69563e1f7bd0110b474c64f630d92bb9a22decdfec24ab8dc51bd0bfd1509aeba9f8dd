@@ -1,0 +1,33 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.withHistory = withHistory;
+const vanilla_1 = require("jotai/vanilla");
+const actions_1 = require("./actions.js");
+/**
+ * @param targetAtom an atom or derived atom
+ * @param limit the maximum number of history states to keep
+ * @returns an atom with an array of history states
+ */
+function withHistory(targetAtom, limit) {
+    const refreshAtom = (0, vanilla_1.atom)(0);
+    refreshAtom.debugPrivate = true;
+    const historyAtom = {
+        read: (get) => (get(refreshAtom), { history: [] }),
+        write: (get, set) => {
+            get(historyAtom).history.length = 0;
+            set(refreshAtom, (v) => v + 1);
+        },
+        onMount: (reset) => reset,
+        debugPrivate: true,
+        init: 1, // dirty hack to bypass hasInitialValue
+    };
+    return (0, vanilla_1.atom)((get) => {
+        const ref = get(historyAtom);
+        return (ref.history = [get(targetAtom), ...ref.history].slice(0, limit));
+    }, (_, set, action) => {
+        if (action === actions_1.RESET) {
+            set(historyAtom);
+        }
+    });
+}
+//# sourceMappingURL=withHistory.js.map

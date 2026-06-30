@@ -1,0 +1,6 @@
+import { n as UserOptions } from "./types-5fYYU353.cjs";
+import * as unplugin0 from "unplugin";
+
+//#region src/rspack.d.ts
+declare const _default: (options?: UserOptions | undefined) => unplugin0.RspackPluginInstance;
+export = _default;

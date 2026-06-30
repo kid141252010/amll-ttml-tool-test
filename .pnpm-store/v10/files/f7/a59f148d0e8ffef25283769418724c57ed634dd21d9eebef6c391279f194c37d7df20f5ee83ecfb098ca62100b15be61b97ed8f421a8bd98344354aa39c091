@@ -1,0 +1,7 @@
+export declare const UNDO: unique symbol;
+export type UNDO = typeof UNDO;
+export declare const REDO: unique symbol;
+export type REDO = typeof REDO;
+export declare const RESET: unique symbol;
+export type RESET = typeof RESET;
+//# sourceMappingURL=actions.d.ts.map

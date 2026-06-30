@@ -1,0 +1,23 @@
+const require_unplugin = require('./unplugin-BDx8Bfqn.cjs');
+const require_vite = require('./vite-D0Eeyrb3.cjs');
+const require_webpack = require('./webpack-DM4DM4D0.cjs');
+let __nuxt_kit = require("@nuxt/kit");
+__nuxt_kit = require_unplugin.__toESM(__nuxt_kit);
+require("@nuxt/schema");
+
+//#region src/nuxt.ts
+var nuxt_default = (0, __nuxt_kit.defineNuxtModule)({
+	meta: {
+		name: "nuxt-unplugin-preprocessor-directives",
+		configKey: "unpluginManifest"
+	},
+	defaults: {},
+	setup(options, _nuxt) {
+		(0, __nuxt_kit.addVitePlugin)(() => require_vite.vite_default(options));
+		(0, __nuxt_kit.addWebpackPlugin)(() => require_webpack.webpack_default(options));
+	}
+});
+
+//#endregion
+module.exports = nuxt_default;
+exports.default = module.exports;
