@@ -66,13 +66,46 @@
 }
 
 .metadataSearchMenu {
+	width: min(620px, 86vw);
 	max-width: min(620px, 86vw);
 	max-height: 64vh;
 	overflow-y: auto;
 }
 
+.metadataSearchStatus,
+.metadataSearchMessage,
+.metadataSourceHeader {
+	padding: 6px 8px;
+}
+
+.metadataSearchAction,
 .metadataCandidateItem {
+	display: block;
+	width: 100%;
+	border: 0;
+	border-radius: 6px;
+	padding: 8px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
 	height: auto;
 	max-width: min(580px, 82vw);
 	white-space: normal;
+	cursor: pointer;
+}
+
+.metadataSearchAction:hover,
+.metadataCandidateItem:hover {
+	background: var(--gray-3);
+}
+
+.metadataSearchSeparator {
+	height: 1px;
+	margin: 4px 0;
+	background: var(--gray-5);
+}
+
+.metadataSourceGroup:not(:last-child) {
+	margin-bottom: 4px;
 }

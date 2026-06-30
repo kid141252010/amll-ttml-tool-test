@@ -16,6 +16,7 @@ import {
 	DropdownMenu,
 	Flex,
 	IconButton,
+	Popover,
 	Spinner,
 	Text,
 	TextField,
@@ -559,10 +560,10 @@ const MetadataEntry = memo(
 				onDrop={handleCategoryDrop}
 			>
 				{entry.value.map((vv, ii) => {
-					const rowKey = `metadata-${entry.key}-${vv || "empty"}-${ii}`;
 					return (
 						<MetadataValueRow
-							key={rowKey}
+							// biome-ignore lint/suspicious/noArrayIndexKey: value-based keys remount the input while editing.
+							key={`metadata-${entry.key}-${ii}`}
 							entry={entry}
 							value={vv}
 							valueIndex={ii}
@@ -1165,21 +1166,21 @@ export const MetadataEditor = () => {
 					}}
 					className={styles.dialogFooter}
 				>
-					<DropdownMenu.Root
+					<Popover.Root
 						open={metadataSearchOpen}
 						onOpenChange={setMetadataSearchOpen}
 					>
-						<DropdownMenu.Trigger
+						<Popover.Trigger
 							style={{
 								flex: "1 0 auto",
 							}}
 						>
 							<Button
 								variant="soft"
-								disabled={isSearchingMetadata}
 								type="button"
 								onClick={(event) => {
 									event.preventDefault();
+									if (isSearchingMetadata) return;
 									void runMetadataSearch();
 								}}
 							>
@@ -1190,22 +1191,24 @@ export const MetadataEditor = () => {
 								)}
 								{t("metadataDialog.search.action", "自动搜索元数据")}
 							</Button>
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content className={styles.metadataSearchMenu}>
+						</Popover.Trigger>
+						<Popover.Content className={styles.metadataSearchMenu}>
 							{isSearchingMetadata && (
-								<DropdownMenu.Item disabled>
-									<Flex align="center" gap="2">
+								<div className={styles.metadataSearchStatus}>
+									<Flex align="center" gap="2" wrap="wrap">
 										<Spinner size="1" />
 										{t("metadataDialog.search.searching", "正在搜索...")}
 									</Flex>
-								</DropdownMenu.Item>
+								</div>
 							)}
 							{!isSearchingMetadata && metadataSearchResult && (
 								<>
 									{metadataSearchResult.recommendedCandidateIds.length > 0 && (
 										<>
-											<DropdownMenu.Item
-												onSelect={() => {
+											<button
+												type="button"
+												className={styles.metadataSearchAction}
+												onClick={() => {
 													applyMetadataSearchSelection(
 														metadataSearchResult.recommendedCandidateIds,
 													);
@@ -1230,40 +1233,44 @@ export const MetadataEditor = () => {
 														)}
 													</Text>
 												</Flex>
-											</DropdownMenu.Item>
-											<DropdownMenu.Separator />
+											</button>
+											<div className={styles.metadataSearchSeparator} />
 										</>
 									)}
 									{metadataSearchMessages.map((error) => (
-										<DropdownMenu.Item
-											disabled
+										<div
+											className={styles.metadataSearchMessage}
 											key={`metadata-search-error-${error}`}
 										>
 											<Text color="orange" size="1" wrap="wrap">
 												{error}
 											</Text>
-										</DropdownMenu.Item>
+										</div>
 									))}
 									{metadataSearchMessages.length > 0 &&
 										metadataSearchCandidates.length > 0 && (
-											<DropdownMenu.Separator />
+											<div className={styles.metadataSearchSeparator} />
 										)}
 									{metadataSourceOrder.map((source) => {
 										const candidates =
 											metadataSearchResult.sources[source]?.candidates ?? [];
 										if (candidates.length === 0) return null;
 										return (
-											<div key={`metadata-search-source-${source}`}>
-												<DropdownMenu.Item disabled>
+											<div
+												className={styles.metadataSourceGroup}
+												key={`metadata-search-source-${source}`}
+											>
+												<div className={styles.metadataSourceHeader}>
 													<Text size="1" weight="bold">
 														{metadataSourceLabels[source]}
 													</Text>
-												</DropdownMenu.Item>
+												</div>
 												{candidates.slice(0, 8).map((candidate) => (
-													<DropdownMenu.Item
+													<button
+														type="button"
 														key={candidateKey(candidate)}
 														className={styles.metadataCandidateItem}
-														onSelect={() => {
+														onClick={() => {
 															applyMetadataSearchSelection([
 																candidateKey(candidate),
 															]);
@@ -1284,24 +1291,24 @@ export const MetadataEditor = () => {
 																{summarizeMetadataValues(candidate.values)}
 															</Text>
 														</Flex>
-													</DropdownMenu.Item>
+													</button>
 												))}
 											</div>
 										);
 									})}
 									{metadataSearchCandidates.length === 0 &&
 										metadataSearchMessages.length === 0 && (
-											<DropdownMenu.Item disabled>
+											<div className={styles.metadataSearchStatus}>
 												{t(
 													"metadataDialog.search.noCandidates",
 													"未找到可用候选",
 												)}
-											</DropdownMenu.Item>
+											</div>
 										)}
 								</>
 							)}
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
+						</Popover.Content>
+					</Popover.Root>
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger
 							style={{
