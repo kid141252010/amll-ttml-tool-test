@@ -92,6 +92,7 @@
 			"wordRomanization": "Word-by-word romanization",
 			"multilingual": "Additional Content",
 			"multilingualPlaceholder": "Select language",
+			"distributeTranslation": "Convert line translation to word-by-word",
 			"duration": "Duration",
 			"layoutMode": "Layout",
 			"auxiliaryLineDisplay": "Auxiliary Line Display",
@@ -134,7 +135,11 @@
 			"keyBindingReference": "Hotkey Cheatsheet",
 			"startSync": "Mark Begin",
 			"continuousSync": "Commit",
-			"endSync": "Mark End"
+			"endSync": "Mark End",
+			"currentLineEdit": "Current Line Edit",
+			"currentLine": "Current Line",
+			"lineContent": "Lyric Content",
+			"noLineSelected": "No lyric line selected"
 		},
 		"reviewMode": {
 			"avatar": "Avatar",
@@ -441,7 +446,9 @@
 		"moveFollowingWordToNewLine": "Move followings to new line",
 		"moveWordToNewLine": "Move {count, plural, one {word} other {words}} to new line",
 		"copyWordContent": "Copy syllable info",
-		"copySelectedWordsText": "Copy selected syllables text"
+		"copySelectedWordsText": "Copy selected syllables text",
+		"autoCalculateFromPrev": "Auto calculate from previous syllable",
+		"autoCalculateFromNext": "Auto calculate from next syllable"
 	},
 	"settingsDialog": {
 		"title": "Preferences",
@@ -585,7 +592,8 @@
 		"insertWord": "Insert word here…",
 		"vocalTagsLabel": "Vocalists:",
 		"vocalTagsAll": "All members",
-		"songPartLabel": "Part:"
+		"songPartLabel": "Part:",
+		"playLineAudio": "Play line audio"
 	},
 	"lyricWordView": {
 		"empty": "Empty",
@@ -622,6 +630,12 @@
 	"distributeRomanDialog": {
 		"title": "Distribute Line Romanization to Words",
 		"warning": "This action reads the line-level transliteration and distributes it to individual words. The algorithm is optimized for Japanese Romaji and may not work as expected for other languages."
+	},
+	"distributeTranslationDialog": {
+		"title": "Convert Line Translation to Word-by-Word",
+		"warning": "This feature reads the full line translation and automatically distributes it to each word based on character count. After conversion, the line-level translation data will be deleted and replaced with word-by-word translation data.",
+		"targetLang": "Target Language",
+		"noTranslation": "No line translation available"
 	},
 	"globalDragOverlay": {
 		"title": "Release to load"

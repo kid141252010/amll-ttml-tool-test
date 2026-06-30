@@ -263,6 +263,28 @@ class AudioEngine extends EventTarget {
 		auditionRafId = requestAnimationFrame(progressLoop);
 	}
 
+	/**
+	 * 停止试听播放
+	 */
+	stopAudition() {
+		if (this.auditionSourceNode) {
+			try {
+				this.auditionSourceNode.stop(0);
+				this.auditionSourceNode.disconnect();
+			} catch (e) {
+				console.error("停止 AudioNode 失败:", e);
+			}
+			this.auditionSourceNode = null;
+		}
+
+		if (auditionRafId) {
+			cancelAnimationFrame(auditionRafId);
+			auditionRafId = null;
+		}
+
+		globalStore.set(auditionTimeAtom, null);
+	}
+
 	//#endregion
 
 	//#region Load sound

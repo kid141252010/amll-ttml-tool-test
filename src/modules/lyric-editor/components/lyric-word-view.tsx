@@ -122,10 +122,12 @@ const LyricWordViewEditSpan = ({
 	className,
 	children,
 	onDoubleClick,
+	forceDraggable,
 }: PropsWithChildren<
 	LyricWordViewEditProps & {
 		className?: string;
 		onDoubleClick?: () => void;
+		forceDraggable?: boolean;
 	}
 >) => {
 	const word = useAtomValue(wordAtom);
@@ -205,7 +207,7 @@ const LyricWordViewEditSpan = ({
 		>
 			<ContextMenu.Trigger>
 				<span
-					draggable={toolMode === ToolMode.Edit}
+					draggable={toolMode === ToolMode.Edit || forceDraggable}
 					onPointerDown={(evt) => {
 						blockDragRef.current =
 							(evt.target as HTMLElement | null)?.tagName === "INPUT";
@@ -620,12 +622,17 @@ const LyricWordViewEditAdvance = ({
 	);
 };
 
-const LyricWorldViewEdit = ({
+type LyricWorldViewEditProps = LyricWordViewEditProps & {
+	forceDraggable?: boolean;
+};
+
+export const LyricWorldViewEdit = ({
 	wordAtom,
 	wordIndex,
 	line,
 	lineIndex,
-}: LyricWordViewEditProps) => {
+	forceDraggable,
+}: LyricWorldViewEditProps) => {
 	const { t } = useTranslation();
 	const word = useAtomValue(wordAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
@@ -726,6 +733,7 @@ const LyricWorldViewEdit = ({
 					lineIndex={lineIndex}
 					className={className}
 					line={line}
+					forceDraggable={forceDraggable}
 					onDoubleClick={() => {
 						setEditing(true);
 					}}

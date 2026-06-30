@@ -12,10 +12,8 @@ import { useAtom, useAtomValue } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { amllAutoGenerateRubyFromRomanizationAtom } from "$/modules/settings/states/amll";
 import { distributeRomanizationDialogAtom } from "$/states/dialogs";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main";
 
@@ -27,9 +25,6 @@ export const DistributeRomanizationDialog = () => {
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
 	const setLyricLines = useSetImmerAtom(lyricLinesAtom);
-	const autoGenerateRubyFromRomanization = useAtomValue(
-		amllAutoGenerateRubyFromRomanizationAtom,
-	);
 
 	const [scope, setScope] = useState<Scope>("all");
 	const [customStart, setCustomStart] = useState("1");
@@ -99,12 +94,6 @@ export const DistributeRomanizationDialog = () => {
 							line.words.forEach((word, wordIndex) => {
 								if (results[wordIndex]) {
 									word.romanWord = results[wordIndex];
-									if (autoGenerateRubyFromRomanization) {
-										applyGeneratedRuby(word, {
-											lineWords: line.words,
-											wordIndex,
-										});
-									}
 								}
 							});
 							applyRomanizationWarnings(line.words);
@@ -114,25 +103,36 @@ export const DistributeRomanizationDialog = () => {
 								// 找到与当前行音译匹配的语言
 								Object.entries(line.romanLyricByLang).forEach(
 									([key, value]) => {
-										if (value === fullRoman) {
+										// 兼容旧数据：如果 value 是字符串，则直接使用
+										const data = typeof value === "string" ? value : value?.data ?? "";
+										if (data === fullRoman) {
 											targetLang = key;
-											delete line.romanLyricByLang?.[key];
+											delete line.romanLyricByLang![key];
 										}
 									},
 								);
 							}
 							line.romanLyric = "";
-							// 将逐字音译保存到对应语言
-							if (targetLang) {
-								line.wordRomanizationByLang ??= {};
-								line.wordRomanizationByLang[targetLang] = line.words
-									.filter((word) => word.romanWord.trim().length > 0)
-									.map((word) => ({
-										startTime: word.startTime,
-										endTime: word.endTime,
-										text: word.romanWord,
-									}));
-							}
+						// 将逐字音译保存到对应语言，如果没有匹配的语言则使用默认语言代码
+						const getDefaultRomanizationLang = (lyricLang: string | undefined): string => {
+							if (!lyricLang) return "unknown";
+							if (lyricLang.startsWith("zh-Hant")) return "zh-Latn-jyutping";
+							if (lyricLang.startsWith("zh-Hans")) return "zh-Latn-pinyin";
+							return `${lyricLang}-Latn`;
+						};
+						const finalTargetLang = targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
+						const isAutoFilled = targetLang === undefined;
+						line.wordRomanizationByLang ??= {};
+						line.wordRomanizationByLang[finalTargetLang] = {
+							data: line.words
+								.filter((word) => word.romanWord.trim().length > 0)
+								.map((word) => ({
+									startTime: word.startTime,
+									endTime: word.endTime,
+									text: word.romanWord,
+								})),
+							isAutoFilled,
+						};
 						} catch (e) {
 							console.error(
 								`Failed to distribute romanization for line ${index + 1}`,

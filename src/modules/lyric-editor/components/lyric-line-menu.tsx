@@ -42,13 +42,42 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 		return { minIdx, maxIdx };
 	})();
 
-	function bgOnCheck(checked: boolean) {
+	function bgOnCheck(checked: boolean | "indeterminate") {
+		if (checked === "indeterminate") return;
 		setBgChecked(checked);
+		// 批量更新：同时更新 isBG 和 itunesKey，确保编号连续
 		editLyricLines((state) => {
 			const lines = state.lyricLines.filter((line) =>
 				selectedLines.has(line.id),
 			);
-			for (const line of lines) line.isBG = checked;
+
+			// 计算当前最大的 L 和 B 编号
+			let maxL = -1;
+			let maxB = 0;
+			for (const line of state.lyricLines) {
+				if (line.itunesKey) {
+					if (line.itunesKey.startsWith("L")) {
+						const num = Number.parseInt(line.itunesKey.slice(1));
+						if (!Number.isNaN(num) && num > maxL) maxL = num;
+					} else if (line.itunesKey.startsWith("B")) {
+						const num = Number.parseInt(line.itunesKey.slice(1));
+						if (!Number.isNaN(num) && num > maxB) maxB = num;
+					}
+				}
+			}
+
+			for (const line of lines) {
+				line.isBG = checked;
+				if (checked) {
+					// 转为背景行：分配 B 编号（从 B1 开始）
+					maxB++;
+					line.itunesKey = `B${maxB}`;
+				} else {
+					// 转为主行：分配 L 编号（从 L0 开始）
+					maxL++;
+					line.itunesKey = `L${maxL}`;
+				}
+			}
 		});
 	}
 	function duetOnCheck(checked: boolean) {

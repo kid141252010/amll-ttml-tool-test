@@ -94,6 +94,17 @@ export interface TTMLTranslationWord {
 	hasSpaceAfter?: boolean;
 }
 
+/**
+ * @description 带自动填充标记的语言代码数据
+ * 用于标识该语言代码是否是自动填充的默认值
+ */
+export interface TTMLLangData<T> {
+	/** @description 语言代码数据 */
+	data: T;
+	/** @description 是否是自动填充的默认值 */
+	isAutoFilled?: boolean;
+}
+
 export const newLyricWord = (): LyricWord => ({
 	id: uid(),
 	startTime: 0,
@@ -130,10 +141,10 @@ export interface LyricLine extends AMLLLyricLine {
 		originalNextStartTime: number | null;
 	};
 	vocal?: string[];
-	translatedLyricByLang?: Record<string, string>;
-	romanLyricByLang?: Record<string, string>;
-	wordRomanizationByLang?: Record<string, TTMLRomanWord[]>;
-	wordTranslationByLang?: Record<string, TTMLTranslationWord[]>;
+	translatedLyricByLang?: Record<string, TTMLLangData<string>>;
+	romanLyricByLang?: Record<string, TTMLLangData<string>>;
+	wordRomanizationByLang?: Record<string, TTMLLangData<TTMLRomanWord[]>>;
+	wordTranslationByLang?: Record<string, TTMLLangData<TTMLTranslationWord[]>>;
 	/**
 	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:song-part 属性）
 	 */
@@ -142,6 +153,16 @@ export interface LyricLine extends AMLLLyricLine {
 	 * @description 存储该行的 agent 信息（来自 ttm:agent 属性）
 	 */
 	agent?: string;
+	/**
+	 * @description 该行是否为从右到左（RTL）显示
+	 */
+	isRtl?: boolean;
+	/**
+	 * @description 该行的 itunes:key
+	 * - 主行: "L0", "L1", "L2"...
+	 * - 背景行: "B0", "B1", "B2"...
+	 */
+	itunesKey?: string;
 }
 
 export const newLyricLine = (): LyricLine => ({
@@ -155,4 +176,5 @@ export const newLyricLine = (): LyricLine => ({
 	endTime: 0,
 	ignoreSync: false,
 	vocal: [],
+	isRtl: false,
 });

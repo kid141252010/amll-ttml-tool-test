@@ -14,6 +14,8 @@ import {
 	MusicNote1Regular,
 	People16Regular,
 	LinkMultiple20Regular,
+	PauseFilled,
+	PlayFilled,
 	TextAlignRightFilled,
 	VideoBackgroundEffectFilled,
 } from "@fluentui/react-icons";
@@ -43,6 +45,11 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { audioEngine } from "$/modules/audio/audio-engine.ts";
+import {
+	audioBufferAtom,
+	auditionTimeAtom,
+} from "$/modules/audio/states/index.ts";
 import { predictLineRomanization } from "$/modules/segmentation/utils/Transliteration/distributor";
 import {
 	enableAutoRomanizationPredictionAtom,
@@ -56,10 +63,18 @@ import {
 	lyricLinesAtom,
 	selectedLinesAtom,
 	selectedWordsAtom,
+	selectedTranslationLangAtom,
+	selectedRomanizationLangAtom,
+	selectedWordRomanizationLangAtom,
 	ToolMode,
 	toolModeAtom,
 } from "$/states/main.ts";
-import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml.ts";
+import {
+	type LyricLine,
+	type TTMLLangData,
+	newLyricLine,
+	newLyricWord,
+} from "$/types/ttml.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
 import styles from "./index.module.css";
@@ -189,6 +204,17 @@ const SubLineEdit = memo(
 		const [editing, setEditing] = useState(false);
 		const [inputValue, setInputValue] = useState("");
 		const { t } = useTranslation();
+		const selectedTranslationLang = useAtomValue(selectedTranslationLangAtom);
+		const selectedRomanizationLang = useAtomValue(selectedRomanizationLangAtom);
+
+		const disabled = type === "translatedLyric" ? !selectedTranslationLang : !selectedRomanizationLang;
+
+		// 当禁用时，退出编辑模式
+		useEffect(() => {
+			if (disabled) {
+				setEditing(false);
+			}
+		}, [disabled]);
 
 		const onEnter = useCallback(
 			(evt: SyntheticEvent<HTMLInputElement>) => {
@@ -199,23 +225,42 @@ const SubLineEdit = memo(
 						const targetLine = state.lyricLines[lineIndex];
 						const previousValue = targetLine[type];
 						targetLine[type] = newValue;
-						const syncByLang = (byLang?: Record<string, string>) => {
+						const syncByLang = (
+							byLang?: Record<string, TTMLLangData<string> | string>,
+						) => {
 							if (!byLang) return;
 							const keys = Object.keys(byLang);
 							if (keys.length === 1) {
-								byLang[keys[0]] = newValue;
+								const value = byLang[keys[0]];
+								if (typeof value === "string") {
+									byLang[keys[0]] = { data: newValue };
+								} else {
+									value.data = newValue;
+								}
 								return;
 							}
 							const matched = Object.entries(byLang).find(([, value]) => {
-								const nextValue = value.trim().length > 0 ? value : "";
-								return nextValue === previousValue && value.trim().length > 0;
+								// 兼容旧数据：如果 value 是字符串，则直接使用
+								const data = typeof value === "string" ? value : value?.data ?? "";
+								const nextValue = data.trim().length > 0 ? data : "";
+								return nextValue === previousValue && data.trim().length > 0;
 							})?.[0];
 							if (matched) {
-								byLang[matched] = newValue;
+								const value = byLang[matched];
+								if (typeof value === "string") {
+									byLang[matched] = { data: newValue };
+								} else {
+									value.data = newValue;
+								}
 								return;
 							}
 							if (byLang.und !== undefined) {
-								byLang.und = newValue;
+								const value = byLang.und;
+								if (typeof value === "string") {
+									byLang.und = { data: newValue };
+								} else {
+									value.data = newValue;
+								}
 							}
 						};
 						if (type === "translatedLyric") {
@@ -254,7 +299,7 @@ const SubLineEdit = memo(
 		return (
 			<Flex align="baseline">
 				<Text size="2">{label}</Text>
-				{editing ? (
+				{editing && !disabled ? (
 					<TextField.Root
 						autoFocus
 						size="1"
@@ -266,6 +311,10 @@ const SubLineEdit = memo(
 							if (evt.key === "Enter") onEnter(evt);
 						}}
 					/>
+				) : disabled ? (
+					<Text size="2" color="gray">
+						{line[type] || t("lyricLineView.empty", "无")}
+					</Text>
 				) : (
 					<Button
 						size="2"
@@ -321,16 +370,75 @@ export const LyricLineView: FC<{
 	const visualizeTimestampUpdate = useAtomValue(visualizeTimestampUpdateAtom);
 	const showTimestamps = useAtomValue(showTimestampsAtom);
 	const toolMode = useAtomValue(toolModeAtom);
+	const audioBuffer = useAtomValue(audioBufferAtom);
+	const auditionTime = useAtomValue(auditionTimeAtom);
 	const store = useStore();
 	const wordsContainerRef = useRef<HTMLDivElement>(null);
 	const blockDragRef = useRef(false);
+	const isAudioLoaded = useMemo(() => audioBuffer !== null, [audioBuffer]);
+	const isPlayingThisLine = useMemo(() => {
+		if (auditionTime === null) return false;
+		const startTime = line.startTime / 1000;
+		const endTime = line.endTime / 1000;
+		return auditionTime >= startTime && auditionTime <= endTime;
+	}, [auditionTime, line.startTime, line.endTime]);
 
 	// 创建一个仅订阅当前行显示行号的 atom，优化性能
 	const displayNumberAtom = useMemo(
-		() => atom((get) => get(lineDisplayNumbersAtom)[lineIndex]),
-		[lineIndex],
+		() =>
+			atom((get) => {
+				const mainNumber = get(lineDisplayNumbersAtom)[lineIndex];
+				const currentLine = get(lineAtom);
+				// 背景行显示为 "主行号-itunesKey" 格式（如: 1-B0）
+				if (currentLine.isBG && currentLine.itunesKey) {
+					return `${mainNumber}-${currentLine.itunesKey}`;
+				}
+				return `${mainNumber}`;
+			}),
+		[lineIndex, lineAtom],
 	);
 	const displayNumber = useAtomValue(displayNumberAtom);
+
+	// 监听 isBG 变化，自动更新 itunesKey
+	// 注意：这个 effect 只处理单行状态变化（如导入、解析等场景）
+	// 批量操作（如右键菜单切换多行）应在操作源头统一处理
+	useEffect(() => {
+		// 检查当前行的 itunesKey 是否与 isBG 状态匹配
+		const currentKey = line.itunesKey;
+		const isBG = line.isBG;
+
+		// 如果当前行已经有正确的 key 前缀，不需要更新
+		if (isBG && currentKey?.startsWith("B")) return;
+		if (!isBG && currentKey?.startsWith("L")) return;
+
+		// 分配新的 key - 在回调内部计算，确保基于最新状态
+		editLyricLines((state) => {
+			const targetLine = state.lyricLines.find((l) => l.id === line.id);
+			if (!targetLine) return;
+
+			if (isBG) {
+				// 转为背景行：分配 B 编号
+				let maxB = 0;
+				for (const l of state.lyricLines) {
+					if (l.itunesKey?.startsWith("B")) {
+						const num = Number.parseInt(l.itunesKey.slice(1));
+						if (!Number.isNaN(num) && num > maxB) maxB = num;
+					}
+				}
+				targetLine.itunesKey = `B${maxB + 1}`;
+			} else {
+				// 转为主行：分配 L 编号
+				let maxL = -1;
+				for (const l of state.lyricLines) {
+					if (l.itunesKey?.startsWith("L")) {
+						const num = Number.parseInt(l.itunesKey.slice(1));
+						if (!Number.isNaN(num) && num > maxL) maxL = num;
+					}
+				}
+				targetLine.itunesKey = `L${maxL + 1}`;
+			}
+		});
+	}, [line.isBG, line.id, line.itunesKey, editLyricLines]);
 
 	const hasError = useMemo(() => {
 		if (line.startTime > line.endTime) {
@@ -354,6 +462,54 @@ export const LyricLineView: FC<{
 		if (!lyricLines.agents || lyricLines.agents.length === 0) {
 			return false;
 		}
+
+		// 检查 agent 配置是否有意义（足以支持对唱功能）
+		const agents = lyricLines.agents;
+		const hasMeaningfulAgents = (() => {
+			// 情况1: 没有 Agent（已在上面检查）
+			if (agents.length === 0) return false;
+
+			// 情况2: 只有一个没有 name 的 person Agent
+			if (agents.length === 1) {
+				const agent = agents[0];
+				if (
+					agent.type === "person" &&
+					(!agent.names ||
+						agent.names.length === 0 ||
+						agent.names.every((n) => !n.trim()))
+				) {
+					return false;
+				}
+			}
+
+			// 情况3: 只有一个没有 name 的 person Agent 和一个没有 name 的 other Agent
+			if (agents.length === 2) {
+				const personAgent = agents.find((a) => a.type === "person");
+				const otherAgent = agents.find((a) => a.type === "other");
+				const hasGroupAgent = agents.some((a) => a.type === "group");
+
+				if (personAgent && otherAgent && !hasGroupAgent) {
+					const personHasNoName =
+						!personAgent.names ||
+						personAgent.names.length === 0 ||
+						personAgent.names.every((n) => !n.trim());
+					const otherHasNoName =
+						!otherAgent.names ||
+						otherAgent.names.length === 0 ||
+						otherAgent.names.every((n) => !n.trim());
+
+					if (personHasNoName && otherHasNoName) return false;
+				}
+			}
+
+			return true;
+		})();
+
+		// 如果 agent 配置无意义，不需要警告
+		if (!hasMeaningfulAgents) {
+			return false;
+		}
+
 		// 如果该行没有设置 Agent，显示警告
 		return !line.agent;
 	}, [lyricLines.agents, line.agent, line.isBG]);
@@ -377,6 +533,7 @@ export const LyricLineView: FC<{
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
+	const selectedWordRomanizationLang = useAtomValue(selectedWordRomanizationLangAtom);
 	const editingRomanWordIndexAtom = useMemo(
 		() => atom<number | null>(null),
 		[],
@@ -717,6 +874,31 @@ export const LyricLineView: FC<{
 					>
 						<div>
 							<Flex direction="column" align="center" justify="center" ml="3">
+								{isAudioLoaded && (
+									<IconButton
+										size="1"
+										variant="ghost"
+										color="gray"
+										onClick={(evt) => {
+											evt.stopPropagation();
+											evt.preventDefault();
+											if (isPlayingThisLine) {
+												// 如果正在播放当前行，则停止播放
+												audioEngine.stopAudition();
+											} else {
+												// 播放当前行范围的音频
+												const startTime = line.startTime / 1000;
+												const endTime = line.endTime / 1000;
+												if (endTime > startTime) {
+													audioEngine.auditionRange(startTime, endTime);
+												}
+											}
+										}}
+										title={t("lyricLineView.playLineAudio", "播放此行音频")}
+									>
+										{isPlayingThisLine ? <PauseFilled /> : <PlayFilled />}
+									</IconButton>
+								)}
 								<Text
 									className={classNames(
 										styles.lineNumber,
@@ -783,14 +965,15 @@ export const LyricLineView: FC<{
 														lineIndex={lineIndex}
 													/>
 													{toolMode === ToolMode.Edit &&
-														showWordRomanizationInput && (
-															<RomanWordView
-																wordAtom={wordAtom}
-																wordIndex={wi}
-																editingIndexAtom={editingRomanWordIndexAtom}
-																suggestedRoman={suggestedRomans[wi]}
-															/>
-														)}
+												showWordRomanizationInput &&
+												selectedWordRomanizationLang && (
+													<RomanWordView
+														wordAtom={wordAtom}
+														wordIndex={wi}
+														editingIndexAtom={editingRomanWordIndexAtom}
+														suggestedRoman={suggestedRomans[wi]}
+													/>
+												)}
 												</Flex>
 											</Fragment>
 										);
@@ -861,41 +1044,40 @@ export const LyricLineView: FC<{
 											/>
 										)}
 										{showRomanization && (
-										<SubLineEdit
-											lineAtom={lineAtom}
-											lineIndex={lineIndex}
-											type="romanLyric"
-										/>
-									)}
-									{(line.songPart || line.agent) && (
-										<Flex align="center" gap="2">
-											{line.songPart && (
-												<Badge color="blue" size="2">
-													<Flex align="center" gap="1">
-														<MusicNote1Regular />
-														{line.songPart}
-													</Flex>
-												</Badge>
-											)}
-											{line.agent && (
-												(() => {
-													const agent = lyricState.agents?.find(
-														(a) => a.id === line.agent,
-													);
-													if (!agent) return null;
-													return agent.names.map((name) => (
-														<Badge key={name} color="amber" size="2">
-															<Flex align="center" gap="1">
-																<People16Regular />
-																{name}
-															</Flex>
-														</Badge>
-													));
-												})()
-											)}
-										</Flex>
-									)}
-									{vocalTagIds.length > 0 && (
+											<SubLineEdit
+												lineAtom={lineAtom}
+												lineIndex={lineIndex}
+												type="romanLyric"
+											/>
+										)}
+										{(line.songPart || line.agent) && (
+											<Flex align="center" gap="2">
+												{line.songPart && (
+													<Badge color="blue" size="2">
+														<Flex align="center" gap="1">
+															<MusicNote1Regular />
+															{line.songPart}
+														</Flex>
+													</Badge>
+												)}
+												{line.agent &&
+													(() => {
+														const agent = lyricState.agents?.find(
+															(a) => a.id === line.agent,
+														);
+														if (!agent) return null;
+														return agent.names.map((name) => (
+															<Badge key={name} color="amber" size="2">
+																<Flex align="center" gap="1">
+																	<People16Regular />
+																	{name}
+																</Flex>
+															</Badge>
+														));
+													})()}
+											</Flex>
+										)}
+										{vocalTagIds.length > 0 && (
 											<Flex
 												align="center"
 												gap="2"

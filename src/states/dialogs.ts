@@ -23,10 +23,15 @@ export type AddLanguageDialogTarget =
 export const addLanguageDialogAtom = atom<{
 	open: boolean;
 	target: AddLanguageDialogTarget;
-	onSubmit?: (lang: string) => void;
+	// 原文行内容
+	originalLines: string[];
+	// 初始翻译/音译内容（用于编辑模式）
+	initialContent?: string;
+	onSubmit?: (lang: string, contentLines: string[]) => void;
 }>({
 	open: false,
 	target: "translation",
+	originalLines: [],
 });
 
 export type EditLanguageDialogTarget =
@@ -39,11 +44,16 @@ export const editLanguageDialogAtom = atom<{
 	open: boolean;
 	target: EditLanguageDialogTarget;
 	currentLang: string;
-	onSubmit?: (newLang: string) => void;
+	// 原文行内容
+	originalLines: string[];
+	// 当前翻译/音译内容
+	currentContent?: string;
+	onSubmit?: (newLang: string, contentLines: string[]) => void;
 }>({
 	open: false,
 	target: "primary",
 	currentLang: "",
+	originalLines: [],
 });
 export const confirmDialogAtom = atom<{
 	open: boolean;
@@ -94,9 +104,30 @@ export const duplicateSongIdDialogAtom = atom<{
 	existingIds: [],
 });
 
+// 使用元数据重命名对话框
+export const metadataRenameDialogAtom = atom<{
+	open: boolean;
+}>({
+	open: false,
+});
+
 // 消减卡顿对话框
 export const reduceStutterDialogAtom = atom<{
 	open: boolean;
 }>({
 	open: false,
+});
+
+// 将逐行翻译转为逐字翻译对话框
+export const distributeTranslationDialogAtom = atom(false);
+
+// 添加语言字体对话框
+export const addLanguageFontDialogAtom = atom<{
+	open: boolean;
+	// 已存在的语言字体列表，用于检查重复
+	existingLangs: string[];
+	onSubmit?: (lang: string, font: string) => void;
+}>({
+	open: false,
+	existingLangs: [],
 });

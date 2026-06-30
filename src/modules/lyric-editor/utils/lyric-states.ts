@@ -139,7 +139,20 @@ export function getCurrentLocation(
 	};
 }
 
-export function useCurrentLocation(): LineAndWordLocationResult | undefined {
+export interface UseCurrentLocationOptions {
+	requireWord?: boolean;
+}
+
+export function useCurrentLocation(
+	options?: UseCurrentLocationOptions & { requireWord?: true },
+): LineAndWordLocationResult | undefined;
+export function useCurrentLocation(
+	options: UseCurrentLocationOptions & { requireWord: false },
+): LineLocationResult | undefined;
+export function useCurrentLocation(
+	options?: UseCurrentLocationOptions,
+): LineAndWordLocationResult | LineLocationResult | undefined {
+	const { requireWord = true } = options ?? {};
 	const lyrics = useAtomValue(lyricLinesAtom);
 	const selectedLines = useAtomValue(selectedLinesAtom);
 	const selectedWords = useAtomValue(selectedWordsAtom);
@@ -149,6 +162,15 @@ export function useCurrentLocation(): LineAndWordLocationResult | undefined {
 		);
 		if (lyricLine === -1) return;
 		const line = lyrics.lyricLines[lyricLine];
+
+		if (!requireWord) {
+			return {
+				lines: lyrics.lyricLines,
+				line,
+				lineIndex: lyricLine,
+			};
+		}
+
 		const syncUnits = getSynchronizableUnits(line);
 		let syncIndex = syncUnits.findIndex((unit) => selectedWords.has(unit.id));
 		if (syncIndex === -1) {
@@ -185,7 +207,7 @@ export function useCurrentLocation(): LineAndWordLocationResult | undefined {
 			isFirstWord,
 			isLastWord,
 		};
-	}, [lyrics, selectedLines, selectedWords]);
+	}, [lyrics, selectedLines, selectedWords, requireWord]);
 	return result;
 }
 

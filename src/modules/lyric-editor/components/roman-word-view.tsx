@@ -1,12 +1,6 @@
 import { Button, TextField } from "@radix-ui/themes";
 import classNames from "classnames";
-import {
-	type Atom,
-	useAtom,
-	useAtomValue,
-	useSetAtom,
-	type WritableAtom,
-} from "jotai";
+import { type Atom, useAtom, useAtomValue, type WritableAtom } from "jotai";
 import { useSetImmerAtom } from "jotai-immer";
 import {
 	type KeyboardEvent,
@@ -15,21 +9,9 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import {
-	createRomanWordEditSession,
-	getRomanWordEditState,
-	type RomanWordEditSession,
-} from "$/modules/lyric-editor/utils/word-romanization";
-import {
-	getPreferredWordRomanizationLang,
-	syncWordRomanizationForWord,
-} from "$/modules/lyric-editor/utils/word-romanization-language";
-import { amllAutoGenerateRubyFromRomanizationAtom } from "$/modules/settings/states/amll";
-import {
-	currentWordRomanizationLangAtom,
-	isEditingWordRomanizationAtom,
 	lyricLinesAtom,
+	selectedWordRomanizationLangAtom,
 } from "$/states/main";
 import type { LyricWord } from "$/types/ttml";
 import styles from "./roman-word-view.module.css";
@@ -49,137 +31,53 @@ export const RomanWordView = ({
 }: RomanWordViewProps) => {
 	const word = useAtomValue(wordAtom);
 	const [editingIndex, setEditingIndex] = useAtom(editingIndexAtom);
-	const lyricLines = useAtomValue(lyricLinesAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
-	const currentWordRomanizationLang = useAtomValue(
-		currentWordRomanizationLangAtom,
-	);
-	const setCurrentWordRomanizationLang = useSetAtom(
-		currentWordRomanizationLangAtom,
-	);
-	const setIsEditingWordRomanization = useSetAtom(
-		isEditingWordRomanizationAtom,
-	);
-	const autoGenerateRubyFromRomanization = useAtomValue(
-		amllAutoGenerateRubyFromRomanizationAtom,
+	const selectedWordRomanizationLang = useAtomValue(
+		selectedWordRomanizationLangAtom,
 	);
 	const [inputValue, setInputValue] = useState(word.romanWord);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const inputValueRef = useRef(inputValue);
-	const lyricLinesRef = useRef(lyricLines);
-	const currentWordRomanizationLangRef = useRef(currentWordRomanizationLang);
-	const wordRomanWordRef = useRef(word.romanWord);
-	const suggestedRomanRef = useRef(suggestedRoman);
-	const editSessionRef = useRef<RomanWordEditSession | null>(null);
-	const commitRomanWordRef = useRef(
-		(_newValue: string, _stopEditing?: boolean) => {},
-	);
 
 	const isEditing = editingIndex === wordIndex;
+	const disabled = !selectedWordRomanizationLang;
 
+	// 当禁用时，退出编辑模式
 	useEffect(() => {
-		inputValueRef.current = inputValue;
-	}, [inputValue]);
+		if (disabled && isEditing) {
+			setEditingIndex(null);
+		}
+	}, [disabled, isEditing, setEditingIndex]);
 
-	useEffect(() => {
-		lyricLinesRef.current = lyricLines;
-	}, [lyricLines]);
-
-	useEffect(() => {
-		currentWordRomanizationLangRef.current = currentWordRomanizationLang;
-	}, [currentWordRomanizationLang]);
-
-	useEffect(() => {
-		wordRomanWordRef.current = word.romanWord;
-	}, [word.romanWord]);
-
-	useEffect(() => {
-		suggestedRomanRef.current = suggestedRoman;
-	}, [suggestedRoman]);
-
-	const commitRomanWord = useCallback(
-		(newValue: string, stopEditing = true) => {
-			const session = editSessionRef.current;
-			if (!session?.tryCommit()) {
-				if (stopEditing) setEditingIndex(null);
-				return;
-			}
-
-			setIsEditingWordRomanization(false);
-			setCurrentWordRomanizationLang(session.lang);
+	const saveAndStopEditing = useCallback(
+		(newValue: string) => {
 			if (newValue !== word.romanWord) {
 				editLyricLines((draft) => {
 					for (const line of draft.lyricLines) {
 						const wordIndex = line.words.findIndex((w) => w.id === word.id);
 						if (wordIndex === -1) continue;
 						const targetWord = line.words[wordIndex];
-						syncWordRomanizationForWord(
-							line,
-							targetWord,
-							newValue,
-							session.lang,
-						);
-						if (autoGenerateRubyFromRomanization) {
-							applyGeneratedRuby(targetWord, {
-								lineWords: line.words,
-								wordIndex,
-							});
-						}
+						targetWord.romanWord = newValue;
 						break;
 					}
 				});
 			}
-			if (stopEditing) setEditingIndex(null);
+			setEditingIndex(null);
 		},
-		[
-			word.id,
-			word.romanWord,
-			editLyricLines,
-			setEditingIndex,
-			autoGenerateRubyFromRomanization,
-			setCurrentWordRomanizationLang,
-			setIsEditingWordRomanization,
-		],
+		[word.id, word.romanWord, editLyricLines, setEditingIndex],
 	);
 
 	useEffect(() => {
-		commitRomanWordRef.current = commitRomanWord;
-	}, [commitRomanWord]);
+		if (isEditing) {
+			setInputValue(word.romanWord || suggestedRoman || "");
+		}
+	}, [isEditing, word.romanWord, suggestedRoman]);
 
 	useEffect(() => {
-		if (!isEditing) return;
-
-		const targetLang = getPreferredWordRomanizationLang(
-			lyricLinesRef.current,
-			currentWordRomanizationLangRef.current,
-		);
-		const session = createRomanWordEditSession(targetLang);
-		editSessionRef.current = session;
-		setCurrentWordRomanizationLang(targetLang);
-		setIsEditingWordRomanization(true);
-
-		const nextInputValue = getRomanWordEditState(
-			wordRomanWordRef.current,
-			suggestedRomanRef.current,
-		).value;
-		inputValueRef.current = nextInputValue;
-		setInputValue(nextInputValue);
-		inputRef.current?.focus();
-		inputRef.current?.select();
-
-		return () => {
-			if (editSessionRef.current !== session) return;
-			if (session.shouldAutoCommit()) {
-				commitRomanWordRef.current(inputValueRef.current, false);
-			}
-			editSessionRef.current = null;
-			setIsEditingWordRomanization(false);
-		};
-	}, [
-		isEditing,
-		setCurrentWordRomanizationLang,
-		setIsEditingWordRomanization,
-	]);
+		if (isEditing) {
+			inputRef.current?.focus();
+			inputRef.current?.select();
+		}
+	}, [isEditing]);
 
 	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
 		const value = e.currentTarget.value;
@@ -187,19 +85,17 @@ export const RomanWordView = ({
 			case "Enter":
 			case "Tab":
 				e.preventDefault();
-				commitRomanWord(value, false);
+				saveAndStopEditing(value);
 				setEditingIndex(wordIndex + 1);
 				break;
 			case "Escape":
 				e.preventDefault();
-				editSessionRef.current?.cancel();
-				setIsEditingWordRomanization(false);
 				setEditingIndex(null);
 				break;
 			case "Backspace":
 				if (value === "") {
 					e.preventDefault();
-					commitRomanWord("", false);
+					saveAndStopEditing("");
 					setEditingIndex(wordIndex - 1);
 				}
 				break;
@@ -208,7 +104,7 @@ export const RomanWordView = ({
 		}
 	};
 
-	if (isEditing) {
+	if (isEditing && !disabled) {
 		return (
 			<TextField.Root
 				ref={inputRef}
@@ -218,16 +114,25 @@ export const RomanWordView = ({
 					word.romanWarning && styles.warning,
 				)}
 				value={inputValue}
-				placeholder={
-					getRomanWordEditState(word.romanWord, suggestedRoman).placeholder
-				}
-				onChange={(e) => {
-					inputValueRef.current = e.currentTarget.value;
-					setInputValue(e.currentTarget.value);
-				}}
-				onBlur={(e) => commitRomanWord(e.currentTarget.value)}
+				onChange={(e) => setInputValue(e.currentTarget.value)}
+				onBlur={(e) => saveAndStopEditing(e.currentTarget.value)}
 				onKeyDown={handleKeyDown}
 			/>
+		);
+	}
+
+	if (disabled) {
+		return (
+			<span
+				className={classNames(
+					styles.romanWordView,
+					styles.disabled,
+					!word.romanWord && styles.placeholder,
+					word.romanWarning && styles.warning,
+				)}
+			>
+				{word.romanWord || ""}
+			</span>
 		);
 	}
 

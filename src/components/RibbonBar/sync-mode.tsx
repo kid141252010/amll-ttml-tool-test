@@ -9,6 +9,7 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
+import { LyricWorldViewEdit } from "$/modules/lyric-editor/components/lyric-word-view.tsx";
 import { useCurrentLocation } from "$/modules/lyric-editor/utils/lyric-states.ts";
 import {
 	displayRomanizationInSyncAtom,
@@ -28,7 +29,11 @@ import {
 	keySyncNextAtom,
 	keySyncStartAtom,
 } from "$/states/keybindings.ts";
-import { bgLyricIgnoreSyncAtom, lyricLinesAtom } from "$/states/main.ts";
+import {
+	bgLyricIgnoreSyncAtom,
+	lyricLinesAtom,
+	selectedLinesAtom,
+} from "$/states/main.ts";
 import {
 	Checkbox,
 	Flex,
@@ -37,16 +42,23 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, atom } from "jotai";
+import { splitAtom } from "jotai/utils";
 import { useSetImmerAtom } from "jotai-immer";
-import { type FC, forwardRef } from "react";
+import { type FC, forwardRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "../KeyBinding/index.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
 
+const lyricLinesOnlyAtom = splitAtom(
+	atom((get) => get(lyricLinesAtom).lyricLines),
+	(line) => line.id,
+);
+
 const EmptyBeatField = () => {
 	const [currentEmptyBeat, setCurrentEmptyBeat] = useAtom(currentEmptyBeatAtom);
-	const currentWordEmptyBeat = useCurrentLocation()?.word.emptyBeat || 0;
+	const currentWordEmptyBeat =
+		useCurrentLocation({ requireWord: true })?.word.emptyBeat || 0;
 	const { t } = useTranslation();
 
 	return (
@@ -67,6 +79,37 @@ const EmptyBeatField = () => {
 				{currentEmptyBeat} / {currentWordEmptyBeat}
 			</Text>
 		</>
+	);
+};
+
+const CurrentLineEditor = () => {
+	const currentLocation = useCurrentLocation({ requireWord: false });
+	const { t } = useTranslation();
+
+	if (!currentLocation) {
+		return (
+			<Text size="1" color="gray">
+				{t("ribbonBar.syncMode.noLineSelected", "未选择歌词行")}
+			</Text>
+		);
+	}
+
+	const line = currentLocation.line;
+	const wordAtoms = line.words.map((word) => atom(word));
+
+	return (
+		<Flex gap="2" align="center" wrap="wrap">
+			{wordAtoms.map((wordAtom, wi) => (
+				<LyricWorldViewEdit
+					key={`sync-word-${line.id}-${wi}`}
+					wordAtom={wordAtom}
+					wordIndex={wi}
+					line={line}
+					lineIndex={currentLocation.lineIndex}
+					forceDraggable
+				/>
+			))}
+		</Flex>
 	);
 };
 
@@ -226,6 +269,9 @@ export const SyncModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 							<KeyBinding kbdAtom={keySyncEndAtom} />
 						</Grid>
 					</Flex>
+				</RibbonSection>
+				<RibbonSection label="">
+					<CurrentLineEditor />
 				</RibbonSection>
 			</RibbonFrame>
 		);

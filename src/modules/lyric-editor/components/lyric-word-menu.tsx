@@ -138,6 +138,21 @@ export const LyricWordMenu = ({
 			<ContextMenu.Separator />
 
 			<ContextMenu.Item
+				disabled={selectedWordsSize !== 1 || wordIndex === 0}
+				onSelect={() => autoCalculateFromPrevWord()}
+			>
+				{t("contextMenu.autoCalculateFromPrev", "根据上一音节自动计算")}
+			</ContextMenu.Item>
+			<ContextMenu.Item
+				disabled={selectedWordsSize !== 1}
+				onSelect={() => autoCalculateFromNextWord()}
+			>
+				{t("contextMenu.autoCalculateFromNext", "根据下一音节自动计算")}
+			</ContextMenu.Item>
+
+			<ContextMenu.Separator />
+
+			<ContextMenu.Item
 				disabled={selectedWordsSize !== 1}
 				onSelect={() => afterToNewLine()}
 			>
@@ -277,6 +292,98 @@ export const LyricWordMenu = ({
 			normalizeLineTime(line);
 			normalizeLineTime(newLine);
 			state.lyricLines.splice(lineIndex + 1, 0, newLine);
+		});
+	}
+
+	function getCharWidthCount(str: string): number {
+		let count = 0;
+		for (const char of str) {
+			const code = char.charCodeAt(0);
+			// 判断是否为全角字符
+			// CJK 统一表意文字: 4E00-9FFF
+			// CJK 扩展 A: 3400-4DBF
+			// CJK 扩展 B-F: 20000-2EBEF (需要检查代理对)
+			// 全角 ASCII: FF01-FF5E
+			// 全角标点: FF5F-FF60, FFE0-FFE6
+			// 日文平假名: 3040-309F
+			// 日文片假名: 30A0-30FF
+			// 韩文: AC00-D7AF
+			const isFullWidth =
+				(code >= 0x4e00 && code <= 0x9fff) || // CJK 统一表意文字
+				(code >= 0x3400 && code <= 0x4dbf) || // CJK 扩展 A
+				(code >= 0x3040 && code <= 0x309f) || // 日文平假名
+				(code >= 0x30a0 && code <= 0x30ff) || // 日文片假名
+				(code >= 0xac00 && code <= 0xd7af) || // 韩文音节
+				(code >= 0xff01 && code <= 0xff5e) || // 全角 ASCII
+				(code >= 0xff5f && code <= 0xff60) || // 全角括号
+				(code >= 0xffe0 && code <= 0xffe6) || // 全角货币符号
+				(code >= 0x3000 && code <= 0x303f) || // CJK 符号和标点
+				(code >= 0x31f0 && code <= 0x31ff) || // 日文片假名语音扩展
+				(code >= 0x31c0 && code <= 0x31ef) || // CJK 笔画
+				(code >= 0x2e80 && code <= 0x2eff) || // CJK 部首补充
+				(code >= 0x2f00 && code <= 0x2fdf) || // 康熙部首
+				(code >= 0x2ff0 && code <= 0x2fff) || // 表意文字描述字符
+				(code >= 0x3100 && code <= 0x312f) || // 注音字母
+				(code >= 0x3130 && code <= 0x318f) || // 韩文兼容字母
+				(code >= 0x3200 && code <= 0x32ff) || // 带圈 CJK 字母/月份
+				(code >= 0xa000 && code <= 0xa48f) || // 彝文音节
+				(code >= 0xa490 && code <= 0xa4cf) || // 彝文部首
+				(code >= 0xf900 && code <= 0xfaff) || // CJK 兼容表意文字
+				(code >= 0xfe30 && code <= 0xfe4f) || // CJK 兼容形式
+				(code >= 0x20000 && code <= 0x2a6df) || // CJK 扩展 B
+				(code >= 0x2a700 && code <= 0x2b73f) || // CJK 扩展 C
+				(code >= 0x2b740 && code <= 0x2b81f) || // CJK 扩展 D
+				(code >= 0x2b820 && code <= 0x2ceaf) || // CJK 扩展 E
+				(code >= 0x2ceb0 && code <= 0x2ebef); // CJK 扩展 F
+
+			count += isFullWidth ? 2 : 1;
+		}
+		return count;
+	}
+
+	function calculateDuration(
+		referenceWord: LyricWord,
+		targetWord: LyricWord,
+	): number {
+		const refDuration = referenceWord.endTime - referenceWord.startTime;
+		const refWidthCount = getCharWidthCount(referenceWord.word);
+		const targetWidthCount = getCharWidthCount(targetWord.word);
+
+		if (refWidthCount === 0) return 500;
+
+		const calculatedDuration = (refDuration / refWidthCount) * targetWidthCount;
+		return Math.min(500, calculatedDuration);
+	}
+
+	function autoCalculateFromPrevWord() {
+		editLyricLines((state) => {
+			const line = state.lyricLines[lineIndex];
+			if (!line) return;
+			if (wordIndex === 0) return;
+
+			const currentWord = line.words[wordIndex];
+			const prevWord = line.words[wordIndex - 1];
+			if (!currentWord || !prevWord) return;
+
+			const newDuration = calculateDuration(prevWord, currentWord);
+			currentWord.endTime = currentWord.startTime + newDuration;
+			normalizeLineTime(line);
+		});
+	}
+
+	function autoCalculateFromNextWord() {
+		editLyricLines((state) => {
+			const line = state.lyricLines[lineIndex];
+			if (!line) return;
+			if (wordIndex >= line.words.length - 1) return;
+
+			const currentWord = line.words[wordIndex];
+			const nextWord = line.words[wordIndex + 1];
+			if (!currentWord || !nextWord) return;
+
+			const newDuration = calculateDuration(nextWord, currentWord);
+			currentWord.startTime = currentWord.endTime - newDuration;
+			normalizeLineTime(line);
 		});
 	}
 };

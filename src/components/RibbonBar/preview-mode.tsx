@@ -20,11 +20,11 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-	addLanguageDialogAtom,
+	addLanguageFontDialogAtom,
 	editLanguageDialogAtom,
 } from "$/states/dialogs";
 import { lyricLinesAtom } from "$/states/main";
@@ -79,9 +79,9 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		// 语言字体设置
 		const [languageFonts, setLanguageFonts] = useAtom(languageFontsAtom);
 		const [selectedLang, setSelectedLang] = useState<string>("");
-		const setAddLanguageDialog = useSetAtom(addLanguageDialogAtom);
-		const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
-		const lyricLines = useAtom(lyricLinesAtom);
+		const setAddLanguageFontDialog = useSetAtom(addLanguageFontDialogAtom);
+	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
+	const lyricLines = useAtomValue(lyricLinesAtom);
 		// 布局设置
 		const [alignPosition, setAlignPosition] = useAtom(alignPositionAtom);
 		const [bgLineOpacity, setBgLineOpacity] = useAtom(bgLineOpacityAtom);
@@ -89,17 +89,18 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const { t } = useTranslation();
 
 		// 当歌词语言变化时，自动选择对应的语言字体
-		useEffect(() => {
-			const currentLyricLang = lyricLines[0]?.lyricLang;
-			if (currentLyricLang) {
-				const hasLanguageFont = languageFonts.some(
-					(lf) => lf.lang === currentLyricLang,
-				);
-				if (hasLanguageFont) {
-					setSelectedLang(currentLyricLang);
-				}
+	useEffect(() => {
+		const currentLyricLang = lyricLines.lyricLang;
+		if (currentLyricLang) {
+			const hasLanguageFont = languageFonts.some(
+				(lf) => lf.lang === currentLyricLang,
+			);
+			// 只有当当前选中的语言与歌词语言不匹配，且歌词语言有对应的语言字体时，才自动切换
+			if (hasLanguageFont && selectedLang !== currentLyricLang) {
+				setSelectedLang(currentLyricLang);
 			}
-		}, [lyricLines, languageFonts]);
+		}
+	}, [lyricLines, languageFonts, selectedLang]);
 
 		// 获取当前选中的语言字体对象
 		const selectedLanguageFont = useMemo(() => {
@@ -109,28 +110,33 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 
 		// 处理添加语言字体
 		const handleAddLanguageFont = useCallback(() => {
-			setAddLanguageDialog({
+			setAddLanguageFontDialog({
 				open: true,
-				target: "translation",
-				onSubmit: (lang) => {
+				existingLangs: languageFonts.map((lf) => lf.lang),
+				onSubmit: (lang, font) => {
 					const trimmed = lang.trim();
 					if (!trimmed || languageFonts.some((lf) => lf.lang === trimmed)) {
 						return;
 					}
-					const newLanguageFont: LanguageFont = { lang: trimmed, font: "" };
+					const newLanguageFont: LanguageFont = { lang: trimmed, font };
 					setLanguageFonts([...languageFonts, newLanguageFont]);
 					setSelectedLang(trimmed);
 				},
 			});
-		}, [languageFonts, setLanguageFonts, setAddLanguageDialog]);
+		}, [languageFonts, setLanguageFonts, setAddLanguageFontDialog]);
 
 		// 处理编辑语言代码
 		const handleEditLanguage = useCallback(() => {
 			if (!selectedLang) return;
+			// 获取原文行内容
+			const originalLines = lyricLines.lyricLines.map((line) =>
+				line.words.map((w) => w.word).join(""),
+			);
 			setEditLanguageDialog({
 				open: true,
 				target: "translation",
 				currentLang: selectedLang,
+				originalLines,
 				onSubmit: (newLang) => {
 					const trimmed = newLang.trim();
 					if (!trimmed || trimmed === selectedLang) return;
@@ -146,7 +152,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 					setSelectedLang(trimmed);
 				},
 			});
-		}, [selectedLang, languageFonts, setLanguageFonts, setEditLanguageDialog]);
+		}, [selectedLang, languageFonts, lyricLines.lyricLines, setLanguageFonts, setEditLanguageDialog]);
 
 		// 处理删除语言字体
 		const handleDeleteLanguage = useCallback(
@@ -173,11 +179,11 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		);
 
 		// 检查当前歌词语言是否匹配语言字体设置
-		const matchedLanguageFont = useMemo(() => {
-			const currentLyricLang = lyricLines[0]?.lyricLang;
-			if (!currentLyricLang) return null;
-			return languageFonts.find((lf) => lf.lang === currentLyricLang) || null;
-		}, [lyricLines, languageFonts]);
+	const matchedLanguageFont = useMemo(() => {
+		const currentLyricLang = lyricLines.lyricLang;
+		if (!currentLyricLang) return null;
+		return languageFonts.find((lf) => lf.lang === currentLyricLang) || null;
+	}, [lyricLines, languageFonts]);
 
 		// 获取实际使用的原文字体（考虑语言字体覆盖）
 		const effectiveOriginalFont = useMemo(() => {
@@ -387,38 +393,38 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								style={{ width: "120px" }}
 							/>
 							<Select.Content>
-							{languageFonts.map((lf) => (
-								<Box key={lf.lang} position="relative">
-									<Select.Item value={lf.lang}>
-										<Text style={{ paddingRight: "2rem" }}>{lf.lang}</Text>
-									</Select.Item>
-									<Box
-										position="absolute"
-										right="6px"
-										top="50%"
-										style={{
-											transform: "translateY(-50%)",
-											zIndex: 10,
-										}}
-									>
-										<IconButton
-											size="1"
-											variant="soft"
-											color="red"
-											onClick={() => {
-												handleDeleteLanguage(lf.lang);
+								{languageFonts.map((lf) => (
+									<Box key={lf.lang} position="relative">
+										<Select.Item value={lf.lang}>
+											<Text style={{ paddingRight: "2rem" }}>{lf.lang}</Text>
+										</Select.Item>
+										<Box
+											position="absolute"
+											right="6px"
+											top="50%"
+											style={{
+												transform: "translateY(-50%)",
+												zIndex: 10,
 											}}
-											aria-label={t(
-												"ribbonBar.previewMode.deleteLanguage",
-												"删除语言",
-											)}
 										>
-											<Delete16Regular />
-										</IconButton>
+											<IconButton
+												size="1"
+												variant="soft"
+												color="red"
+												onClick={() => {
+													handleDeleteLanguage(lf.lang);
+												}}
+												aria-label={t(
+													"ribbonBar.previewMode.deleteLanguage",
+													"删除语言",
+												)}
+											>
+												<Delete16Regular />
+											</IconButton>
+										</Box>
 									</Box>
-								</Box>
-							))}
-						</Select.Content>
+								))}
+							</Select.Content>
 						</Select.Root>
 						<IconButton
 							variant="soft"

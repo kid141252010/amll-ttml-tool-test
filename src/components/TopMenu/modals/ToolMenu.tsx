@@ -111,9 +111,12 @@ const ToolMenuItems = () => {
 						)}
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={menu.onCheckRomanizationWarnings}>
-						{t("topBar.menu.perWordRomanization.check", "检查")}
-					</DropdownMenu.Item>
-				</DropdownMenu.SubContent>
+					{t("topBar.menu.perWordRomanization.check", "检查")}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item onSelect={menu.onGenerateRubyForAllWords}>
+					{t("topBar.menu.perWordRomanization.generateRuby", "生成 Ruby 注音")}
+				</DropdownMenu.Item>
+			</DropdownMenu.SubContent>
 			</DropdownMenu.Sub>
 			<DropdownMenu.Item onSelect={menu.onOpenLatencyTest}>
 				{t("settingsDialog.common.latencyTest", "音频/输入延迟测试")}
