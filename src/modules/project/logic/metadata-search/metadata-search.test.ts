@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { TTMLMetadata } from "$/types/ttml";
 import {
 	buildMetadataSearchInput,
@@ -7,6 +7,7 @@ import {
 	searchMetadata,
 	buildMetadataValuesFromSelection,
 } from "./index";
+import { defaultMetadataNetworkClient } from "./network";
 import {
 	splitArtists,
 	textMatchScore,
@@ -19,6 +20,10 @@ import type {
 	MetadataNetworkRequest,
 	MetadataSearchInput,
 } from "./types";
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 const metadata = (entries: Record<string, string[]>): TTMLMetadata[] =>
 	Object.entries(entries).map(([key, value]) => ({ key, value }));
@@ -116,6 +121,52 @@ describe("metadata search input and matching", () => {
 			scoreMetadataCandidate(input, instrumental),
 		);
 		expect(scoreMetadataCandidate(input, instrumental)).toBeLessThan(0);
+	});
+});
+
+describe("metadata network error formatting", () => {
+	const mockMetadataHttpResponse = (
+		response: { status: number; body: string; contentType?: string },
+	) => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({
+				ok: true,
+				json: async () => response,
+			})),
+		);
+	};
+
+	test("reports upstream HTTP errors with a body prefix", async () => {
+		mockMetadataHttpResponse({
+			status: 502,
+			body: "A server error occurred while handling the metadata request",
+			contentType: "text/plain",
+		});
+
+		await expect(
+			defaultMetadataNetworkClient.requestJson({
+				url: "https://api.spotify.com/v1/search",
+			}),
+		).rejects.toThrow(
+			"HTTP 502: A server error occurred while handling the metadata request",
+		);
+	});
+
+	test("reports non-JSON upstream responses with the source host and body prefix", async () => {
+		mockMetadataHttpResponse({
+			status: 200,
+			body: "A server error occurred while handling the metadata request",
+			contentType: "text/plain",
+		});
+
+		await expect(
+			defaultMetadataNetworkClient.requestJson({
+				url: "https://amp-api.music.apple.com/v1/catalog/us/search",
+			}),
+		).rejects.toThrow(
+			"Invalid JSON response from amp-api.music.apple.com: A server error occurred while handling the metadata request",
+		);
 	});
 });
 
@@ -345,6 +396,68 @@ describe("metadata search orchestration", () => {
 			album: ["UGLY BEAUTY"],
 			isrc: ["TWA471900001"],
 		});
+	});
+
+	test("reports Apple Music non-JSON failures per storefront without raw parser errors", async () => {
+		const client: MetadataNetworkClient = {
+			requestJson: vi.fn(async (request: MetadataNetworkRequest) => {
+				const host = new URL(request.url).hostname;
+				throw new Error(`Invalid JSON response from ${host}: A server error occurred`);
+			}),
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(input, {
+			client,
+			appleMusicToken: "token",
+			spotifyCredentials: null,
+			includeSources: ["appleMusic"],
+		});
+
+		expect(result.sources.appleMusic?.errors).toEqual([
+			"cn: Invalid JSON response from amp-api.music.apple.com: A server error occurred",
+			"us: Invalid JSON response from amp-api.music.apple.com: A server error occurred",
+			"kr: Invalid JSON response from amp-api.music.apple.com: A server error occurred",
+			"jp: Invalid JSON response from amp-api.music.apple.com: A server error occurred",
+			"tw: Invalid JSON response from amp-api.music.apple.com: A server error occurred",
+			"Apple Music 未找到带歌曲 ID 的候选",
+		]);
+		expect(result.errors.join("\n")).not.toContain("Unexpected token");
+	});
+
+	test("reports NetEase mirror non-JSON failures with each mirror host", async () => {
+		const client: MetadataNetworkClient = {
+			requestJson: vi.fn(async (request: MetadataNetworkRequest) => {
+				const host = new URL(request.url).hostname;
+				throw new Error(`Invalid JSON response from ${host}: A server error occurred`);
+			}),
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(
+			{
+				...input,
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				spotifyCredentials: null,
+				includeSources: ["ncmMusic"],
+			},
+		);
+
+		expect(result.sources.ncmMusic?.errors).toEqual([
+			"music163.xuanmou.com.cn: Invalid JSON response from music163.xuanmou.com.cn: A server error occurred",
+			"neteasecloudmusicapi-main-api.vercel.app: Invalid JSON response from neteasecloudmusicapi-main-api.vercel.app: A server error occurred",
+			"api-enhanced-six-beta.vercel.app: Invalid JSON response from api-enhanced-six-beta.vercel.app: A server error occurred",
+			"网易云音乐未找到带歌曲 ID 的候选",
+		]);
 	});
 
 	test("builds deduped metadata values from selected candidates", () => {

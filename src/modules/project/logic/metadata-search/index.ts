@@ -500,7 +500,11 @@ const searchNcmMusic = async (
 			candidates.push(...searched);
 			if (searched.length > 0) break;
 		} catch (error) {
-			errors.push(error instanceof Error ? error.message : `${base}: 搜索失败`);
+			errors.push(
+				`${hostForUrl(base)}: ${
+					error instanceof Error ? error.message : "搜索失败"
+				}`,
+			);
 		}
 	}
 
@@ -729,9 +733,12 @@ const searchAppleMusic = async (
 		...candidate,
 		selectedByDefault: appleCandidateAutoMatches(input, candidate),
 	}));
+	const uniqueErrors = unique(errors);
 	return sourceResult(
 		ensureOneSelectedPerRegion(sorted),
-		sorted.length === 0 ? [...errors, "Apple Music 未找到带歌曲 ID 的候选"] : errors,
+		sorted.length === 0
+			? [...uniqueErrors, "Apple Music 未找到带歌曲 ID 的候选"]
+			: uniqueErrors,
 	);
 };
 
@@ -1173,4 +1180,12 @@ const dedupeByKey = (
 		result.push(candidate);
 	}
 	return result;
+};
+
+const hostForUrl = (url: string): string => {
+	try {
+		return new URL(url).hostname;
+	} catch {
+		return url;
+	}
 };

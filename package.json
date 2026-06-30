@@ -96,5 +96,5 @@
 		"vite-svg-loader": "^5.1.0",
 		"vitest": "^4.0.17"
 	},
-	"packageManager": "pnpm@10.26.2"
+	"packageManager": "pnpm@11.7.0"
 }

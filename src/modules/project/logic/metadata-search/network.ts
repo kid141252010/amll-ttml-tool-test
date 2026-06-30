@@ -9,6 +9,8 @@ type MetadataHttpResponse = {
 	contentType?: string;
 };
 
+const ERROR_BODY_PREFIX_LENGTH = 160;
+
 export const metadataHttpRequest = async (
 	request: MetadataNetworkRequest,
 ): Promise<MetadataHttpResponse> => {
@@ -37,15 +39,46 @@ export const defaultMetadataNetworkClient: MetadataNetworkClient = {
 	async requestJson<T>(request: MetadataNetworkRequest) {
 		const response = await metadataHttpRequest(request);
 		if (response.status < 200 || response.status >= 300) {
-			throw new Error(`HTTP ${response.status}`);
+			throw new Error(
+				`HTTP ${response.status}${formatResponseBodySuffix(response.body)}`,
+			);
 		}
-		return JSON.parse(response.body) as T;
+		if (!isJsonContentType(response.contentType)) {
+			throw new Error(
+				`Invalid JSON response from ${requestHost(request)}${formatResponseBodySuffix(response.body)}`,
+			);
+		}
+		try {
+			return JSON.parse(response.body) as T;
+		} catch {
+			throw new Error(
+				`Invalid JSON response from ${requestHost(request)}${formatResponseBodySuffix(response.body)}`,
+			);
+		}
 	},
 	async requestText(request: MetadataNetworkRequest) {
 		const response = await metadataHttpRequest(request);
 		if (response.status < 200 || response.status >= 300) {
-			throw new Error(`HTTP ${response.status}`);
+			throw new Error(
+				`HTTP ${response.status}${formatResponseBodySuffix(response.body)}`,
+			);
 		}
 		return response.body;
 	},
+};
+
+const isJsonContentType = (contentType: string | undefined): boolean =>
+	!contentType || /\bjson\b/i.test(contentType);
+
+const requestHost = (request: MetadataNetworkRequest): string => {
+	try {
+		return new URL(request.url).hostname;
+	} catch {
+		return "unknown host";
+	}
+};
+
+const formatResponseBodySuffix = (body: string): string => {
+	const prefix = body.replace(/\s+/g, " ").trim().slice(0, ERROR_BODY_PREFIX_LENGTH);
+	return prefix ? `: ${prefix}` : "";
 };
