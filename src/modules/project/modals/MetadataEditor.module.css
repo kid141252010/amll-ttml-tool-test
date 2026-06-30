@@ -64,3 +64,15 @@
 	flex-shrink: 0;
 	background: var(--color-bg-1);
 }
+
+.metadataSearchMenu {
+	max-width: min(620px, 86vw);
+	max-height: 64vh;
+	overflow-y: auto;
+}
+
+.metadataCandidateItem {
+	height: auto;
+	max-width: min(580px, 82vw);
+	white-space: normal;
+}

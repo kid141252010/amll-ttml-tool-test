@@ -1,9 +1,21 @@
-import { Flex, Heading, Card, Text, Button, Avatar } from "@radix-ui/themes";
-import { useAtomValue } from "jotai";
+import {
+	Flex,
+	Heading,
+	Card,
+	Text,
+	Button,
+	Avatar,
+	TextField,
+} from "@radix-ui/themes";
+import { useAtom, useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
 import { GithubLoginCard } from "$/modules/github/modals/GithubLoginCard";
 import { NeteaseLoginCard } from "$/modules/ncm/modals/NeteaseLoginCard";
-import { githubLoginAtom } from "$/modules/settings/states";
+import {
+	githubLoginAtom,
+	spotifyClientIdAtom,
+	spotifyClientSecretAtom,
+} from "$/modules/settings/states";
 import {
 	useLyricsSiteAuth,
 	lyricsSiteUserAtom,
@@ -71,6 +83,47 @@ const LyricsSiteLoginCard = () => {
 	);
 };
 
+const SpotifyCredentialsCard = () => {
+	const { t } = useTranslation();
+	const [clientId, setClientId] = useAtom(spotifyClientIdAtom);
+	const [clientSecret, setClientSecret] = useAtom(spotifyClientSecretAtom);
+
+	return (
+		<Card>
+			<Flex direction="column" gap="3">
+				<Flex direction="column" gap="1">
+					<Text weight="medium">
+						{t("settings.connect.spotify.title", "Spotify")}
+					</Text>
+					<Text size="2" color="gray">
+						{t(
+							"settings.connect.spotify.desc",
+							"用于元数据自动搜索。凭据仅保存在本机浏览器存储中。",
+						)}
+					</Text>
+				</Flex>
+				<TextField.Root
+					value={clientId}
+					onChange={(event) => setClientId(event.currentTarget.value)}
+					placeholder={t(
+						"settings.connect.spotify.clientId",
+						"Client ID",
+					)}
+				/>
+				<TextField.Root
+					type="password"
+					value={clientSecret}
+					onChange={(event) => setClientSecret(event.currentTarget.value)}
+					placeholder={t(
+						"settings.connect.spotify.clientSecret",
+						"Client Secret",
+					)}
+				/>
+			</Flex>
+		</Card>
+	);
+};
+
 export const SettingsConnectTab = () => {
 	const { t } = useTranslation();
 	const githubLogin = useAtomValue(githubLoginAtom);
@@ -89,6 +142,8 @@ export const SettingsConnectTab = () => {
 			<LyricsSiteLoginCard />
 
 			{shouldShowNetease && <NeteaseLoginCard />}
+
+			<SpotifyCredentialsCard />
 		</Flex>
 	);
 };

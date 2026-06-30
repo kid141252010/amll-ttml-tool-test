@@ -306,6 +306,12 @@
 				"cookieInvalid": "NetEase login expired: {message}",
 				"cookieInvalidToast": "Cookie invalid: {message}",
 				"clearCookie": "Clear"
+			},
+			"spotify": {
+				"title": "Spotify",
+				"desc": "Used for automatic metadata search. Credentials are stored only in local browser storage.",
+				"clientId": "Client ID",
+				"clientSecret": "Client Secret"
 			}
 		},
 		"about": {
@@ -729,6 +735,15 @@
 		"customKey": "Custom Key",
 		"addPresets": "Add all preset keys",
 		"pickSuggestion": "Select match",
+		"search": {
+			"action": "Search metadata",
+			"searching": "Searching...",
+			"requirement": "Provide either a streaming ID or a track name",
+			"failed": "Metadata search failed",
+			"applyRecommended": "Apply recommended set",
+			"recommendedCount": "{count} candidates",
+			"noCandidates": "No available candidates"
+		},
 		"clear": "Clear",
 		"info": "Learn more"
 	},

@@ -130,6 +130,55 @@ const plugins: Plugin[] = [
 			});
 		},
 	},
+	{
+		name: "metadata-network-proxy-dev",
+		configureServer(server) {
+			server.middlewares.use("/api/metadata-network", async (req, res) => {
+				if ((req.method ?? "POST").toUpperCase() !== "POST") {
+					sendJsonResponse(res, 405, { error: "Method not allowed" });
+					return;
+				}
+				const rawBody = await readRequestBody(req);
+				let payload: MetadataNetworkRequest | null = null;
+				try {
+					payload = rawBody
+						? (JSON.parse(rawBody.toString("utf-8")) as MetadataNetworkRequest)
+						: null;
+				} catch {
+					payload = null;
+				}
+				if (!payload) {
+					sendJsonResponse(res, 400, { error: "Invalid request body" });
+					return;
+				}
+				const validation = validateMetadataNetworkRequest(payload);
+				if (!validation.ok) {
+					sendJsonResponse(res, 400, { error: validation.error });
+					return;
+				}
+				try {
+					const response = await fetch(validation.url.toString(), {
+						method: validation.method,
+						headers: filterMetadataRequestHeaders(payload.headers),
+						body: validation.method === "GET" ? undefined : payload.body,
+					});
+					const body = await response.text();
+					sendJsonResponse(res, 200, {
+						status: response.status,
+						contentType: response.headers.get("content-type") ?? undefined,
+						body,
+					});
+				} catch (error) {
+					sendJsonResponse(res, 502, {
+						error:
+							error instanceof Error
+								? error.message
+								: "Metadata proxy error",
+					});
+				}
+			});
+		},
+	},
 	ConditionalCompile(),
 	// topLevelAwait(),
 	// MillionLint.vite(),
@@ -239,6 +288,89 @@ const ALLOWED_HOSTS = new Set([
 	"github.com",
 	"raw.githubusercontent.com",
 ]);
+const METADATA_NETWORK_ALLOWED_HOSTS = new Set([
+	"accounts.spotify.com",
+	"api.spotify.com",
+	"amp-api.music.apple.com",
+	"music.apple.com",
+	"u.y.qq.com",
+	"ncmapi.bikonoo.com",
+	"music163.xuanmou.com.cn",
+	"neteasecloudmusicapi-main-api.vercel.app",
+	"api-enhanced-six-beta.vercel.app",
+]);
+const METADATA_NETWORK_MAX_BODY_BYTES = 64 * 1024;
+
+type MetadataNetworkRequest = {
+	url: string;
+	method?: string;
+	headers?: Record<string, string>;
+	body?: string;
+};
+
+const validateMetadataNetworkRequest = (
+	request: MetadataNetworkRequest,
+):
+	| { ok: true; url: URL; method: "GET" | "POST" }
+	| { ok: false; error: string } => {
+	let url: URL;
+	try {
+		url = new URL(request.url);
+	} catch {
+		return { ok: false, error: "URL is invalid" };
+	}
+	if (url.protocol !== "https:" && url.protocol !== "http:") {
+		return { ok: false, error: "Protocol is not allowed" };
+	}
+	if (url.protocol === "http:" && url.hostname !== "u.y.qq.com") {
+		return { ok: false, error: "Protocol is not allowed" };
+	}
+	if (!METADATA_NETWORK_ALLOWED_HOSTS.has(url.hostname)) {
+		return { ok: false, error: "Host is not allowed" };
+	}
+	const method = (request.method ?? "GET").toUpperCase();
+	if (method !== "GET" && method !== "POST") {
+		return { ok: false, error: "Method is not allowed" };
+	}
+	if (
+		request.body &&
+		Buffer.byteLength(request.body, "utf-8") > METADATA_NETWORK_MAX_BODY_BYTES
+	) {
+		return { ok: false, error: "Body is too large" };
+	}
+	return { ok: true, url, method };
+};
+
+const filterMetadataRequestHeaders = (
+	headers: Record<string, string> | undefined,
+) => {
+	const allowed = new Set([
+		"accept",
+		"accept-language",
+		"authorization",
+		"content-type",
+		"origin",
+		"referer",
+		"user-agent",
+	]);
+	const result: Record<string, string> = {};
+	for (const [key, value] of Object.entries(headers ?? {})) {
+		if (allowed.has(key.toLowerCase())) {
+			result[key] = value;
+		}
+	}
+	return result;
+};
+
+const sendJsonResponse = (
+	res: { statusCode: number; setHeader: (key: string, value: string) => void; end: (body: string) => void },
+	status: number,
+	payload: unknown,
+) => {
+	res.statusCode = status;
+	res.setHeader("content-type", "application/json");
+	res.end(JSON.stringify(payload));
+};
 
 const buildTargetUrl = (path: string, query: URLSearchParams) => {
 	const normalizedPath = path.startsWith("/") ? path : `/${path}`;

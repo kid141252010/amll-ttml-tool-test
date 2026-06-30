@@ -34,14 +34,14 @@ export const metadataHttpRequest = async (
 };
 
 export const defaultMetadataNetworkClient: MetadataNetworkClient = {
-	async requestJson<T>(request) {
+	async requestJson<T>(request: MetadataNetworkRequest) {
 		const response = await metadataHttpRequest(request);
 		if (response.status < 200 || response.status >= 300) {
 			throw new Error(`HTTP ${response.status}`);
 		}
 		return JSON.parse(response.body) as T;
 	},
-	async requestText(request) {
+	async requestText(request: MetadataNetworkRequest) {
 		const response = await metadataHttpRequest(request);
 		if (response.status < 200 || response.status >= 300) {
 			throw new Error(`HTTP ${response.status}`);

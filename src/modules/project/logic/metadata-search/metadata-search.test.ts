@@ -16,6 +16,7 @@ import {
 import type {
 	MetadataCandidate,
 	MetadataNetworkClient,
+	MetadataNetworkRequest,
 	MetadataSearchInput,
 } from "./types";
 
@@ -134,63 +135,65 @@ describe("metadata search orchestration", () => {
 
 	test("sorts QQ candidates by title, artist and album, then uses QQ context for NetEase", async () => {
 		const requests: string[] = [];
-		const client: MetadataNetworkClient = {
-			requestJson: vi.fn(async ({ url, body }) => {
-				requests.push(`${url} ${body ?? ""}`);
-				if (url.includes("u.y.qq.com")) {
-					return {
-						req: {
-							data: {
-								body: {
-									item_song: [
-										{
-											id: 235883438,
-											mid: "0035sVym0anwc4",
-											name: "玫瑰少年",
-											singer: [{ name: "五月天" }],
-											album: { name: "玫瑰少年" },
-										},
-										{
-											id: 224116257,
-											mid: "001hrIGe3flaPr",
-											name: "玫瑰少年",
-											singer: [{ name: "JOLIN蔡依林" }],
-											album: { name: "UGLY BEAUTY" },
-										},
-									],
-								},
+		const requestJson: MetadataNetworkClient["requestJson"] = async <T,>(
+			request: MetadataNetworkRequest,
+		): Promise<T> => {
+			const { url, body } = request;
+			requests.push(`${url} ${body ?? ""}`);
+			let response: unknown = {};
+			if (url.includes("u.y.qq.com")) {
+				response = {
+					req: {
+						data: {
+							body: {
+								item_song: [
+									{
+										id: 235883438,
+										mid: "0035sVym0anwc4",
+										name: "玫瑰少年",
+										singer: [{ name: "五月天" }],
+										album: { name: "玫瑰少年" },
+									},
+									{
+										id: 224116257,
+										mid: "001hrIGe3flaPr",
+										name: "玫瑰少年",
+										singer: [{ name: "JOLIN蔡依林" }],
+										album: { name: "UGLY BEAUTY" },
+									},
+								],
 							},
 						},
-					};
-				}
-				if (url.includes("/cloudsearch") && url.includes("type=1")) {
-					return {
-						result: {
-							songs: [
-								{
-									id: 33894312,
-									name: "玫瑰少年",
-									ar: [{ name: "五月天" }],
-									al: { name: "玫瑰少年" },
-								},
-								{
-									id: 1375248354,
-									name: "玫瑰少年",
-									ar: [{ name: "蔡依林" }],
-									al: { name: "UGLY BEAUTY" },
-								},
-							],
-						},
-					};
-				}
-				if (url.includes("music.apple.com")) {
-					return "<html></html>";
-				}
-				if (url.includes("amp-api.music.apple.com")) {
-					return { results: { songs: { data: [] } } };
-				}
-				return {};
-			}),
+					},
+				};
+			} else if (url.includes("/cloudsearch") && url.includes("type=1")) {
+				response = {
+					result: {
+						songs: [
+							{
+								id: 33894312,
+								name: "玫瑰少年",
+								ar: [{ name: "五月天" }],
+								al: { name: "玫瑰少年" },
+							},
+							{
+								id: 1375248354,
+								name: "玫瑰少年",
+								ar: [{ name: "蔡依林" }],
+								al: { name: "UGLY BEAUTY" },
+							},
+						],
+					},
+				};
+			} else if (url.includes("music.apple.com")) {
+				response = "<html></html>";
+			} else if (url.includes("amp-api.music.apple.com")) {
+				response = { results: { songs: { data: [] } } };
+			}
+			return response as T;
+		};
+		const client: MetadataNetworkClient = {
+			requestJson,
 			requestText: vi.fn(async () => ""),
 		};
 
@@ -201,15 +204,147 @@ describe("metadata search orchestration", () => {
 			includeSources: ["qqMusic", "ncmMusic"],
 		});
 
-		expect(result.sources.qqMusic.candidates.map((item) => item.id)).toEqual([
+		expect(result.sources.qqMusic?.candidates.map((item) => item.id)).toEqual([
 			"224116257",
 			"235883438",
 		]);
-		expect(result.sources.ncmMusic.candidates.map((item) => item.id)).toEqual([
+		expect(result.sources.ncmMusic?.candidates.map((item) => item.id)).toEqual([
 			"1375248354",
 			"33894312",
 		]);
 		expect(requests.join("\n")).toContain("玫瑰少年");
+	});
+
+	test("enriches search context from an existing NetEase id before querying QQ Music", async () => {
+		const requests: string[] = [];
+		const requestJson: MetadataNetworkClient["requestJson"] = async <T,>(
+			request: MetadataNetworkRequest,
+		): Promise<T> => {
+			const { url, body } = request;
+			requests.push(`${url} ${body ?? ""}`);
+			let response: unknown = {};
+			if (url.includes("/song/detail")) {
+				response = {
+					songs: [
+						{
+							id: 1375248354,
+							name: "玫瑰少年",
+							ar: [{ name: "蔡依林" }],
+							al: { name: "UGLY BEAUTY" },
+						},
+					],
+				};
+			} else if (url.includes("/lyric/new")) {
+				response = { lrc: { lyric: "" } };
+			} else if (url.includes("u.y.qq.com")) {
+				response = {
+					req: {
+						data: {
+							body: {
+								item_song: [
+									{
+										id: 224116257,
+										mid: "001hrIGe3flaPr",
+										name: "玫瑰少年",
+										singer: [{ name: "JOLIN蔡依林" }],
+										album: { name: "UGLY BEAUTY" },
+									},
+								],
+							},
+						},
+					},
+				};
+			} else if (url.includes("/cloudsearch")) {
+				response = { result: { songs: [] } };
+			}
+			return response as T;
+		};
+		const client: MetadataNetworkClient = {
+			requestJson,
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(
+			{
+				artists: [],
+				ids: {
+					ncmMusicId: ["1375248354"],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				spotifyCredentials: null,
+				includeSources: ["qqMusic", "ncmMusic"],
+			},
+		);
+
+		expect(result.sources.qqMusic?.candidates.map((item) => item.id)).toEqual([
+			"224116257",
+		]);
+		expect(requests.find((item) => item.includes("u.y.qq.com"))).toContain(
+			"玫瑰少年",
+		);
+	});
+
+	test("fetches Apple Music details from an existing id without a title", async () => {
+		const requestJson: MetadataNetworkClient["requestJson"] = async <T,>(
+			request: MetadataNetworkRequest,
+		): Promise<T> => {
+			let response: unknown = {};
+			if (request.url.includes("/songs/1458862568")) {
+				response = {
+					data: [
+						{
+							id: "1458862568",
+							attributes: {
+								name: "玫瑰少年",
+								artistName: "蔡依林",
+								albumName: "UGLY BEAUTY",
+								isrc: "TWA471900001",
+								durationInMillis: 209000,
+								releaseDate: "2019-04-01",
+							},
+						},
+					],
+				};
+			}
+			return response as T;
+		};
+		const client: MetadataNetworkClient = {
+			requestJson,
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(
+			{
+				artists: [],
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: ["1458862568"],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				spotifyCredentials: null,
+				appleMusicToken: "token",
+				includeSources: ["appleMusic"],
+			},
+		);
+
+		expect(result.sources.appleMusic?.candidates[0]?.values).toMatchObject({
+			appleMusicId: ["1458862568"],
+			musicName: ["玫瑰少年"],
+			artists: ["蔡依林"],
+			album: ["UGLY BEAUTY"],
+			isrc: ["TWA471900001"],
+		});
 	});
 
 	test("builds deduped metadata values from selected candidates", () => {

@@ -327,6 +327,12 @@
 				"cookieInvalid": "网易云登录已失效：{message}",
 				"cookieInvalidToast": "Cookie 无效：{message}",
 				"clearCookie": "清除"
+			},
+			"spotify": {
+				"title": "Spotify",
+				"desc": "用于元数据自动搜索。凭据仅保存在本机浏览器存储中。",
+				"clientId": "Client ID",
+				"clientSecret": "Client Secret"
 			}
 		},
 		"about": {
@@ -757,6 +763,15 @@
 		"customKey": "自定义键名",
 		"addPresets": "一键添加所有预设键",
 		"pickSuggestion": "选择匹配项",
+		"search": {
+			"action": "自动搜索元数据",
+			"searching": "正在搜索...",
+			"requirement": "流媒体 ID 与歌名必须至少提供一个",
+			"failed": "元数据搜索失败",
+			"applyRecommended": "应用推荐组合",
+			"recommendedCount": "共 {count} 个候选",
+			"noCandidates": "未找到可用候选"
+		},
 		"clear": "清空",
 		"info": "了解详情"
 	},

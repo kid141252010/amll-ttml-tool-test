@@ -98,6 +98,11 @@ export const neteaseRiskConfirmedAtom = atomWithStorage(
 	"neteaseRiskConfirmed",
 	false,
 );
+export const spotifyClientIdAtom = atomWithStorage("spotifyClientId", "");
+export const spotifyClientSecretAtom = atomWithStorage(
+	"spotifyClientSecret",
+	"",
+);
 export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
 	"reviewHiddenLabels",
 	[],
