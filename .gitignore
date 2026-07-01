@@ -33,6 +33,9 @@ dist-ssr
 AGENTS.md
 CLAUDE.md
 .claude/
+.codex/
+.agents/
+.superpowers/
 
 
 # Kuromoji dictionary files (auto-copied from node_modules)

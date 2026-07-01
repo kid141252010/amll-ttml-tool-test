@@ -155,6 +155,20 @@ describe("metadata network error formatting", () => {
 		);
 	});
 
+	test("accepts parseable JSON even when the upstream content type is plain text", async () => {
+		mockMetadataHttpResponse({
+			status: 200,
+			body: JSON.stringify({ ok: true }),
+			contentType: "text/plain; charset=utf-8",
+		});
+
+		await expect(
+			defaultMetadataNetworkClient.requestJson({
+				url: "https://u.y.qq.com/cgi-bin/musicu.fcg",
+			}),
+		).resolves.toEqual({ ok: true });
+	});
+
 	test("reports non-JSON metadata proxy error responses without raw parser errors", async () => {
 		vi.stubGlobal(
 			"fetch",

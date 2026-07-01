@@ -12,6 +12,7 @@ import {
 } from "@fluentui/react-icons";
 import {
 	Button,
+	Checkbox,
 	Dialog,
 	DropdownMenu,
 	Flex,
@@ -50,6 +51,12 @@ import {
 	type MetadataSource,
 	type MetadataValues,
 } from "$/modules/project/logic/metadata-search";
+import {
+	buildMetadataMergePreview,
+	buildSelectedCandidateIds,
+	flattenMetadataSearchCandidates,
+	groupMetadataCandidatesByRegion,
+} from "$/modules/project/logic/metadata-search/metadata-search-ui";
 import {
 	fetchNeteaseSongMeta,
 	type NeteaseSongMeta,
@@ -681,7 +688,7 @@ const candidateTitle = (candidate: MetadataCandidate): string => {
 
 const candidateMeta = (candidate: MetadataCandidate): string => {
 	const pieces = [
-		candidate.region,
+		metadataSourceLabels[candidate.source],
 		candidate.isrc ? `ISRC ${candidate.isrc}` : null,
 		`ID ${candidate.id}`,
 		candidate.altIds?.length ? candidate.altIds.join(" / ") : null,
@@ -707,6 +714,10 @@ export const MetadataEditor = () => {
 	const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
 	const [metadataSearchResult, setMetadataSearchResult] =
 		useState<MetadataSearchResult | null>(null);
+	const [selectedMetadataCandidateIds, setSelectedMetadataCandidateIds] =
+		useState<string[]>([]);
+	const [metadataSearchPreviewOpen, setMetadataSearchPreviewOpen] =
+		useState(false);
 
 	const { t } = useTranslation();
 	const appendMetadataValues = useCallback(
@@ -767,6 +778,7 @@ export const MetadataEditor = () => {
 
 	const runMetadataSearch = useCallback(async () => {
 		setMetadataSearchOpen(true);
+		setMetadataSearchPreviewOpen(false);
 		if (!canSearchMetadata(metadataSearchInput)) {
 			setMetadataSearchResult({
 				sources: {},
@@ -779,11 +791,13 @@ export const MetadataEditor = () => {
 				],
 				warnings: [],
 			});
+			setSelectedMetadataCandidateIds([]);
 			return;
 		}
 		if (isSearchingMetadata) return;
 		setIsSearchingMetadata(true);
 		setMetadataSearchResult(null);
+		setSelectedMetadataCandidateIds([]);
 		try {
 			const result = await searchMetadata(metadataSearchInput, {
 				appleMusicToken: appleMusicBearerToken.trim() || null,
@@ -796,6 +810,9 @@ export const MetadataEditor = () => {
 						: null,
 			});
 			setMetadataSearchResult(result);
+			setSelectedMetadataCandidateIds(
+				buildSelectedCandidateIds(result.recommendedCandidateIds),
+			);
 		} catch (error) {
 			setMetadataSearchResult({
 				sources: {},
@@ -808,6 +825,7 @@ export const MetadataEditor = () => {
 				],
 				warnings: [],
 			});
+			setSelectedMetadataCandidateIds([]);
 		} finally {
 			setIsSearchingMetadata(false);
 		}
@@ -823,15 +841,26 @@ export const MetadataEditor = () => {
 	const applyMetadataSearchSelection = useCallback(
 		(selectedIds: string[]) => {
 			if (!metadataSearchResult) return;
+			if (selectedIds.length === 0) return;
 			const values = buildMetadataValuesFromSelection(
 				metadataSearchResult,
 				selectedIds,
 			);
 			applyMetadataValues(values);
 			setMetadataSearchOpen(false);
+			setMetadataSearchPreviewOpen(false);
 		},
 		[applyMetadataValues, metadataSearchResult],
 	);
+
+	const toggleMetadataCandidate = useCallback((candidateId: string) => {
+		setSelectedMetadataCandidateIds((prev) => {
+			if (prev.includes(candidateId)) {
+				return prev.filter((id) => id !== candidateId);
+			}
+			return [...prev, candidateId];
+		});
+	}, []);
 
 	const requestNeteaseMeta = useCallback(
 		async (id: string) => {
@@ -1090,11 +1119,28 @@ export const MetadataEditor = () => {
 	}, []);
 
 	const metadataSearchCandidates = useMemo(() => {
-		if (!metadataSearchResult) return [];
-		return metadataSourceOrder.flatMap(
-			(source) => metadataSearchResult.sources[source]?.candidates ?? [],
+		return flattenMetadataSearchCandidates(
+			metadataSearchResult,
+			metadataSourceOrder,
 		);
 	}, [metadataSearchResult]);
+	const metadataSearchRegionGroups = useMemo(
+		() => groupMetadataCandidatesByRegion(metadataSearchCandidates),
+		[metadataSearchCandidates],
+	);
+	const metadataSearchPreview = useMemo(
+		() =>
+			buildMetadataMergePreview(
+				lyricLines.metadata,
+				metadataSearchCandidates,
+				selectedMetadataCandidateIds,
+			),
+		[
+			lyricLines.metadata,
+			metadataSearchCandidates,
+			selectedMetadataCandidateIds,
+		],
+	);
 	const metadataSearchMessages = useMemo(() => {
 		if (!metadataSearchResult) return [];
 		return Array.from(new Set([

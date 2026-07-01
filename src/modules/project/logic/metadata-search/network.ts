@@ -45,11 +45,6 @@ export const defaultMetadataNetworkClient: MetadataNetworkClient = {
 				`HTTP ${response.status}${formatResponseBodySuffix(response.body)}`,
 			);
 		}
-		if (!isJsonContentType(response.contentType)) {
-			throw new Error(
-				`Invalid JSON response from ${requestHost(request)}${formatResponseBodySuffix(response.body)}`,
-			);
-		}
 		try {
 			return JSON.parse(response.body) as T;
 		} catch {
@@ -68,9 +63,6 @@ export const defaultMetadataNetworkClient: MetadataNetworkClient = {
 		return response.body;
 	},
 };
-
-const isJsonContentType = (contentType: string | undefined): boolean =>
-	!contentType || /\bjson\b/i.test(contentType);
 
 const requestHost = (request: MetadataNetworkRequest): string => {
 	try {
