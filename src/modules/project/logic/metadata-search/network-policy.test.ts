@@ -11,14 +11,14 @@ describe("metadata network policy", () => {
 		).toBe(true);
 		expect(
 			validateMetadataNetworkRequest({
-				url: "http://u.y.qq.com/cgi-bin/musicu.fcg",
+				url: "https://u.y.qq.com/cgi-bin/musicu.fcg",
 				method: "POST",
 				body: "{}",
 			}).ok,
 		).toBe(true);
 	});
 
-	test("rejects non-whitelisted hosts, unsupported methods, unsupported protocols and large bodies", () => {
+	test("rejects non-whitelisted hosts, unsupported methods, unsupported protocols, QQ HTTP and large bodies", () => {
 		expect(
 			validateMetadataNetworkRequest({
 				url: "https://example.com/search",
@@ -35,6 +35,13 @@ describe("metadata network policy", () => {
 			validateMetadataNetworkRequest({
 				url: "ftp://api.spotify.com/file",
 				method: "GET",
+			}),
+		).toEqual({ ok: false, error: "Protocol is not allowed" });
+		expect(
+			validateMetadataNetworkRequest({
+				url: "http://u.y.qq.com/cgi-bin/musicu.fcg",
+				method: "POST",
+				body: "{}",
 			}),
 		).toEqual({ ok: false, error: "Protocol is not allowed" });
 		expect(

@@ -1,8 +1,0 @@
-import { n as unpluginFactory } from "./unplugin-D_3T3e7l.js";
-import { createWebpackPlugin } from "unplugin";
-
-//#region src/webpack.ts
-var webpack_default = createWebpackPlugin(unpluginFactory);
-
-//#endregion
-export { webpack_default as t };

@@ -56,6 +56,7 @@ import {
 } from "$/modules/ncm/services/meta-service";
 import { fetchGithubUserProfile } from "$/modules/github/services/identity-service";
 import {
+	appleMusicBearerTokenAtom,
 	githubLoginAtom,
 	githubPatAtom,
 	spotifyClientIdAtom,
@@ -697,6 +698,7 @@ export const MetadataEditor = () => {
 	const [githubLogin] = useAtom(githubLoginAtom);
 	const [spotifyClientId] = useAtom(spotifyClientIdAtom);
 	const [spotifyClientSecret] = useAtom(spotifyClientSecretAtom);
+	const [appleMusicBearerToken] = useAtom(appleMusicBearerTokenAtom);
 	const [customKey, setCustomKey] = useState("");
 	const [lyricLines, setLyricLines] = useImmerAtom(lyricLinesAtom);
 	const addKeyButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -784,6 +786,7 @@ export const MetadataEditor = () => {
 		setMetadataSearchResult(null);
 		try {
 			const result = await searchMetadata(metadataSearchInput, {
+				appleMusicToken: appleMusicBearerToken.trim() || null,
 				spotifyCredentials:
 					spotifyClientId.trim() && spotifyClientSecret.trim()
 						? {
@@ -811,6 +814,7 @@ export const MetadataEditor = () => {
 	}, [
 		isSearchingMetadata,
 		metadataSearchInput,
+		appleMusicBearerToken,
 		spotifyClientId,
 		spotifyClientSecret,
 		t,
@@ -1093,10 +1097,10 @@ export const MetadataEditor = () => {
 	}, [metadataSearchResult]);
 	const metadataSearchMessages = useMemo(() => {
 		if (!metadataSearchResult) return [];
-		return [
+		return Array.from(new Set([
 			...metadataSearchResult.errors,
 			...metadataSearchResult.warnings,
-		];
+		]));
 	}, [metadataSearchResult]);
 
 	return (

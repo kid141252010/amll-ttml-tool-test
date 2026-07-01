@@ -1,7 +1,0 @@
-import { n as UserOptions } from "./types-C7-babMd.js";
-import * as _farmfe_core0 from "@farmfe/core";
-
-//#region src/farm.d.ts
-declare const _default: (options?: UserOptions | undefined) => _farmfe_core0.JsPlugin;
-//#endregion
-export { _default as default };

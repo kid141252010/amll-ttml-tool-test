@@ -89,10 +89,7 @@ fn validate_metadata_http_request(
     let url = reqwest::Url::parse(&request.url).map_err(|_| "URL is invalid".to_string())?;
     let scheme = url.scheme();
     let host = url.host_str().unwrap_or_default();
-    if scheme != "https" && scheme != "http" {
-        return Err("Protocol is not allowed".to_string());
-    }
-    if scheme == "http" && host != "u.y.qq.com" {
+    if scheme != "https" {
         return Err("Protocol is not allowed".to_string());
     }
     if !metadata_host_allowed(host) {

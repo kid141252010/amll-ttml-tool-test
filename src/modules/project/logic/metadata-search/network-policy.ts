@@ -30,10 +30,7 @@ export const validateMetadataNetworkRequest = (
 		return { ok: false, error: "URL is invalid" };
 	}
 
-	if (url.protocol !== "https:" && url.protocol !== "http:") {
-		return { ok: false, error: "Protocol is not allowed" };
-	}
-	if (url.protocol === "http:" && url.hostname !== "u.y.qq.com") {
+	if (url.protocol !== "https:") {
 		return { ok: false, error: "Protocol is not allowed" };
 	}
 	if (!METADATA_NETWORK_ALLOWED_HOSTS.has(url.hostname)) {

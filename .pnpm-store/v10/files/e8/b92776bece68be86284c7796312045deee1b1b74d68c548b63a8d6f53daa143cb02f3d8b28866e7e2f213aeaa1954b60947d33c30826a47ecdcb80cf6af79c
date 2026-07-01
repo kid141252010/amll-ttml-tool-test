@@ -1,2 +1,0 @@
-import { n as UserOptions, t as Options } from "./types-5fYYU353.cjs";
-export { Options, UserOptions };

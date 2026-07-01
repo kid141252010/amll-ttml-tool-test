@@ -1,8 +1,0 @@
-import type { Atom, ExtractAtomArgs, ExtractAtomResult, ExtractAtomValue, WritableAtom } from 'jotai/vanilla';
-import { REDO, RESET, UNDO } from './actions.js';
-import { type History } from './withHistory.js';
-import { type Indicators } from './withUndo.js';
-type WithUndoableHistory<T extends Atom<unknown>> = T extends WritableAtom<any, any[], any> ? WritableAtom<History<ExtractAtomValue<T>> & Indicators, ExtractAtomArgs<T> | [RESET | UNDO | REDO], ExtractAtomResult<T> | void> : WritableAtom<History<ExtractAtomValue<T>>, [RESET], void>;
-export declare function withUndoableHistory<T extends Atom<unknown>>(targetAtom: T, limit: number): WithUndoableHistory<T>;
-export {};
-//# sourceMappingURL=withUndoableHistory.d.ts.map

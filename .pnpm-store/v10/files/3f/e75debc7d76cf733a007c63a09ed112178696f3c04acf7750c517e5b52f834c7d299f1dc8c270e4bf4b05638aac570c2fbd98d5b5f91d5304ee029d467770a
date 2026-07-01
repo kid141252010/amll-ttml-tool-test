@@ -1,7 +1,0 @@
-import { n as UserOptions } from "./types-C7-babMd.js";
-import * as rollup0 from "rollup";
-
-//#region src/rollup.d.ts
-declare const _default: (options?: UserOptions | undefined) => rollup0.Plugin<any> | rollup0.Plugin<any>[];
-//#endregion
-export { _default as default };

@@ -1,3 +1,0 @@
-export { withUndoableHistory as withHistory } from './withUndoableHistory.js';
-export { REDO, RESET, UNDO } from './actions.js';
-//# sourceMappingURL=index.js.map

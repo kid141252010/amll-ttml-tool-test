@@ -1,8 +1,0 @@
-import { n as unpluginFactory } from "./unplugin-D_3T3e7l.js";
-import { createEsbuildPlugin } from "unplugin";
-
-//#region src/esbuild.ts
-var esbuild_default = createEsbuildPlugin(unpluginFactory);
-
-//#endregion
-export { esbuild_default as default };

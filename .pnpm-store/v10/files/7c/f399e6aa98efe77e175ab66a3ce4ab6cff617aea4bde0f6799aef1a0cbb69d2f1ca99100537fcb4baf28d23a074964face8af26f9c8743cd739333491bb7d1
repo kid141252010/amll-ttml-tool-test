@@ -1,7 +1,0 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RESET = exports.REDO = exports.UNDO = void 0;
-exports.UNDO = Symbol('undo');
-exports.REDO = Symbol('redo');
-exports.RESET = Symbol('reset');
-//# sourceMappingURL=actions.js.map

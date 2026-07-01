@@ -1,5 +1,0 @@
-require('./unplugin-BDx8Bfqn.cjs');
-const require_vite = require('./vite-D0Eeyrb3.cjs');
-
-module.exports = require_vite.vite_default;
-exports.default = module.exports;

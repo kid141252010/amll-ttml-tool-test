@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { GithubLoginCard } from "$/modules/github/modals/GithubLoginCard";
 import { NeteaseLoginCard } from "$/modules/ncm/modals/NeteaseLoginCard";
 import {
+	appleMusicBearerTokenAtom,
 	githubLoginAtom,
 	spotifyClientIdAtom,
 	spotifyClientSecretAtom,
@@ -124,6 +125,38 @@ const SpotifyCredentialsCard = () => {
 	);
 };
 
+const AppleMusicTokenCard = () => {
+	const { t } = useTranslation();
+	const [token, setToken] = useAtom(appleMusicBearerTokenAtom);
+
+	return (
+		<Card>
+			<Flex direction="column" gap="3">
+				<Flex direction="column" gap="1">
+					<Text weight="medium">
+						{t("settings.connect.appleMusic.title", "Apple Music")}
+					</Text>
+					<Text size="2" color="gray">
+						{t(
+							"settings.connect.appleMusic.desc",
+							"用于元数据自动搜索。Bearer Token 仅保存在本机浏览器存储中。",
+						)}
+					</Text>
+				</Flex>
+				<TextField.Root
+					type="password"
+					value={token}
+					onChange={(event) => setToken(event.currentTarget.value)}
+					placeholder={t(
+						"settings.connect.appleMusic.bearerToken",
+						"Bearer Token",
+					)}
+				/>
+			</Flex>
+		</Card>
+	);
+};
+
 export const SettingsConnectTab = () => {
 	const { t } = useTranslation();
 	const githubLogin = useAtomValue(githubLoginAtom);
@@ -142,6 +175,8 @@ export const SettingsConnectTab = () => {
 			<LyricsSiteLoginCard />
 
 			{shouldShowNetease && <NeteaseLoginCard />}
+
+			<AppleMusicTokenCard />
 
 			<SpotifyCredentialsCard />
 		</Flex>

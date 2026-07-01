@@ -1,5 +1,0 @@
-import { t as Options } from "./types-5fYYU353.cjs";
-
-//#region src/astro.d.ts
-declare const _default: (options: Options) => any;
-export = _default;

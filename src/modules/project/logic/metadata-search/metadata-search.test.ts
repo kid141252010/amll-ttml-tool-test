@@ -314,6 +314,9 @@ describe("metadata search orchestration", () => {
 			"224116257",
 			"235883438",
 		]);
+		expect(requests.find((item) => item.includes("u.y.qq.com"))).toContain(
+			"https://u.y.qq.com/cgi-bin/musicu.fcg",
+		);
 		expect(result.sources.ncmMusic?.candidates.map((item) => item.id)).toEqual([
 			"1375248354",
 			"33894312",
@@ -453,6 +456,90 @@ describe("metadata search orchestration", () => {
 		});
 	});
 
+	test("uses a configured Apple Music bearer token without fetching music.apple.com pages", async () => {
+		const requests: string[] = [];
+		const requestJson: MetadataNetworkClient["requestJson"] = async <T,>(
+			request: MetadataNetworkRequest,
+		): Promise<T> => {
+			requests.push(request.url);
+			expect(request.headers?.Authorization).toBe("Bearer configured-token");
+			if (request.url.includes("/search")) {
+				return {
+					results: {
+						songs: {
+							data: [
+								{
+									id: "1458862568",
+									attributes: {
+										name: "玫瑰少年",
+										artistName: "蔡依林",
+										albumName: "UGLY BEAUTY",
+										isrc: "TWA471900001",
+									},
+								},
+							],
+						},
+					},
+				} as T;
+			}
+			return { data: [] } as T;
+		};
+		const client: MetadataNetworkClient = {
+			requestJson,
+			requestText: vi.fn(async () => {
+				throw new Error("music.apple.com should not be fetched");
+			}),
+		};
+
+		const result = await searchMetadata(
+			{
+				...input,
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				appleMusicToken: "Bearer configured-token",
+				spotifyCredentials: null,
+				includeSources: ["appleMusic"],
+			},
+		);
+
+		expect(result.sources.appleMusic?.candidates[0]?.id).toBe("1458862568");
+		expect(requests.every((url) => url.includes("amp-api.music.apple.com"))).toBe(
+			true,
+		);
+		expect(client.requestText).not.toHaveBeenCalled();
+	});
+
+	test("skips Apple Music on web when no bearer token is configured", async () => {
+		const client: MetadataNetworkClient = {
+			requestJson: vi.fn(async () => ({})),
+			requestText: vi.fn(async () => {
+				throw new Error("music.apple.com should not be fetched on web");
+			}),
+		};
+
+		const result = await searchMetadata(input, {
+			client,
+			appleMusicToken: null,
+			spotifyCredentials: null,
+			includeSources: ["appleMusic"],
+		});
+
+		expect(client.requestJson).not.toHaveBeenCalled();
+		expect(client.requestText).not.toHaveBeenCalled();
+		expect(result.sources.appleMusic?.errors).toEqual([
+			"缺少 Apple Music Bearer Token，跳过 Apple Music 搜索",
+			"Apple Music 未找到带歌曲 ID 的候选",
+		]);
+	});
+
 	test("reports Apple Music non-JSON failures per storefront without raw parser errors", async () => {
 		const client: MetadataNetworkClient = {
 			requestJson: vi.fn(async (request: MetadataNetworkRequest) => {
@@ -462,12 +549,24 @@ describe("metadata search orchestration", () => {
 			requestText: vi.fn(async () => ""),
 		};
 
-		const result = await searchMetadata(input, {
-			client,
-			appleMusicToken: "token",
-			spotifyCredentials: null,
-			includeSources: ["appleMusic"],
-		});
+		const result = await searchMetadata(
+			{
+				...input,
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				appleMusicToken: "token",
+				spotifyCredentials: null,
+				includeSources: ["appleMusic"],
+			},
+		);
 
 		expect(result.sources.appleMusic?.errors).toEqual([
 			"cn: Invalid JSON response from amp-api.music.apple.com: A server error occurred",
@@ -478,6 +577,42 @@ describe("metadata search orchestration", () => {
 			"Apple Music 未找到带歌曲 ID 的候选",
 		]);
 		expect(result.errors.join("\n")).not.toContain("Unexpected token");
+	});
+
+	test("stops Apple Music storefront retries when metadata proxy is unavailable", async () => {
+		const client: MetadataNetworkClient = {
+			requestJson: vi.fn(async () => {
+				throw new Error(
+					"Metadata proxy HTTP 500: A server error has occurred FUNCTION_INVOCATION_FAILED fra1::abc",
+				);
+			}),
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(
+			{
+				...input,
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				appleMusicToken: "token",
+				spotifyCredentials: null,
+				includeSources: ["appleMusic"],
+			},
+		);
+
+		expect(client.requestJson).toHaveBeenCalledTimes(1);
+		expect(result.sources.appleMusic?.errors).toEqual([
+			"元数据代理暂不可用",
+			"Apple Music 未找到带歌曲 ID 的候选",
+		]);
 	});
 
 	test("reports NetEase mirror non-JSON failures with each mirror host", async () => {
@@ -511,6 +646,41 @@ describe("metadata search orchestration", () => {
 			"music163.xuanmou.com.cn: Invalid JSON response from music163.xuanmou.com.cn: A server error occurred",
 			"neteasecloudmusicapi-main-api.vercel.app: Invalid JSON response from neteasecloudmusicapi-main-api.vercel.app: A server error occurred",
 			"api-enhanced-six-beta.vercel.app: Invalid JSON response from api-enhanced-six-beta.vercel.app: A server error occurred",
+			"网易云音乐未找到带歌曲 ID 的候选",
+		]);
+	});
+
+	test("stops NetEase mirror retries when metadata proxy is unavailable", async () => {
+		const client: MetadataNetworkClient = {
+			requestJson: vi.fn(async () => {
+				throw new Error(
+					"Metadata proxy HTTP 500: A server error has occurred FUNCTION_INVOCATION_FAILED fra1::abc",
+				);
+			}),
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(
+			{
+				...input,
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				spotifyCredentials: null,
+				includeSources: ["ncmMusic"],
+			},
+		);
+
+		expect(client.requestJson).toHaveBeenCalledTimes(1);
+		expect(result.sources.ncmMusic?.errors).toEqual([
+			"元数据代理暂不可用",
 			"网易云音乐未找到带歌曲 ID 的候选",
 		]);
 	});

@@ -1,8 +1,0 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.useImmerAtom = useImmerAtom;
-const react_1 = require("jotai/react");
-const useSetImmerAtom_js_1 = require("./useSetImmerAtom.js");
-function useImmerAtom(anAtom, options) {
-    return [(0, react_1.useAtomValue)(anAtom, options), (0, useSetImmerAtom_js_1.useSetImmerAtom)(anAtom, options)];
-}

@@ -54,6 +54,9 @@ const NCM_API_BASES = [
 	"https://neteasecloudmusicapi-main-api.vercel.app",
 	"https://api-enhanced-six-beta.vercel.app",
 ];
+const APPLE_MUSIC_MISSING_TOKEN_ERROR =
+	"缺少 Apple Music Bearer Token，跳过 Apple Music 搜索";
+const METADATA_PROXY_UNAVAILABLE_ERROR = "元数据代理暂不可用";
 
 export const buildMetadataSearchInput = (
 	metadata: TTMLMetadata[],
@@ -123,6 +126,9 @@ export const formatMetadataSearchError = (
 ): string => {
 	const message =
 		error instanceof Error ? error.message : (stringify(error) ?? fallback);
+	if (isMetadataProxyUnavailableError(message)) {
+		return METADATA_PROXY_UNAVAILABLE_ERROR;
+	}
 	if (isRawJsonParseError(message)) {
 		return "元数据服务返回了非 JSON 响应";
 	}
@@ -209,6 +215,9 @@ const enrichMetadataSearchInput = async (
 	const enriched = cloneMetadataSearchInput(input);
 	const shouldEnrichForCrossSearch =
 		includeSources.has("qqMusic") || includeSources.has("ncmMusic");
+	const appleMusicToken = normalizeConfiguredAppleMusicToken(
+		options.appleMusicToken ?? null,
+	);
 
 	if (
 		input.ids.ncmMusicId.length > 0 &&
@@ -228,12 +237,13 @@ const enrichMetadataSearchInput = async (
 
 	if (
 		input.ids.appleMusicId.length > 0 &&
+		(appleMusicToken || canDiscoverAppleMusicToken()) &&
 		(includeSources.has("appleMusic") || shouldEnrichForCrossSearch)
 	) {
 		for (const id of input.ids.appleMusicId) {
 			const candidate = await fetchFirstAppleMusicTrackById(
 				client,
-				options.appleMusicToken ?? null,
+				appleMusicToken,
 				id,
 				enriched,
 			).catch((error) => {
@@ -358,7 +368,7 @@ const searchQQMusic = async (
 
 	const payload = qqMusicSearchPayload(input.title);
 	const response = await client.requestJson({
-		url: "http://u.y.qq.com/cgi-bin/musicu.fcg",
+		url: "https://u.y.qq.com/cgi-bin/musicu.fcg",
 		method: "POST",
 		headers: {
 			"Accept-Language": "zh-CN",
@@ -508,9 +518,12 @@ const searchNcmMusic = async (
 			candidates.push(...searched);
 			if (searched.length > 0) break;
 		} catch (error) {
-			errors.push(
-				`${hostForUrl(base)}: ${formatMetadataSearchError(error, "搜索失败")}`,
-			);
+			const formatted = formatMetadataSearchError(error, "搜索失败");
+			if (isMetadataProxyUnavailable(error)) {
+				errors.push(formatted);
+				break;
+			}
+			errors.push(`${hostForUrl(base)}: ${formatted}`);
 		}
 	}
 
@@ -688,11 +701,20 @@ const searchAppleMusic = async (
 	if (!input.title && input.ids.appleMusicId.length === 0) {
 		return sourceResult([], ["未读取到歌名，跳过 Apple Music 搜索"]);
 	}
+	const configuredBearerToken =
+		normalizeConfiguredAppleMusicToken(configuredToken);
+	if (!configuredBearerToken && !canDiscoverAppleMusicToken()) {
+		return sourceResult([], [
+			APPLE_MUSIC_MISSING_TOKEN_ERROR,
+			"Apple Music 未找到带歌曲 ID 的候选",
+		]);
+	}
 
 	for (const storefront of APPLE_STOREFRONTS) {
 		try {
 			const token =
-				configuredToken ?? (await fetchAppleMusicBearerToken(client, storefront));
+				configuredBearerToken ??
+				(await fetchAppleMusicBearerToken(client, storefront));
 			for (const [index, id] of input.ids.appleMusicId.entries()) {
 				const candidate = await fetchAppleMusicTrackById(
 					client,
@@ -718,9 +740,15 @@ const searchAppleMusic = async (
 				candidates.push(...parseAppleMusicCandidates(payload, input, storefront));
 			}
 		} catch (error) {
-			errors.push(
-				`${storefront}: ${formatMetadataSearchError(error, "Apple Music 搜索失败")}`,
+			const formatted = formatMetadataSearchError(
+				error,
+				"Apple Music 搜索失败",
 			);
+			if (isMetadataProxyUnavailable(error)) {
+				errors.push(formatted);
+				break;
+			}
+			errors.push(`${storefront}: ${formatted}`);
 		}
 	}
 
@@ -753,10 +781,16 @@ const fetchFirstAppleMusicTrackById = async (
 	input: MetadataSearchInput,
 ): Promise<MetadataCandidate | null> => {
 	let lastError: unknown = null;
+	const configuredBearerToken =
+		normalizeConfiguredAppleMusicToken(configuredToken);
+	if (!configuredBearerToken && !canDiscoverAppleMusicToken()) {
+		return null;
+	}
 	for (const storefront of APPLE_STOREFRONTS) {
 		try {
 			const token =
-				configuredToken ?? (await fetchAppleMusicBearerToken(client, storefront));
+				configuredBearerToken ??
+				(await fetchAppleMusicBearerToken(client, storefront));
 			const candidate = await fetchAppleMusicTrackById(
 				client,
 				token,
@@ -767,6 +801,7 @@ const fetchFirstAppleMusicTrackById = async (
 			);
 			if (candidate) return candidate;
 		} catch (error) {
+			if (isMetadataProxyUnavailable(error)) throw error;
 			lastError = error;
 		}
 	}
@@ -907,6 +942,14 @@ const fetchAppleMusicBearerToken = async (
 
 const normalizeBearerToken = (value: string) =>
 	value.replace(/^Bearer\s+/i, "").trim();
+
+const normalizeConfiguredAppleMusicToken = (value: string | null): string | null => {
+	const token = normalizeBearerToken(value ?? "");
+	return token || null;
+};
+
+const canDiscoverAppleMusicToken = (): boolean =>
+	Boolean(import.meta.env.TAURI_ENV_PLATFORM);
 
 const appleMusicSearchQuery = (input: MetadataSearchInput) =>
 	[
@@ -1197,3 +1240,12 @@ const hostForUrl = (url: string): string => {
 const isRawJsonParseError = (message: string): boolean =>
 	/Unexpected token .* is not valid JSON/i.test(message) ||
 	/Unexpected end of JSON input/i.test(message);
+
+const isMetadataProxyUnavailable = (error: unknown): boolean => {
+	const message =
+		error instanceof Error ? error.message : (stringify(error) ?? "");
+	return isMetadataProxyUnavailableError(message);
+};
+
+const isMetadataProxyUnavailableError = (message: string): boolean =>
+	/\bFUNCTION_INVOCATION_FAILED\b/i.test(message);

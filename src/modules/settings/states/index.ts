@@ -103,6 +103,10 @@ export const spotifyClientSecretAtom = atomWithStorage(
 	"spotifyClientSecret",
 	"",
 );
+export const appleMusicBearerTokenAtom = atomWithStorage(
+	"APPLE_MUSIC_BEARER_TOKEN",
+	"",
+);
 export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
 	"reviewHiddenLabels",
 	[],
