@@ -722,6 +722,10 @@ export const MetadataEditor = () => {
 		useState<string[]>([]);
 	const [metadataSearchPreviewOpen, setMetadataSearchPreviewOpen] =
 		useState(false);
+	const metadataSearchRunIdRef = useRef(0);
+	const metadataSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+		null,
+	);
 
 	const { t } = useTranslation();
 	const appendMetadataValues = useCallback(
@@ -781,6 +785,11 @@ export const MetadataEditor = () => {
 	);
 
 	const runMetadataSearch = useCallback(async () => {
+		const searchRunId = metadataSearchRunIdRef.current + 1;
+		metadataSearchRunIdRef.current = searchRunId;
+		if (metadataSearchTimeoutRef.current) {
+			clearTimeout(metadataSearchTimeoutRef.current);
+		}
 		setMetadataSearchOpen(true);
 		setMetadataSearchPreviewOpen(false);
 		if (!canSearchMetadata(metadataSearchInput)) {
@@ -802,6 +811,14 @@ export const MetadataEditor = () => {
 		setIsSearchingMetadata(true);
 		setMetadataSearchResult(null);
 		setSelectedMetadataCandidateIds([]);
+		metadataSearchTimeoutRef.current = setTimeout(() => {
+			if (metadataSearchRunIdRef.current !== searchRunId) return;
+			metadataSearchRunIdRef.current += 1;
+			metadataSearchTimeoutRef.current = null;
+			setIsSearchingMetadata(false);
+			setMetadataSearchOpen(false);
+			setMetadataSearchPreviewOpen(false);
+		}, 30_000);
 		try {
 			const result = await searchMetadata(metadataSearchInput, {
 				appleMusicToken: appleMusicBearerToken.trim() || null,
@@ -813,11 +830,13 @@ export const MetadataEditor = () => {
 							}
 						: null,
 			});
+			if (metadataSearchRunIdRef.current !== searchRunId) return;
 			setMetadataSearchResult(result);
 			setSelectedMetadataCandidateIds(
 				buildSelectedCandidateIds(result.recommendedCandidateIds),
 			);
 		} catch (error) {
+			if (metadataSearchRunIdRef.current !== searchRunId) return;
 			setMetadataSearchResult({
 				sources: {},
 				recommendedCandidateIds: [],
@@ -831,7 +850,13 @@ export const MetadataEditor = () => {
 			});
 			setSelectedMetadataCandidateIds([]);
 		} finally {
-			setIsSearchingMetadata(false);
+			if (metadataSearchRunIdRef.current === searchRunId) {
+				if (metadataSearchTimeoutRef.current) {
+					clearTimeout(metadataSearchTimeoutRef.current);
+					metadataSearchTimeoutRef.current = null;
+				}
+				setIsSearchingMetadata(false);
+			}
 		}
 	}, [
 		isSearchingMetadata,
@@ -841,6 +866,15 @@ export const MetadataEditor = () => {
 		spotifyClientSecret,
 		t,
 	]);
+
+	useEffect(() => {
+		return () => {
+			metadataSearchRunIdRef.current += 1;
+			if (metadataSearchTimeoutRef.current) {
+				clearTimeout(metadataSearchTimeoutRef.current);
+			}
+		};
+	}, []);
 
 	const applyMetadataSearchSelection = useCallback(
 		(selectedIds: string[]) => {
@@ -1225,8 +1259,12 @@ export const MetadataEditor = () => {
 					className={styles.dialogFooter}
 				>
 					<Popover.Root
+						modal={isSearchingMetadata}
 						open={metadataSearchOpen}
-						onOpenChange={setMetadataSearchOpen}
+						onOpenChange={(open) => {
+							if (isSearchingMetadata && !open) return;
+							setMetadataSearchOpen(open);
+						}}
 					>
 						<Popover.Trigger
 							style={{
@@ -1250,7 +1288,15 @@ export const MetadataEditor = () => {
 								{t("metadataDialog.search.action", "自动搜索元数据")}
 							</Button>
 						</Popover.Trigger>
-						<Popover.Content className={styles.metadataSearchMenu}>
+						<Popover.Content
+							className={styles.metadataSearchMenu}
+							onInteractOutside={(event) => {
+								if (isSearchingMetadata) event.preventDefault();
+							}}
+							onPointerDownOutside={(event) => {
+								if (isSearchingMetadata) event.preventDefault();
+							}}
+						>
 							{isSearchingMetadata && (
 								<div className={styles.metadataSearchStatus}>
 									<Flex align="center" gap="2" wrap="wrap">
