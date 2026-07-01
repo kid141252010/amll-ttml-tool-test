@@ -43,6 +43,7 @@ import {
 	buildMetadataValuesFromSelection,
 	canSearchMetadata,
 	candidateKey,
+	formatMetadataSearchError,
 	searchMetadata,
 	type MetadataCandidate,
 	type MetadataSearchResult,
@@ -797,9 +798,10 @@ export const MetadataEditor = () => {
 				sources: {},
 				recommendedCandidateIds: [],
 				errors: [
-					error instanceof Error
-						? error.message
-						: t("metadataDialog.search.failed", "元数据搜索失败"),
+					formatMetadataSearchError(
+						error,
+						t("metadataDialog.search.failed", "元数据搜索失败"),
+					),
 				],
 				warnings: [],
 			});

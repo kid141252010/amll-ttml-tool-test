@@ -26,11 +26,13 @@ export const metadataHttpRequest = async (
 		},
 		body: JSON.stringify(request),
 	});
-	const payload = (await response.json()) as MetadataHttpResponse & {
-		error?: string;
-	};
+	const responseText = await response.text();
+	const payload = parseMetadataProxyResponse(response, responseText);
 	if (!response.ok) {
-		throw new Error(payload.error || `Metadata request failed: ${response.status}`);
+		throw new Error(
+			payload.error ||
+				`Metadata proxy HTTP ${response.status}${formatResponseBodySuffix(responseText)}`,
+		);
 	}
 	return payload;
 };
@@ -81,4 +83,18 @@ const requestHost = (request: MetadataNetworkRequest): string => {
 const formatResponseBodySuffix = (body: string): string => {
 	const prefix = body.replace(/\s+/g, " ").trim().slice(0, ERROR_BODY_PREFIX_LENGTH);
 	return prefix ? `: ${prefix}` : "";
+};
+
+const parseMetadataProxyResponse = (
+	response: Pick<Response, "ok" | "status">,
+	body: string,
+): MetadataHttpResponse & { error?: string } => {
+	try {
+		return JSON.parse(body) as MetadataHttpResponse & { error?: string };
+	} catch {
+		const prefix = response.ok
+			? "Metadata proxy returned invalid JSON"
+			: `Metadata proxy HTTP ${response.status}`;
+		throw new Error(`${prefix}${formatResponseBodySuffix(body)}`);
+	}
 };

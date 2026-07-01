@@ -117,6 +117,18 @@ export const buildMetadataValuesFromSelection = (
 	return values;
 };
 
+export const formatMetadataSearchError = (
+	error: unknown,
+	fallback = "元数据搜索失败",
+): string => {
+	const message =
+		error instanceof Error ? error.message : (stringify(error) ?? fallback);
+	if (isRawJsonParseError(message)) {
+		return "元数据服务返回了非 JSON 响应";
+	}
+	return message || fallback;
+};
+
 export const searchMetadata = async (
 	input: MetadataSearchInput,
 	options: SearchMetadataOptions = {},
@@ -208,7 +220,7 @@ const enrichMetadataSearchInput = async (
 				if (candidate) mergeCandidateIntoSearchInput(enriched, candidate);
 			} catch (error) {
 				warnings.push(
-					error instanceof Error ? error.message : "网易云音乐 ID 基础信息补全失败",
+					formatMetadataSearchError(error, "网易云音乐 ID 基础信息补全失败"),
 				);
 			}
 		}
@@ -226,9 +238,7 @@ const enrichMetadataSearchInput = async (
 				enriched,
 			).catch((error) => {
 				warnings.push(
-					error instanceof Error
-						? error.message
-						: "Apple Music ID 基础信息补全失败",
+					formatMetadataSearchError(error, "Apple Music ID 基础信息补全失败"),
 				);
 				return null;
 			});
@@ -256,7 +266,7 @@ const enrichMetadataSearchInput = async (
 			}
 		} catch (error) {
 			warnings.push(
-				error instanceof Error ? error.message : "Spotify ID 基础信息补全失败",
+				formatMetadataSearchError(error, "Spotify ID 基础信息补全失败"),
 			);
 		}
 	}
@@ -320,9 +330,7 @@ const safeSource = async (
 			source,
 			{
 				candidates: [],
-				errors: [
-					error instanceof Error ? error.message : `${source} search failed`,
-				],
+				errors: [formatMetadataSearchError(error, `${source} search failed`)],
 			},
 		];
 	}
@@ -482,7 +490,7 @@ const searchNcmMusic = async (
 			const candidate = await fetchNcmSongDetail(id, client, input);
 			if (candidate) candidates.push(candidate);
 		} catch (error) {
-			errors.push(error instanceof Error ? error.message : "网易云音乐 ID 反查失败");
+			errors.push(formatMetadataSearchError(error, "网易云音乐 ID 反查失败"));
 		}
 	}
 
@@ -501,9 +509,7 @@ const searchNcmMusic = async (
 			if (searched.length > 0) break;
 		} catch (error) {
 			errors.push(
-				`${hostForUrl(base)}: ${
-					error instanceof Error ? error.message : "搜索失败"
-				}`,
+				`${hostForUrl(base)}: ${formatMetadataSearchError(error, "搜索失败")}`,
 			);
 		}
 	}
@@ -713,9 +719,7 @@ const searchAppleMusic = async (
 			}
 		} catch (error) {
 			errors.push(
-				error instanceof Error
-					? `${storefront}: ${error.message}`
-					: `${storefront}: Apple Music 搜索失败`,
+				`${storefront}: ${formatMetadataSearchError(error, "Apple Music 搜索失败")}`,
 			);
 		}
 	}
@@ -1189,3 +1193,7 @@ const hostForUrl = (url: string): string => {
 		return url;
 	}
 };
+
+const isRawJsonParseError = (message: string): boolean =>
+	/Unexpected token .* is not valid JSON/i.test(message) ||
+	/Unexpected end of JSON input/i.test(message);

@@ -6,6 +6,7 @@ import {
 	candidateKey,
 	searchMetadata,
 	buildMetadataValuesFromSelection,
+	formatMetadataSearchError,
 } from "./index";
 import { defaultMetadataNetworkClient } from "./network";
 import {
@@ -132,7 +133,8 @@ describe("metadata network error formatting", () => {
 			"fetch",
 			vi.fn(async () => ({
 				ok: true,
-				json: async () => response,
+				status: 200,
+				text: async () => JSON.stringify(response),
 			})),
 		);
 	};
@@ -153,6 +155,51 @@ describe("metadata network error formatting", () => {
 		);
 	});
 
+	test("reports non-JSON metadata proxy error responses without raw parser errors", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({
+				ok: false,
+				status: 500,
+				text: async () =>
+					"A server error occurred while handling the metadata proxy request",
+			})),
+		);
+
+		await expect(
+			defaultMetadataNetworkClient.requestJson({
+				url: "https://api.spotify.com/v1/search",
+			}),
+		).rejects.toThrow(
+			"Metadata proxy HTTP 500: A server error occurred while handling the metadata proxy request",
+		);
+		await expect(
+			defaultMetadataNetworkClient.requestJson({
+				url: "https://api.spotify.com/v1/search",
+			}),
+		).rejects.not.toThrow("Unexpected token");
+	});
+
+	test("reports non-JSON metadata proxy success responses without raw parser errors", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				text: async () =>
+					"A server error occurred while handling the metadata proxy request",
+			})),
+		);
+
+		await expect(
+			defaultMetadataNetworkClient.requestJson({
+				url: "https://api.spotify.com/v1/search",
+			}),
+		).rejects.toThrow(
+			"Metadata proxy returned invalid JSON: A server error occurred while handling the metadata proxy request",
+		);
+	});
+
 	test("reports non-JSON upstream responses with the source host and body prefix", async () => {
 		mockMetadataHttpResponse({
 			status: 200,
@@ -167,6 +214,14 @@ describe("metadata network error formatting", () => {
 		).rejects.toThrow(
 			"Invalid JSON response from amp-api.music.apple.com: A server error occurred while handling the metadata request",
 		);
+	});
+
+	test("sanitizes raw JSON parser errors from unexpected metadata clients", async () => {
+		expect(
+			formatMetadataSearchError(
+				new SyntaxError('Unexpected token \'A\', "A server e"... is not valid JSON'),
+			),
+		).toBe("元数据服务返回了非 JSON 响应");
 	});
 });
 
@@ -458,6 +513,69 @@ describe("metadata search orchestration", () => {
 			"api-enhanced-six-beta.vercel.app: Invalid JSON response from api-enhanced-six-beta.vercel.app: A server error occurred",
 			"网易云音乐未找到带歌曲 ID 的候选",
 		]);
+	});
+
+	test("does not leak raw JSON parser errors when the metadata proxy returns plain text", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({
+				ok: false,
+				status: 500,
+				text: async () => "A server error occurred while searching metadata",
+			})),
+		);
+
+		const result = await searchMetadata(input, {
+			appleMusicToken: "token",
+			spotifyCredentials: null,
+			includeSources: ["appleMusic", "ncmMusic"],
+		});
+		const visibleMessages = [...result.errors, ...result.warnings].join("\n");
+
+		expect(visibleMessages).not.toContain("Unexpected token");
+		expect(visibleMessages).toContain(
+			"cn: Metadata proxy HTTP 500: A server error occurred while searching metadata",
+		);
+		expect(visibleMessages).toContain(
+			"music163.xuanmou.com.cn: Metadata proxy HTTP 500: A server error occurred while searching metadata",
+		);
+	});
+
+	test("does not leak raw JSON parser errors thrown by an injected metadata client", async () => {
+		const client: MetadataNetworkClient = {
+			requestJson: vi.fn(async () => {
+				throw new SyntaxError(
+					'Unexpected token \'A\', "A server e"... is not valid JSON',
+				);
+			}),
+			requestText: vi.fn(async () => ""),
+		};
+
+		const result = await searchMetadata(
+			{
+				...input,
+				ids: {
+					ncmMusicId: [],
+					qqMusicId: [],
+					spotifyId: [],
+					appleMusicId: [],
+					isrc: [],
+				},
+			},
+			{
+				client,
+				appleMusicToken: "token",
+				spotifyCredentials: null,
+				includeSources: ["appleMusic", "ncmMusic"],
+			},
+		);
+		const visibleMessages = [...result.errors, ...result.warnings].join("\n");
+
+		expect(visibleMessages).not.toContain("Unexpected token");
+		expect(visibleMessages).toContain("cn: 元数据服务返回了非 JSON 响应");
+		expect(visibleMessages).toContain(
+			"music163.xuanmou.com.cn: 元数据服务返回了非 JSON 响应",
+		);
 	});
 
 	test("builds deduped metadata values from selected candidates", () => {
