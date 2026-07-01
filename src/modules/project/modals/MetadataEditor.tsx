@@ -25,8 +25,8 @@ import {
 import { useAtom } from "jotai";
 import { useImmerAtom } from "jotai-immer";
 import {
-	memo,
 	type MutableRefObject,
+	memo,
 	type ReactNode,
 	useCallback,
 	useEffect,
@@ -35,6 +35,11 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { fetchGithubUserProfile } from "$/modules/github/services/identity-service";
+import {
+	fetchNeteaseSongMeta,
+	type NeteaseSongMeta,
+} from "$/modules/ncm/services/meta-service";
 import {
 	getMeatdataSuggestion,
 	type MetaSuggestionResult,
@@ -42,14 +47,14 @@ import {
 import {
 	buildMetadataSearchInput,
 	buildMetadataValuesFromSelection,
-	canSearchMetadata,
 	candidateKey,
+	canSearchMetadata,
 	formatMetadataSearchError,
-	searchMetadata,
 	type MetadataCandidate,
 	type MetadataSearchResult,
 	type MetadataSource,
 	type MetadataValues,
+	searchMetadata,
 } from "$/modules/project/logic/metadata-search";
 import {
 	buildMetadataMergePreview,
@@ -57,11 +62,6 @@ import {
 	flattenMetadataSearchCandidates,
 	groupMetadataCandidatesByRegion,
 } from "$/modules/project/logic/metadata-search/metadata-search-ui";
-import {
-	fetchNeteaseSongMeta,
-	type NeteaseSongMeta,
-} from "$/modules/ncm/services/meta-service";
-import { fetchGithubUserProfile } from "$/modules/github/services/identity-service";
 import {
 	appleMusicBearerTokenAtom,
 	githubLoginAtom,
@@ -674,14 +674,18 @@ const summarizeMetadataValues = (values: MetadataValues): string => {
 	const parts: string[] = [];
 	for (const [key, value] of Object.entries(values)) {
 		if (!value?.length) continue;
-		parts.push(`${metadataValueLabels[key as keyof MetadataValues]}: ${value.join(" / ")}`);
+		parts.push(
+			`${metadataValueLabels[key as keyof MetadataValues]}: ${value.join(" / ")}`,
+		);
 	}
 	return parts.join(" · ");
 };
 
 const candidateTitle = (candidate: MetadataCandidate): string => {
 	const title = candidate.title || "(未命名)";
-	const artists = candidate.artists.length ? candidate.artists.join(" / ") : "-";
+	const artists = candidate.artists.length
+		? candidate.artists.join(" / ")
+		: "-";
 	const album = candidate.album || "-";
 	return `${title} - ${artists} - ${album}`;
 };
@@ -1143,10 +1147,12 @@ export const MetadataEditor = () => {
 	);
 	const metadataSearchMessages = useMemo(() => {
 		if (!metadataSearchResult) return [];
-		return Array.from(new Set([
-			...metadataSearchResult.errors,
-			...metadataSearchResult.warnings,
-		]));
+		return Array.from(
+			new Set([
+				...metadataSearchResult.errors,
+				...metadataSearchResult.warnings,
+			]),
+		);
 	}, [metadataSearchResult]);
 
 	return (
@@ -1253,112 +1259,214 @@ export const MetadataEditor = () => {
 									</Flex>
 								</div>
 							)}
-							{!isSearchingMetadata && metadataSearchResult && (
-								<>
-									{metadataSearchResult.recommendedCandidateIds.length > 0 && (
-										<>
-											<button
-												type="button"
-												className={styles.metadataSearchAction}
-												onClick={() => {
-													applyMetadataSearchSelection(
-														metadataSearchResult.recommendedCandidateIds,
-													);
-												}}
+							{!isSearchingMetadata &&
+								metadataSearchResult &&
+								(metadataSearchPreviewOpen ? (
+									<>
+										<div className={styles.metadataSearchToolbar}>
+											<Flex
+												justify="between"
+												align="center"
+												gap="2"
+												wrap="wrap"
 											>
-												<Flex direction="column" gap="1">
-													<Text weight="medium">
+												<Text size="2" weight="bold">
+													{t("metadataDialog.search.previewTitle", "合并预览")}
+												</Text>
+												<Flex gap="2" wrap="wrap">
+													<Button
+														size="1"
+														variant="soft"
+														color="gray"
+														onClick={() => setMetadataSearchPreviewOpen(false)}
+													>
 														{t(
-															"metadataDialog.search.applyRecommended",
-															"应用推荐组合",
+															"metadataDialog.search.backToSelection",
+															"返回选择",
 														)}
-													</Text>
-													<Text size="1" color="gray">
+													</Button>
+													<Button
+														size="1"
+														disabled={selectedMetadataCandidateIds.length === 0}
+														onClick={() =>
+															applyMetadataSearchSelection(
+																selectedMetadataCandidateIds,
+															)
+														}
+													>
 														{t(
-															"metadataDialog.search.recommendedCount",
-															"共 {count} 个候选",
-															{
-																count:
-																	metadataSearchResult
-																		.recommendedCandidateIds.length,
-															},
+															"metadataDialog.search.confirmApply",
+															"确认应用",
 														)}
-													</Text>
+													</Button>
 												</Flex>
-											</button>
-											<div className={styles.metadataSearchSeparator} />
-										</>
-									)}
-									{metadataSearchMessages.map((error) => (
-										<div
-											className={styles.metadataSearchMessage}
-											key={`metadata-search-error-${error}`}
-										>
-											<Text color="orange" size="1" wrap="wrap">
-												{error}
-											</Text>
+											</Flex>
 										</div>
-									))}
-									{metadataSearchMessages.length > 0 &&
-										metadataSearchCandidates.length > 0 && (
-											<div className={styles.metadataSearchSeparator} />
+										{metadataSearchPreview.length > 0 ? (
+											<div className={styles.metadataPreviewList}>
+												{metadataSearchPreview.map((item) => (
+													<div
+														className={styles.metadataPreviewItem}
+														key={item.key}
+													>
+														<Text size="1" weight="bold">
+															{metadataValueLabels[item.key]}
+														</Text>
+														{item.added.length > 0 && (
+															<Text size="1" color="green" wrap="wrap">
+																{t(
+																	"metadataDialog.search.previewAdded",
+																	"新增",
+																)}
+																: {item.added.join(" / ")}
+															</Text>
+														)}
+														{item.skipped.length > 0 && (
+															<Text size="1" color="gray" wrap="wrap">
+																{t(
+																	"metadataDialog.search.previewSkipped",
+																	"已存在，跳过",
+																)}
+																: {item.skipped.join(" / ")}
+															</Text>
+														)}
+													</div>
+												))}
+											</div>
+										) : (
+											<div className={styles.metadataSearchStatus}>
+												<Text size="1" color="gray" wrap="wrap">
+													{t(
+														"metadataDialog.search.previewEmpty",
+														"所选候选没有可新增的元数据",
+													)}
+												</Text>
+											</div>
 										)}
-									{metadataSourceOrder.map((source) => {
-										const candidates =
-											metadataSearchResult.sources[source]?.candidates ?? [];
-										if (candidates.length === 0) return null;
-										return (
+									</>
+								) : (
+									<>
+										<div className={styles.metadataSearchToolbar}>
+											<Flex
+												justify="between"
+												align="center"
+												gap="2"
+												wrap="wrap"
+											>
+												<Text size="1" color="gray">
+													{t(
+														"metadataDialog.search.selectedCount",
+														"已选 {count} 项",
+														{
+															count: selectedMetadataCandidateIds.length,
+														},
+													)}
+												</Text>
+												<Flex gap="2" wrap="wrap">
+													{metadataSearchResult.recommendedCandidateIds.length >
+														0 && (
+														<Button
+															size="1"
+															variant="soft"
+															onClick={() =>
+																setSelectedMetadataCandidateIds(
+																	buildSelectedCandidateIds(
+																		metadataSearchResult.recommendedCandidateIds,
+																	),
+																)
+															}
+														>
+															{t(
+																"metadataDialog.search.selectRecommended",
+																"选择推荐",
+															)}
+														</Button>
+													)}
+													<Button
+														size="1"
+														variant="soft"
+														disabled={selectedMetadataCandidateIds.length === 0}
+														onClick={() => setMetadataSearchPreviewOpen(true)}
+													>
+														{t(
+															"metadataDialog.search.previewSelected",
+															"预览已选",
+														)}
+													</Button>
+												</Flex>
+											</Flex>
+										</div>
+										{metadataSearchMessages.map((error) => (
+											<div
+												className={styles.metadataSearchMessage}
+												key={`metadata-search-error-${error}`}
+											>
+												<Text color="orange" size="1" wrap="wrap">
+													{error}
+												</Text>
+											</div>
+										))}
+										{metadataSearchMessages.length > 0 &&
+											metadataSearchCandidates.length > 0 && (
+												<div className={styles.metadataSearchSeparator} />
+											)}
+										{metadataSearchRegionGroups.map((group) => (
 											<div
 												className={styles.metadataSourceGroup}
-												key={`metadata-search-source-${source}`}
+												key={`metadata-search-region-${group.region}`}
 											>
 												<div className={styles.metadataSourceHeader}>
 													<Text size="1" weight="bold">
-														{metadataSourceLabels[source]}
+														{group.region}
 													</Text>
 												</div>
-												{candidates.slice(0, 8).map((candidate) => (
-													<button
-														type="button"
-														key={candidateKey(candidate)}
-														className={styles.metadataCandidateItem}
-														onClick={() => {
-															applyMetadataSearchSelection([
-																candidateKey(candidate),
-															]);
-														}}
-													>
-														<Flex direction="column" gap="1">
-															<Text
-																size="2"
-																weight="medium"
-																wrap="wrap"
+												{group.candidates.slice(0, 12).map((candidate) => {
+													const id = candidateKey(candidate);
+													const selected =
+														selectedMetadataCandidateIds.includes(id);
+													return (
+														<label
+															key={id}
+															className={styles.metadataCandidateItem}
+															data-selected={selected ? "true" : undefined}
+														>
+															<Checkbox
+																checked={selected}
+																onCheckedChange={() =>
+																	toggleMetadataCandidate(id)
+																}
+															/>
+															<Flex
+																direction="column"
+																gap="1"
+																style={{ minWidth: 0 }}
 															>
-																{candidateTitle(candidate)}
-															</Text>
-															<Text size="1" color="gray" wrap="wrap">
-																{candidateMeta(candidate)}
-															</Text>
-															<Text size="1" color="gray" wrap="wrap">
-																{summarizeMetadataValues(candidate.values)}
-															</Text>
-														</Flex>
-													</button>
-												))}
+																<Text size="2" weight="medium" wrap="wrap">
+																	{candidateTitle(candidate)}
+																</Text>
+																<Text size="1" color="gray" wrap="wrap">
+																	{candidateMeta(candidate)}
+																</Text>
+																<Text size="1" color="gray" wrap="wrap">
+																	{summarizeMetadataValues(candidate.values)}
+																</Text>
+															</Flex>
+														</label>
+													);
+												})}
 											</div>
-										);
-									})}
-									{metadataSearchCandidates.length === 0 &&
-										metadataSearchMessages.length === 0 && (
-											<div className={styles.metadataSearchStatus}>
-												{t(
-													"metadataDialog.search.noCandidates",
-													"未找到可用候选",
-												)}
-											</div>
-										)}
-								</>
-							)}
+										))}
+										{metadataSearchCandidates.length === 0 &&
+											metadataSearchMessages.length === 0 && (
+												<div className={styles.metadataSearchStatus}>
+													{t(
+														"metadataDialog.search.noCandidates",
+														"未找到可用候选",
+													)}
+												</div>
+											)}
+									</>
+								))}
 						</Popover.Content>
 					</Popover.Root>
 					<DropdownMenu.Root>

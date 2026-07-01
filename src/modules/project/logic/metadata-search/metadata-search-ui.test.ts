@@ -8,16 +8,20 @@ import {
 } from "./metadata-search-ui";
 
 const candidate = (
-	overrides: Partial<MetadataCandidate> & Pick<MetadataCandidate, "source" | "id">,
-): MetadataCandidate => ({
-	source: overrides.source,
-	id: overrides.id,
-	artists: overrides.artists ?? ["Artist"],
-	score: overrides.score ?? 90,
-	values: overrides.values ?? {},
-	selectedByDefault: overrides.selectedByDefault ?? false,
-	...overrides,
-});
+	overrides: Partial<MetadataCandidate> &
+		Pick<MetadataCandidate, "source" | "id">,
+): MetadataCandidate => {
+	const { source, id, ...rest } = overrides;
+	return {
+		source,
+		id,
+		artists: overrides.artists ?? ["Artist"],
+		score: overrides.score ?? 90,
+		values: overrides.values ?? {},
+		selectedByDefault: overrides.selectedByDefault ?? false,
+		...rest,
+	};
+};
 
 const metadata = (entries: Record<string, string[]>): TTMLMetadata[] =>
 	Object.entries(entries).map(([key, value]) => ({ key, value }));
@@ -51,7 +55,11 @@ describe("metadata search UI helpers", () => {
 			cnQQ,
 		]);
 
-		expect(groups.map((group) => group.region)).toEqual(["CN", "US", "UNKNOWN"]);
+		expect(groups.map((group) => group.region)).toEqual([
+			"CN",
+			"US",
+			"UNKNOWN",
+		]);
 		expect(groups[0].candidates.map(candidateKey)).toEqual([
 			candidateKey(cnApple),
 			candidateKey(cnQQ),

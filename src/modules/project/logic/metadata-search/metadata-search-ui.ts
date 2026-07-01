@@ -62,7 +62,10 @@ export const buildMetadataMergePreview = (
 			appleMusic: { candidates, errors: [] },
 		},
 	};
-	const mergedValues = buildMetadataValuesFromSelection(sourceResult, selectedIds);
+	const mergedValues = buildMetadataValuesFromSelection(
+		sourceResult,
+		selectedIds,
+	);
 	const existingValues = new Map<string, Set<string>>();
 	for (const entry of currentMetadata) {
 		existingValues.set(
@@ -102,7 +105,9 @@ export const flattenMetadataSearchCandidates = (
 	sourceOrder: Array<keyof MetadataSearchResult["sources"]>,
 ): MetadataCandidate[] => {
 	if (!result) return [];
-	return sourceOrder.flatMap((source) => result.sources[source]?.candidates ?? []);
+	return sourceOrder.flatMap(
+		(source) => result.sources[source]?.candidates ?? [],
+	);
 };
 
 export const isCandidateSelected = (

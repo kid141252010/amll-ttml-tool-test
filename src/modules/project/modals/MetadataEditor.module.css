@@ -78,11 +78,21 @@
 	padding: 6px 8px;
 }
 
+.metadataSearchToolbar {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: 8px;
+	border-bottom: 1px solid var(--gray-5);
+	background: var(--color-panel-solid);
+}
 .metadataSearchAction,
 .metadataCandidateItem {
-	display: block;
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
 	width: 100%;
-	border: 0;
+	border: 1px solid transparent;
 	border-radius: 6px;
 	padding: 8px;
 	background: transparent;
@@ -108,4 +118,26 @@
 
 .metadataSourceGroup:not(:last-child) {
 	margin-bottom: 4px;
+}
+
+.metadataCandidateItem[data-selected="true"] {
+	border-color: var(--accent-7);
+	background: var(--accent-3);
+}
+
+.metadataPreviewList {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+}
+
+.metadataPreviewItem {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 8px;
+	border: 1px solid var(--gray-5);
+	border-radius: 6px;
+	background: var(--gray-2);
 }
