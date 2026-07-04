@@ -1509,18 +1509,15 @@ export const MetadataEditor = () => {
 																					valueSelected ? "true" : undefined
 																				}
 																			>
-																				<Checkbox
-																					checked={valueSelected}
-																					onCheckedChange={() =>
-																						toggleMetadataValue(item.id)
+																				<div
+																					className={
+																						styles.metadataCandidateValueText
 																					}
-																				/>
-																				<Flex
-																					direction="column"
-																					gap="1"
-																					style={{ minWidth: 0 }}
 																				>
 																					<Text
+																						className={
+																							styles.metadataCandidateValueKey
+																						}
 																						size="1"
 																						weight="bold"
 																						wrap="wrap"
@@ -1528,13 +1525,22 @@ export const MetadataEditor = () => {
 																						{metadataValueLabels[item.key]}
 																					</Text>
 																					<Text
+																						className={
+																							styles.metadataCandidateValueValue
+																						}
 																						size="1"
 																						color="gray"
 																						wrap="wrap"
 																					>
 																						{item.value}
 																					</Text>
-																				</Flex>
+																				</div>
+																				<Checkbox
+																					checked={valueSelected}
+																					onCheckedChange={() =>
+																						toggleMetadataValue(item.id)
+																					}
+																				/>
 																			</label>
 																		);
 																	})}

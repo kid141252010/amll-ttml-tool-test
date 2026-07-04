@@ -149,15 +149,33 @@
 }
 
 .metadataCandidateValueItem {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
 	gap: 8px;
-	align-items: flex-start;
+	align-items: center;
 	padding: 6px;
 	border: 1px solid var(--gray-5);
 	border-radius: 4px;
 	background: var(--gray-1);
 	white-space: normal;
 	cursor: pointer;
+}
+
+.metadataCandidateValueText {
+	display: grid;
+	grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
+	gap: 8px;
+	align-items: baseline;
+	min-width: 0;
+}
+
+.metadataCandidateValueKey {
+	color: var(--gray-11);
+}
+
+.metadataCandidateValueValue {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .metadataCandidateValueItem:hover {
