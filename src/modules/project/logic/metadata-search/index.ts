@@ -371,9 +371,12 @@ const searchQQMusic = async (
 		url: "https://u.y.qq.com/cgi-bin/musicu.fcg",
 		method: "POST",
 		headers: {
-			"Accept-Language": "zh-CN",
 			Accept: "application/json",
+			"Accept-Language": "zh-CN",
+			"Cache-Control": "no-cache",
 			"Content-Type": "application/json",
+			Pragma: "no-cache",
+			Referer: "",
 			"User-Agent": "QQMusic 14090508(android 12)",
 		},
 		body: JSON.stringify(payload),

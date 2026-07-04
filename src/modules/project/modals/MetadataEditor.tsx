@@ -46,7 +46,6 @@ import {
 } from "$/modules/project/logic/meatdata-suggestion";
 import {
 	buildMetadataSearchInput,
-	buildMetadataValuesFromSelection,
 	candidateKey,
 	canSearchMetadata,
 	formatMetadataSearchError,
@@ -57,8 +56,10 @@ import {
 	searchMetadata,
 } from "$/modules/project/logic/metadata-search";
 import {
+	buildMetadataCandidateValueItems,
 	buildMetadataMergePreview,
-	buildSelectedCandidateIds,
+	buildMetadataValuesFromValueSelection,
+	buildSelectedMetadataValueKeys,
 	flattenMetadataSearchCandidates,
 	groupMetadataCandidatesByRegion,
 } from "$/modules/project/logic/metadata-search/metadata-search-ui";
@@ -670,17 +671,6 @@ const metadataValueLabels: Record<keyof MetadataValues, string> = {
 	isrc: "isrc",
 };
 
-const summarizeMetadataValues = (values: MetadataValues): string => {
-	const parts: string[] = [];
-	for (const [key, value] of Object.entries(values)) {
-		if (!value?.length) continue;
-		parts.push(
-			`${metadataValueLabels[key as keyof MetadataValues]}: ${value.join(" / ")}`,
-		);
-	}
-	return parts.join(" · ");
-};
-
 const candidateTitle = (candidate: MetadataCandidate): string => {
 	const title = candidate.title || "(未命名)";
 	const artists = candidate.artists.length
@@ -718,8 +708,9 @@ export const MetadataEditor = () => {
 	const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
 	const [metadataSearchResult, setMetadataSearchResult] =
 		useState<MetadataSearchResult | null>(null);
-	const [selectedMetadataCandidateIds, setSelectedMetadataCandidateIds] =
-		useState<string[]>([]);
+	const [selectedMetadataValueKeys, setSelectedMetadataValueKeys] = useState<
+		string[]
+	>([]);
 	const [metadataSearchPreviewOpen, setMetadataSearchPreviewOpen] =
 		useState(false);
 	const metadataSearchRunIdRef = useRef(0);
@@ -804,13 +795,13 @@ export const MetadataEditor = () => {
 				],
 				warnings: [],
 			});
-			setSelectedMetadataCandidateIds([]);
+			setSelectedMetadataValueKeys([]);
 			return;
 		}
 		if (isSearchingMetadata) return;
 		setIsSearchingMetadata(true);
 		setMetadataSearchResult(null);
-		setSelectedMetadataCandidateIds([]);
+		setSelectedMetadataValueKeys([]);
 		metadataSearchTimeoutRef.current = setTimeout(() => {
 			if (metadataSearchRunIdRef.current !== searchRunId) return;
 			metadataSearchRunIdRef.current += 1;
@@ -832,8 +823,11 @@ export const MetadataEditor = () => {
 			});
 			if (metadataSearchRunIdRef.current !== searchRunId) return;
 			setMetadataSearchResult(result);
-			setSelectedMetadataCandidateIds(
-				buildSelectedCandidateIds(result.recommendedCandidateIds),
+			setSelectedMetadataValueKeys(
+				buildSelectedMetadataValueKeys(
+					flattenMetadataSearchCandidates(result, metadataSourceOrder),
+					result.recommendedCandidateIds,
+				),
 			);
 		} catch (error) {
 			if (metadataSearchRunIdRef.current !== searchRunId) return;
@@ -848,7 +842,7 @@ export const MetadataEditor = () => {
 				],
 				warnings: [],
 			});
-			setSelectedMetadataCandidateIds([]);
+			setSelectedMetadataValueKeys([]);
 		} finally {
 			if (metadataSearchRunIdRef.current === searchRunId) {
 				if (metadataSearchTimeoutRef.current) {
@@ -877,12 +871,15 @@ export const MetadataEditor = () => {
 	}, []);
 
 	const applyMetadataSearchSelection = useCallback(
-		(selectedIds: string[]) => {
+		(selectedValueKeys: string[]) => {
 			if (!metadataSearchResult) return;
-			if (selectedIds.length === 0) return;
-			const values = buildMetadataValuesFromSelection(
-				metadataSearchResult,
-				selectedIds,
+			if (selectedValueKeys.length === 0) return;
+			const values = buildMetadataValuesFromValueSelection(
+				flattenMetadataSearchCandidates(
+					metadataSearchResult,
+					metadataSourceOrder,
+				),
+				selectedValueKeys,
 			);
 			applyMetadataValues(values);
 			setMetadataSearchOpen(false);
@@ -891,12 +888,12 @@ export const MetadataEditor = () => {
 		[applyMetadataValues, metadataSearchResult],
 	);
 
-	const toggleMetadataCandidate = useCallback((candidateId: string) => {
-		setSelectedMetadataCandidateIds((prev) => {
-			if (prev.includes(candidateId)) {
-				return prev.filter((id) => id !== candidateId);
+	const toggleMetadataValue = useCallback((valueKey: string) => {
+		setSelectedMetadataValueKeys((prev) => {
+			if (prev.includes(valueKey)) {
+				return prev.filter((id) => id !== valueKey);
 			}
-			return [...prev, candidateId];
+			return [...prev, valueKey];
 		});
 	}, []);
 
@@ -1171,13 +1168,9 @@ export const MetadataEditor = () => {
 			buildMetadataMergePreview(
 				lyricLines.metadata,
 				metadataSearchCandidates,
-				selectedMetadataCandidateIds,
+				selectedMetadataValueKeys,
 			),
-		[
-			lyricLines.metadata,
-			metadataSearchCandidates,
-			selectedMetadataCandidateIds,
-		],
+		[lyricLines.metadata, metadataSearchCandidates, selectedMetadataValueKeys],
 	);
 	const metadataSearchMessages = useMemo(() => {
 		if (!metadataSearchResult) return [];
@@ -1333,10 +1326,10 @@ export const MetadataEditor = () => {
 													</Button>
 													<Button
 														size="1"
-														disabled={selectedMetadataCandidateIds.length === 0}
+														disabled={selectedMetadataValueKeys.length === 0}
 														onClick={() =>
 															applyMetadataSearchSelection(
-																selectedMetadataCandidateIds,
+																selectedMetadataValueKeys,
 															)
 														}
 													>
@@ -1404,7 +1397,7 @@ export const MetadataEditor = () => {
 														"metadataDialog.search.selectedCount",
 														"已选 {count} 项",
 														{
-															count: selectedMetadataCandidateIds.length,
+															count: selectedMetadataValueKeys.length,
 														},
 													)}
 												</Text>
@@ -1415,8 +1408,9 @@ export const MetadataEditor = () => {
 															size="1"
 															variant="soft"
 															onClick={() =>
-																setSelectedMetadataCandidateIds(
-																	buildSelectedCandidateIds(
+																setSelectedMetadataValueKeys(
+																	buildSelectedMetadataValueKeys(
+																		metadataSearchCandidates,
 																		metadataSearchResult.recommendedCandidateIds,
 																	),
 																)
@@ -1431,7 +1425,7 @@ export const MetadataEditor = () => {
 													<Button
 														size="1"
 														variant="soft"
-														disabled={selectedMetadataCandidateIds.length === 0}
+														disabled={selectedMetadataValueKeys.length === 0}
 														onClick={() => setMetadataSearchPreviewOpen(true)}
 													>
 														{t(
@@ -1468,36 +1462,85 @@ export const MetadataEditor = () => {
 												</div>
 												{group.candidates.slice(0, 12).map((candidate) => {
 													const id = candidateKey(candidate);
-													const selected =
-														selectedMetadataCandidateIds.includes(id);
+													const valueItems = buildMetadataCandidateValueItems([
+														candidate,
+													]);
+													const selected = valueItems.some((item) =>
+														selectedMetadataValueKeys.includes(item.id),
+													);
 													return (
-														<label
+														<div
 															key={id}
 															className={styles.metadataCandidateItem}
 															data-selected={selected ? "true" : undefined}
 														>
-															<Checkbox
-																checked={selected}
-																onCheckedChange={() =>
-																	toggleMetadataCandidate(id)
-																}
-															/>
 															<Flex
 																direction="column"
-																gap="1"
+																gap="2"
 																style={{ minWidth: 0 }}
 															>
-																<Text size="2" weight="medium" wrap="wrap">
-																	{candidateTitle(candidate)}
-																</Text>
-																<Text size="1" color="gray" wrap="wrap">
-																	{candidateMeta(candidate)}
-																</Text>
-																<Text size="1" color="gray" wrap="wrap">
-																	{summarizeMetadataValues(candidate.values)}
-																</Text>
+																<Flex
+																	direction="column"
+																	gap="1"
+																	style={{ minWidth: 0 }}
+																>
+																	<Text size="2" weight="medium" wrap="wrap">
+																		{candidateTitle(candidate)}
+																	</Text>
+																	<Text size="1" color="gray" wrap="wrap">
+																		{candidateMeta(candidate)}
+																	</Text>
+																</Flex>
+																<div
+																	className={styles.metadataCandidateValueList}
+																>
+																	{valueItems.map((item) => {
+																		const valueSelected =
+																			selectedMetadataValueKeys.includes(
+																				item.id,
+																			);
+																		return (
+																			<label
+																				key={item.id}
+																				className={
+																					styles.metadataCandidateValueItem
+																				}
+																				data-selected={
+																					valueSelected ? "true" : undefined
+																				}
+																			>
+																				<Checkbox
+																					checked={valueSelected}
+																					onCheckedChange={() =>
+																						toggleMetadataValue(item.id)
+																					}
+																				/>
+																				<Flex
+																					direction="column"
+																					gap="1"
+																					style={{ minWidth: 0 }}
+																				>
+																					<Text
+																						size="1"
+																						weight="bold"
+																						wrap="wrap"
+																					>
+																						{metadataValueLabels[item.key]}
+																					</Text>
+																					<Text
+																						size="1"
+																						color="gray"
+																						wrap="wrap"
+																					>
+																						{item.value}
+																					</Text>
+																				</Flex>
+																			</label>
+																		);
+																	})}
+																</div>
 															</Flex>
-														</label>
+														</div>
 													);
 												})}
 											</div>

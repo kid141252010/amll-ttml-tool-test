@@ -55,8 +55,10 @@ export const filterMetadataRequestHeaders = (
 		"accept",
 		"accept-language",
 		"authorization",
+		"cache-control",
 		"content-type",
 		"origin",
+		"pragma",
 		"referer",
 		"user-agent",
 	]);

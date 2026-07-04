@@ -141,8 +141,10 @@ fn filter_metadata_headers(headers: Option<&HashMap<String, String>>) -> Vec<(&s
                 "accept"
                     | "accept-language"
                     | "authorization"
+                    | "cache-control"
                     | "content-type"
                     | "origin"
+                    | "pragma"
                     | "referer"
                     | "user-agent"
             ) {

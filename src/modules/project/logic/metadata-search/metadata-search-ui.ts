@@ -1,9 +1,11 @@
 import type { TTMLMetadata } from "$/types/ttml";
-import { buildMetadataValuesFromSelection, candidateKey } from "./index";
+import { candidateKey } from "./index";
+import { addUniqueValues } from "./matching";
 import type {
 	MetadataCandidate,
 	MetadataSearchResult,
 	MetadataValues,
+	MetadataValueKey,
 } from "./types";
 
 export interface MetadataRegionGroup {
@@ -15,6 +17,14 @@ export interface MetadataMergePreviewItem {
 	key: keyof MetadataValues;
 	added: string[];
 	skipped: string[];
+}
+
+export interface MetadataCandidateValueItem {
+	id: string;
+	candidateId: string;
+	candidate: MetadataCandidate;
+	key: MetadataValueKey;
+	value: string;
 }
 
 const UNKNOWN_REGION = "UNKNOWN";
@@ -52,19 +62,75 @@ export const groupMetadataCandidatesByRegion = (
 export const buildSelectedCandidateIds = (candidateIds: string[]): string[] =>
 	Array.from(new Set(candidateIds));
 
+export const metadataCandidateValueKey = (
+	candidate: MetadataCandidate,
+	key: MetadataValueKey,
+	value: string,
+): string => JSON.stringify([candidateKey(candidate), key, value]);
+
+export const buildMetadataCandidateValueItems = (
+	candidates: MetadataCandidate[],
+): MetadataCandidateValueItem[] => {
+	const items: MetadataCandidateValueItem[] = [];
+	for (const candidate of candidates) {
+		const candidateId = candidateKey(candidate);
+		for (const [key, values] of Object.entries(candidate.values)) {
+			if (!Array.isArray(values)) continue;
+			for (const value of values) {
+				const trimmed = value.trim();
+				if (!trimmed) continue;
+				items.push({
+					id: metadataCandidateValueKey(
+						candidate,
+						key as MetadataValueKey,
+						trimmed,
+					),
+					candidateId,
+					candidate,
+					key: key as MetadataValueKey,
+					value: trimmed,
+				});
+			}
+		}
+	}
+	return items;
+};
+
+export const buildSelectedMetadataValueKeys = (
+	candidates: MetadataCandidate[],
+	candidateIds: Iterable<string>,
+): string[] => {
+	const selectedCandidateIds = new Set(candidateIds);
+	return Array.from(
+		new Set(
+			buildMetadataCandidateValueItems(candidates)
+				.filter((item) => selectedCandidateIds.has(item.candidateId))
+				.map((item) => item.id),
+		),
+	);
+};
+
+export const buildMetadataValuesFromValueSelection = (
+	candidates: MetadataCandidate[],
+	selectedValueKeys: Iterable<string>,
+): MetadataValues => {
+	const selectedSet = new Set(selectedValueKeys);
+	const values: MetadataValues = {};
+	for (const item of buildMetadataCandidateValueItems(candidates)) {
+		if (!selectedSet.has(item.id)) continue;
+		addUniqueValues(values, item.key, [item.value]);
+	}
+	return values;
+};
+
 export const buildMetadataMergePreview = (
 	currentMetadata: TTMLMetadata[],
 	candidates: MetadataCandidate[],
-	selectedIds: string[],
+	selectedValueKeys: string[],
 ): MetadataMergePreviewItem[] => {
-	const sourceResult: Pick<MetadataSearchResult, "sources"> = {
-		sources: {
-			appleMusic: { candidates, errors: [] },
-		},
-	};
-	const mergedValues = buildMetadataValuesFromSelection(
-		sourceResult,
-		selectedIds,
+	const mergedValues = buildMetadataValuesFromValueSelection(
+		candidates,
+		selectedValueKeys,
 	);
 	const existingValues = new Map<string, Set<string>>();
 	for (const entry of currentMetadata) {

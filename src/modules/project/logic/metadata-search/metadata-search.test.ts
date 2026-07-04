@@ -254,12 +254,12 @@ describe("metadata search orchestration", () => {
 	};
 
 	test("sorts QQ candidates by title, artist and album, then uses QQ context for NetEase", async () => {
-		const requests: string[] = [];
+		const requests: MetadataNetworkRequest[] = [];
 		const requestJson: MetadataNetworkClient["requestJson"] = async <T,>(
 			request: MetadataNetworkRequest,
 		): Promise<T> => {
 			const { url, body } = request;
-			requests.push(`${url} ${body ?? ""}`);
+			requests.push(request);
 			let response: unknown = {};
 			if (url.includes("u.y.qq.com")) {
 				response = {
@@ -328,14 +328,24 @@ describe("metadata search orchestration", () => {
 			"224116257",
 			"235883438",
 		]);
-		expect(requests.find((item) => item.includes("u.y.qq.com"))).toContain(
-			"https://u.y.qq.com/cgi-bin/musicu.fcg",
+		const qqRequest = requests.find((item) =>
+			item.url.includes("u.y.qq.com"),
 		);
+		expect(qqRequest?.url).toBe("https://u.y.qq.com/cgi-bin/musicu.fcg");
+		expect(qqRequest?.headers).toMatchObject({
+			Accept: "application/json",
+			"Accept-Language": "zh-CN",
+			"Cache-Control": "no-cache",
+			"Content-Type": "application/json",
+			Pragma: "no-cache",
+			Referer: "",
+			"User-Agent": "QQMusic 14090508(android 12)",
+		});
+		expect(qqRequest?.body).toContain("玫瑰少年");
 		expect(result.sources.ncmMusic?.candidates.map((item) => item.id)).toEqual([
 			"1375248354",
 			"33894312",
 		]);
-		expect(requests.join("\n")).toContain("玫瑰少年");
 	});
 
 	test("enriches search context from an existing NetEase id before querying QQ Music", async () => {

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { validateMetadataNetworkRequest } from "./network-policy";
+import {
+	filterMetadataRequestHeaders,
+	validateMetadataNetworkRequest,
+} from "./network-policy";
 
 describe("metadata network policy", () => {
 	test("allows whitelisted GET and POST requests", () => {
@@ -51,5 +54,22 @@ describe("metadata network policy", () => {
 				body: "x".repeat(65537),
 			}),
 		).toEqual({ ok: false, error: "Body is too large" });
+	});
+
+	test("keeps supported metadata request headers and filters unsupported headers", () => {
+		expect(
+			filterMetadataRequestHeaders({
+				Accept: "application/json",
+				"Cache-Control": "no-cache",
+				Pragma: "no-cache",
+				Referer: "",
+				"X-Unsupported": "drop me",
+			}),
+		).toEqual({
+			Accept: "application/json",
+			"Cache-Control": "no-cache",
+			Pragma: "no-cache",
+			Referer: "",
+		});
 	});
 });
