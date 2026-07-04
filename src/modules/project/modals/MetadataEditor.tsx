@@ -67,6 +67,7 @@ import {
 	appleMusicBearerTokenAtom,
 	githubLoginAtom,
 	githubPatAtom,
+	metadataProxyUrlAtom,
 	spotifyClientIdAtom,
 	spotifyClientSecretAtom,
 } from "$/modules/settings/states";
@@ -700,6 +701,7 @@ export const MetadataEditor = () => {
 	const [spotifyClientId] = useAtom(spotifyClientIdAtom);
 	const [spotifyClientSecret] = useAtom(spotifyClientSecretAtom);
 	const [appleMusicBearerToken] = useAtom(appleMusicBearerTokenAtom);
+	const [metadataProxyUrl] = useAtom(metadataProxyUrlAtom);
 	const [customKey, setCustomKey] = useState("");
 	const [lyricLines, setLyricLines] = useImmerAtom(lyricLinesAtom);
 	const addKeyButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -820,6 +822,7 @@ export const MetadataEditor = () => {
 								clientSecret: spotifyClientSecret.trim(),
 							}
 						: null,
+				metadataProxyUrl: metadataProxyUrl.trim() || null,
 			});
 			if (metadataSearchRunIdRef.current !== searchRunId) return;
 			setMetadataSearchResult(result);
@@ -856,6 +859,7 @@ export const MetadataEditor = () => {
 		isSearchingMetadata,
 		metadataSearchInput,
 		appleMusicBearerToken,
+		metadataProxyUrl,
 		spotifyClientId,
 		spotifyClientSecret,
 		t,

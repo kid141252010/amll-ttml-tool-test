@@ -10,16 +10,39 @@ type MetadataHttpResponse = {
 };
 
 const ERROR_BODY_PREFIX_LENGTH = 160;
+const DEFAULT_METADATA_PROXY_URL = "/api/metadata-network";
+
+type TauriRuntimeWindow = Window & {
+	__TAURI_INTERNALS__?: {
+		invoke?: unknown;
+	};
+};
+
+export type MetadataNetworkClientOptions = {
+	proxyUrl?: string | null;
+};
+
+export const hasTauriInvokeRuntime = (): boolean =>
+	typeof window !== "undefined" &&
+	typeof (window as TauriRuntimeWindow).__TAURI_INTERNALS__?.invoke ===
+		"function";
+
+const resolveMetadataProxyUrl = (proxyUrl?: string | null): string => {
+	const configured =
+		proxyUrl?.trim() || import.meta.env.VITE_METADATA_PROXY_URL?.trim();
+	return configured || DEFAULT_METADATA_PROXY_URL;
+};
 
 export const metadataHttpRequest = async (
 	request: MetadataNetworkRequest,
+	options: MetadataNetworkClientOptions = {},
 ): Promise<MetadataHttpResponse> => {
-	if (import.meta.env.TAURI_ENV_PLATFORM) {
+	if (hasTauriInvokeRuntime()) {
 		const { invoke } = await import("@tauri-apps/api/core");
 		return invoke<MetadataHttpResponse>("metadata_http_request", { request });
 	}
 
-	const response = await fetch("/api/metadata-network", {
+	const response = await fetch(resolveMetadataProxyUrl(options.proxyUrl), {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -37,9 +60,11 @@ export const metadataHttpRequest = async (
 	return payload;
 };
 
-export const defaultMetadataNetworkClient: MetadataNetworkClient = {
+export const createMetadataNetworkClient = (
+	options: MetadataNetworkClientOptions = {},
+): MetadataNetworkClient => ({
 	async requestJson<T>(request: MetadataNetworkRequest) {
-		const response = await metadataHttpRequest(request);
+		const response = await metadataHttpRequest(request, options);
 		if (response.status < 200 || response.status >= 300) {
 			throw new Error(
 				`HTTP ${response.status}${formatResponseBodySuffix(response.body)}`,
@@ -54,7 +79,7 @@ export const defaultMetadataNetworkClient: MetadataNetworkClient = {
 		}
 	},
 	async requestText(request: MetadataNetworkRequest) {
-		const response = await metadataHttpRequest(request);
+		const response = await metadataHttpRequest(request, options);
 		if (response.status < 200 || response.status >= 300) {
 			throw new Error(
 				`HTTP ${response.status}${formatResponseBodySuffix(response.body)}`,
@@ -62,7 +87,10 @@ export const defaultMetadataNetworkClient: MetadataNetworkClient = {
 		}
 		return response.body;
 	},
-};
+});
+
+export const defaultMetadataNetworkClient: MetadataNetworkClient =
+	createMetadataNetworkClient();
 
 const requestHost = (request: MetadataNetworkRequest): string => {
 	try {

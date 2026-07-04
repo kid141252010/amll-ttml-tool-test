@@ -107,6 +107,10 @@ export const appleMusicBearerTokenAtom = atomWithStorage(
 	"APPLE_MUSIC_BEARER_TOKEN",
 	"",
 );
+export const metadataProxyUrlAtom = atomWithStorage(
+	"metadataProxyUrl",
+	import.meta.env.VITE_METADATA_PROXY_URL ?? "",
+);
 export const reviewHiddenLabelsAtom = atomWithStorage<string[]>(
 	"reviewHiddenLabels",
 	[],

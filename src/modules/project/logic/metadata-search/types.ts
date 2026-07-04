@@ -80,5 +80,6 @@ export interface SearchMetadataOptions {
 	client?: MetadataNetworkClient;
 	spotifyCredentials?: SpotifyCredentials | null;
 	appleMusicToken?: string | null;
+	metadataProxyUrl?: string | null;
 	includeSources?: MetadataSource[];
 }

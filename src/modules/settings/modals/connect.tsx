@@ -14,6 +14,7 @@ import { NeteaseLoginCard } from "$/modules/ncm/modals/NeteaseLoginCard";
 import {
 	appleMusicBearerTokenAtom,
 	githubLoginAtom,
+	metadataProxyUrlAtom,
 	spotifyClientIdAtom,
 	spotifyClientSecretAtom,
 } from "$/modules/settings/states";
@@ -157,6 +158,37 @@ const AppleMusicTokenCard = () => {
 	);
 };
 
+const MetadataProxyCard = () => {
+	const { t } = useTranslation();
+	const [proxyUrl, setProxyUrl] = useAtom(metadataProxyUrlAtom);
+
+	return (
+		<Card>
+			<Flex direction="column" gap="3">
+				<Flex direction="column" gap="1">
+					<Text weight="medium">
+						{t("settings.connect.metadataProxy.title", "元数据代理")}
+					</Text>
+					<Text size="2" color="gray">
+						{t(
+							"settings.connect.metadataProxy.desc",
+							"用于纯静态部署的元数据自动搜索。留空时使用当前站点的 /api/metadata-network。",
+						)}
+					</Text>
+				</Flex>
+				<TextField.Root
+					value={proxyUrl}
+					onChange={(event) => setProxyUrl(event.currentTarget.value)}
+					placeholder={t(
+						"settings.connect.metadataProxy.placeholder",
+						"https://example.com/api/metadata-network",
+					)}
+				/>
+			</Flex>
+		</Card>
+	);
+};
+
 export const SettingsConnectTab = () => {
 	const { t } = useTranslation();
 	const githubLogin = useAtomValue(githubLoginAtom);
@@ -179,6 +211,8 @@ export const SettingsConnectTab = () => {
 			<AppleMusicTokenCard />
 
 			<SpotifyCredentialsCard />
+
+			<MetadataProxyCard />
 		</Flex>
 	);
 };

@@ -36,8 +36,21 @@ const sendJson = (res: ApiResponse, status: number, payload: unknown) => {
 	res.send(JSON.stringify(payload));
 };
 
+const setCorsHeaders = (res: ApiResponse) => {
+	res.setHeader("Access-Control-Allow-Origin", "*");
+	res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+	res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+};
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
-	if ((req.method ?? "POST").toUpperCase() !== "POST") {
+	setCorsHeaders(res);
+	const method = (req.method ?? "POST").toUpperCase();
+	if (method === "OPTIONS") {
+		res.status(204);
+		res.send("");
+		return;
+	}
+	if (method !== "POST") {
 		sendJson(res, 405, { error: "Method not allowed" });
 		return;
 	}

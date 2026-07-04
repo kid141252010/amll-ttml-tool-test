@@ -8,7 +8,11 @@ import {
 	buildMetadataValuesFromSelection,
 	formatMetadataSearchError,
 } from "./index";
-import { defaultMetadataNetworkClient } from "./network";
+import {
+	createMetadataNetworkClient,
+	defaultMetadataNetworkClient,
+	metadataHttpRequest,
+} from "./network";
 import {
 	splitArtists,
 	textMatchScore,
@@ -24,6 +28,7 @@ import type {
 
 afterEach(() => {
 	vi.unstubAllGlobals();
+	vi.unstubAllEnvs();
 });
 
 const metadata = (entries: Record<string, string[]>): TTMLMetadata[] =>
@@ -155,6 +160,96 @@ describe("metadata network error formatting", () => {
 		);
 	});
 
+	test("uses web metadata proxy when only build-time Tauri env is present", async () => {
+		vi.stubEnv("TAURI_ENV_PLATFORM", "windows");
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			text: async () =>
+				JSON.stringify({
+					status: 200,
+					body: JSON.stringify({ ok: true }),
+				}),
+		}));
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(
+			metadataHttpRequest({
+				url: "https://api.spotify.com/v1/search",
+			}),
+		).resolves.toMatchObject({ status: 200 });
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/metadata-network",
+			expect.objectContaining({
+				method: "POST",
+			}),
+		);
+	});
+
+	test("uses Tauri command only when the runtime invoke bridge exists", async () => {
+		const invoke = vi.fn(async () => ({
+			status: 200,
+			body: JSON.stringify({ ok: true }),
+		}));
+		vi.stubGlobal("window", {
+			__TAURI_INTERNALS__: {
+				invoke,
+			},
+		});
+		vi.stubGlobal("fetch", vi.fn());
+
+		await expect(
+			metadataHttpRequest({
+				url: "https://api.spotify.com/v1/search",
+			}),
+		).resolves.toMatchObject({ status: 200 });
+
+		expect(invoke).toHaveBeenCalledWith(
+			"metadata_http_request",
+			{
+				request: {
+					url: "https://api.spotify.com/v1/search",
+				},
+			},
+			undefined,
+		);
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	test("uses configured external metadata proxy url on web", async () => {
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			text: async () =>
+				JSON.stringify({
+					status: 200,
+					body: JSON.stringify({ ok: true }),
+				}),
+		}));
+		vi.stubGlobal("fetch", fetchMock);
+		const client = createMetadataNetworkClient({
+			proxyUrl: "https://metadata.example.com/api/metadata-network",
+		});
+
+		await expect(
+			client.requestJson({
+				url: "https://api.spotify.com/v1/search",
+				headers: { Accept: "application/json" },
+			}),
+		).resolves.toEqual({ ok: true });
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://metadata.example.com/api/metadata-network",
+			expect.objectContaining({
+				body: JSON.stringify({
+					url: "https://api.spotify.com/v1/search",
+					headers: { Accept: "application/json" },
+				}),
+			}),
+		);
+	});
+
 	test("accepts parseable JSON even when the upstream content type is plain text", async () => {
 		mockMetadataHttpResponse({
 			status: 200,
@@ -258,7 +353,7 @@ describe("metadata search orchestration", () => {
 		const requestJson: MetadataNetworkClient["requestJson"] = async <T,>(
 			request: MetadataNetworkRequest,
 		): Promise<T> => {
-			const { url, body } = request;
+			const { url } = request;
 			requests.push(request);
 			let response: unknown = {};
 			if (url.includes("u.y.qq.com")) {
@@ -542,11 +637,13 @@ describe("metadata search orchestration", () => {
 	});
 
 	test("skips Apple Music on web when no bearer token is configured", async () => {
+		const requestJson = vi.fn(async () => ({}));
+		const requestText = vi.fn(async () => {
+			throw new Error("music.apple.com should not be fetched on web");
+		});
 		const client: MetadataNetworkClient = {
-			requestJson: vi.fn(async () => ({})),
-			requestText: vi.fn(async () => {
-				throw new Error("music.apple.com should not be fetched on web");
-			}),
+			requestJson: requestJson as MetadataNetworkClient["requestJson"],
+			requestText,
 		};
 
 		const result = await searchMetadata(input, {
@@ -556,8 +653,34 @@ describe("metadata search orchestration", () => {
 			includeSources: ["appleMusic"],
 		});
 
-		expect(client.requestJson).not.toHaveBeenCalled();
-		expect(client.requestText).not.toHaveBeenCalled();
+		expect(requestJson).not.toHaveBeenCalled();
+		expect(requestText).not.toHaveBeenCalled();
+		expect(result.sources.appleMusic?.errors).toEqual([
+			"缺少 Apple Music Bearer Token，跳过 Apple Music 搜索",
+			"Apple Music 未找到带歌曲 ID 的候选",
+		]);
+	});
+
+	test("does not discover Apple Music token on web just because Tauri env was present at build time", async () => {
+		vi.stubEnv("TAURI_ENV_PLATFORM", "windows");
+		const requestJson = vi.fn(async () => ({}));
+		const requestText = vi.fn(async () => {
+			throw new Error("music.apple.com should not be fetched on web");
+		});
+		const client: MetadataNetworkClient = {
+			requestJson: requestJson as MetadataNetworkClient["requestJson"],
+			requestText,
+		};
+
+		const result = await searchMetadata(input, {
+			client,
+			appleMusicToken: null,
+			spotifyCredentials: null,
+			includeSources: ["appleMusic"],
+		});
+
+		expect(requestJson).not.toHaveBeenCalled();
+		expect(requestText).not.toHaveBeenCalled();
 		expect(result.sources.appleMusic?.errors).toEqual([
 			"缺少 Apple Music Bearer Token，跳过 Apple Music 搜索",
 			"Apple Music 未找到带歌曲 ID 的候选",

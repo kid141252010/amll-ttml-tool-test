@@ -14,7 +14,11 @@ import {
 	textMatchScore,
 	unique,
 } from "./matching";
-import { defaultMetadataNetworkClient } from "./network";
+import {
+	createMetadataNetworkClient,
+	defaultMetadataNetworkClient,
+	hasTauriInvokeRuntime,
+} from "./network";
 import type {
 	MetadataCandidate,
 	MetadataNetworkClient,
@@ -150,7 +154,11 @@ export const searchMetadata = async (
 		return result;
 	}
 
-	const client = options.client ?? defaultMetadataNetworkClient;
+	const client =
+		options.client ??
+		(options.metadataProxyUrl === undefined
+			? defaultMetadataNetworkClient
+			: createMetadataNetworkClient({ proxyUrl: options.metadataProxyUrl }));
 	const includeSources = new Set(options.includeSources ?? ALL_SOURCES);
 	const enrichedInput = await enrichMetadataSearchInput(
 		input,
@@ -952,7 +960,7 @@ const normalizeConfiguredAppleMusicToken = (value: string | null): string | null
 };
 
 const canDiscoverAppleMusicToken = (): boolean =>
-	Boolean(import.meta.env.TAURI_ENV_PLATFORM);
+	hasTauriInvokeRuntime();
 
 const appleMusicSearchQuery = (input: MetadataSearchInput) =>
 	[
