@@ -1,5 +1,6 @@
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
+import { createExpiringSessionStorage } from "$/utils/security/sensitive-storage";
 
 export enum SyncJudgeMode {
 	FirstKeyDownTime = "first-keydown-time",
@@ -72,7 +73,16 @@ export const enableAutoRomanizationPredictionAtom = atomWithStorage(
 	false,
 );
 
-export const githubPatAtom = atomWithStorage("githubPat", "");
+const sensitiveStringStorage = createExpiringSessionStorage<string>({
+	ttlMs: 12 * 60 * 60 * 1000,
+});
+
+export const githubPatAtom = atomWithStorage(
+	"githubPat",
+	"",
+	sensitiveStringStorage,
+	{ getOnInit: true },
+);
 export const githubLoginAtom = atomWithStorage("githubLogin", "");
 export const githubAmlldbAccessAtom = atomWithStorage(
 	"githubAmlldbAccess",
@@ -89,7 +99,12 @@ export type NeteaseProfile = {
 	vipType: number;
 	signature?: string;
 };
-export const neteaseCookieAtom = atomWithStorage("neteaseCookie", "");
+export const neteaseCookieAtom = atomWithStorage(
+	"neteaseCookie",
+	"",
+	sensitiveStringStorage,
+	{ getOnInit: true },
+);
 export const neteaseUserAtom = atomWithStorage<NeteaseProfile | null>(
 	"neteaseUser",
 	null,
@@ -102,10 +117,14 @@ export const spotifyClientIdAtom = atomWithStorage("spotifyClientId", "");
 export const spotifyClientSecretAtom = atomWithStorage(
 	"spotifyClientSecret",
 	"",
+	sensitiveStringStorage,
+	{ getOnInit: true },
 );
 export const appleMusicBearerTokenAtom = atomWithStorage(
 	"APPLE_MUSIC_BEARER_TOKEN",
 	"",
+	sensitiveStringStorage,
+	{ getOnInit: true },
 );
 export const metadataProxyUrlAtom = atomWithStorage(
 	"metadataProxyUrl",
@@ -144,6 +163,8 @@ export type LyricsSiteUser = {
 export const lyricsSiteTokenAtom = atomWithStorage<string>(
 	"lyricsSiteToken",
 	"",
+	sensitiveStringStorage,
+	{ getOnInit: true },
 );
 export const lyricsSiteUserAtom = atomWithStorage<LyricsSiteUser | null>(
 	"lyricsSiteUser",

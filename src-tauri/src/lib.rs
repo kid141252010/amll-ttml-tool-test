@@ -1,4 +1,8 @@
 use std::collections::HashMap;
+use std::sync::OnceLock;
+
+const METADATA_NETWORK_MAX_BODY_BYTES: usize = 8 * 1024;
+const METADATA_NETWORK_MAX_JSON_DEPTH: usize = 10;
 
 #[derive(serde::Serialize)]
 struct OpenFileData {
@@ -105,29 +109,56 @@ fn validate_metadata_http_request(
         "POST" => reqwest::Method::POST,
         _ => return Err("Method is not allowed".to_string()),
     };
-    if request
-        .body
-        .as_ref()
-        .is_some_and(|body| body.len() > 64 * 1024)
-    {
-        return Err("Body is too large".to_string());
+    if let Some(error) = validate_metadata_body(request.body.as_deref()) {
+        return Err(error);
     }
     Ok((url, method))
 }
 
 fn metadata_host_allowed(host: &str) -> bool {
-    matches!(
-        host,
-        "accounts.spotify.com"
-            | "api.spotify.com"
-            | "amp-api.music.apple.com"
-            | "music.apple.com"
-            | "u.y.qq.com"
-            | "ncmapi.bikonoo.com"
-            | "music163.xuanmou.com.cn"
-            | "neteasecloudmusicapi-main-api.vercel.app"
-            | "api-enhanced-six-beta.vercel.app"
-    )
+    const ALLOWED_HOSTS_JSON: &str =
+        include_str!("../../src/modules/project/logic/metadata-search/allowed-hosts.json");
+    static ALLOWED_HOSTS: OnceLock<Vec<String>> = OnceLock::new();
+    let hosts = ALLOWED_HOSTS.get_or_init(|| {
+        serde_json::from_str::<Vec<String>>(ALLOWED_HOSTS_JSON).unwrap_or_default()
+    });
+    hosts.iter().any(|item| item == host)
+}
+
+fn validate_metadata_body(body: Option<&str>) -> Option<String> {
+    let body = body?;
+    if body.len() > METADATA_NETWORK_MAX_BODY_BYTES {
+        return Some("Body is too large".to_string());
+    }
+
+    let trimmed = body.trim();
+    if !(trimmed.starts_with('{') || trimmed.starts_with('[')) {
+        return None;
+    }
+
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return None;
+    };
+    if !metadata_json_depth_allowed(&value, 0) {
+        return Some("Body structure is too deep".to_string());
+    }
+    None
+}
+
+fn metadata_json_depth_allowed(value: &serde_json::Value, depth: usize) -> bool {
+    if depth > METADATA_NETWORK_MAX_JSON_DEPTH {
+        return false;
+    }
+    match value {
+        serde_json::Value::Array(items) => items
+            .iter()
+            .all(|item| metadata_json_depth_allowed(item, depth + 1)),
+        serde_json::Value::Object(items) => items.iter().all(|(key, item)| {
+            !matches!(key.as_str(), "__proto__" | "constructor" | "prototype")
+                && metadata_json_depth_allowed(item, depth + 1)
+        }),
+        _ => true,
+    }
 }
 
 fn filter_metadata_headers(headers: Option<&HashMap<String, String>>) -> Vec<(&str, &str)> {

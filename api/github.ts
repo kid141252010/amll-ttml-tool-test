@@ -4,6 +4,76 @@ const ALLOWED_HOSTS = new Set([
 	"github.com",
 	"raw.githubusercontent.com",
 ]);
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 60;
+
+type RequestLike = {
+	method?: string;
+	headers: Record<string, string | string[] | undefined>;
+	query: Record<string, string | string[] | undefined>;
+	body?: unknown;
+};
+
+type ResponseLike = {
+	status: (code: number) => void;
+	setHeader: (key: string, value: string) => void;
+	send: (body: string) => void;
+};
+
+type RateLimitBucket = {
+	count: number;
+	resetAt: number;
+};
+
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+
+export const __resetGithubProxyRateLimitForTests = () => {
+	rateLimitBuckets.clear();
+};
+
+const sendJson = (res: ResponseLike, status: number, payload: unknown) => {
+	res.status(status);
+	res.setHeader("content-type", "application/json");
+	res.send(JSON.stringify(payload));
+};
+
+const getHeaderValue = (
+	headers: Record<string, string | string[] | undefined>,
+	key: string,
+) => {
+	const value = headers[key] ?? headers[key.toLowerCase()];
+	if (Array.isArray(value)) return value[0] ?? "";
+	return value ?? "";
+};
+
+const getClientKey = (req: RequestLike) => {
+	const forwardedFor = getHeaderValue(req.headers, "x-forwarded-for")
+		.split(",")[0]
+		.trim();
+	return (
+		forwardedFor ||
+		getHeaderValue(req.headers, "x-real-ip").trim() ||
+		"anonymous"
+	);
+};
+
+const isRateLimited = (req: RequestLike) => {
+	const now = Date.now();
+	const key = getClientKey(req);
+	const current = rateLimitBuckets.get(key);
+	if (!current || now >= current.resetAt) {
+		rateLimitBuckets.set(key, {
+			count: 1,
+			resetAt: now + RATE_LIMIT_WINDOW_MS,
+		});
+		return false;
+	}
+	if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+		return true;
+	}
+	current.count += 1;
+	return false;
+};
 
 const buildTargetUrl = (path: string, query: Record<string, string>) => {
 	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -33,7 +103,13 @@ const normalizeQuery = (query: Record<string, string | string[] | undefined>) =>
 const buildTargetFromUrl = (rawUrl: string) => {
 	try {
 		const url = new URL(rawUrl);
-		if (!ALLOWED_HOSTS.has(url.hostname)) {
+		if (url.protocol !== "https:") {
+			return null;
+		}
+		if (url.username || url.password) {
+			return null;
+		}
+		if (!ALLOWED_HOSTS.has(url.hostname.toLowerCase())) {
 			return null;
 		}
 		return url;
@@ -50,9 +126,13 @@ const buildRequestBody = (body: unknown) => {
 };
 
 export default async function handler(
-	req: { method?: string; headers: Record<string, string | string[] | undefined>; query: Record<string, string | string[] | undefined>; body?: unknown },
-	res: { status: (code: number) => void; setHeader: (key: string, value: string) => void; send: (body: string) => void },
+	req: RequestLike,
+	res: ResponseLike,
 ) {
+	if (isRateLimited(req)) {
+		sendJson(res, 429, { error: "Too many requests", code: "RATE_LIMITED" });
+		return;
+	}
 	const rawQuery = normalizeQuery(req.query ?? {});
 	const rawUrl = rawQuery.url ?? "";
 	const path = rawQuery.path ?? "";
@@ -94,7 +174,10 @@ export default async function handler(
 		res.setHeader("content-type", responseType);
 		res.send(text);
 	} catch (error) {
-		res.status(502);
-		res.send(error instanceof Error ? error.message : "Proxy error");
+		console.error("[GitHub Proxy Error]", error);
+		sendJson(res, 502, {
+			error: "Service temporarily unavailable",
+			code: "PROXY_ERROR",
+		});
 	}
 }

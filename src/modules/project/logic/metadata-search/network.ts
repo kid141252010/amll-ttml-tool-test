@@ -1,7 +1,4 @@
-import type {
-	MetadataNetworkClient,
-	MetadataNetworkRequest,
-} from "./types";
+import type { MetadataNetworkClient, MetadataNetworkRequest } from "./types";
 
 type MetadataHttpResponse = {
 	status: number;
@@ -11,6 +8,7 @@ type MetadataHttpResponse = {
 
 const ERROR_BODY_PREFIX_LENGTH = 160;
 const DEFAULT_METADATA_PROXY_URL = "/api/metadata-network";
+const DEFAULT_APPLE_MUSIC_TOKEN_URL = "/api/apple-music-token";
 
 type TauriRuntimeWindow = Window & {
 	__TAURI_INTERNALS__?: {
@@ -31,6 +29,12 @@ const resolveMetadataProxyUrl = (proxyUrl?: string | null): string => {
 	const configured =
 		proxyUrl?.trim() || import.meta.env.VITE_METADATA_PROXY_URL?.trim();
 	return configured || DEFAULT_METADATA_PROXY_URL;
+};
+
+const resolveAppleMusicTokenUrl = (proxyUrl?: string | null): string => {
+	const configured =
+		proxyUrl?.trim() || import.meta.env.VITE_APPLE_MUSIC_TOKEN_URL?.trim();
+	return configured || DEFAULT_APPLE_MUSIC_TOKEN_URL;
 };
 
 export const metadataHttpRequest = async (
@@ -87,6 +91,33 @@ export const createMetadataNetworkClient = (
 		}
 		return response.body;
 	},
+	async discoverAppleMusicToken() {
+		if (hasTauriInvokeRuntime()) {
+			return discoverAppleMusicTokenFromPage(this);
+		}
+		const response = await fetch(resolveAppleMusicTokenUrl());
+		const responseText = await response.text();
+		let payload: { token?: unknown; error?: unknown } | null = null;
+		try {
+			payload = JSON.parse(responseText) as {
+				token?: unknown;
+				error?: unknown;
+			};
+		} catch {
+			throw new Error(
+				`Apple Music token endpoint returned invalid JSON${formatResponseBodySuffix(responseText)}`,
+			);
+		}
+		if (!response.ok) {
+			throw new Error(
+				(typeof payload?.error === "string" ? payload.error : null) ||
+					`Apple Music token HTTP ${response.status}${formatResponseBodySuffix(responseText)}`,
+			);
+		}
+		return typeof payload?.token === "string" && payload.token.trim()
+			? payload.token.trim()
+			: null;
+	},
 });
 
 export const defaultMetadataNetworkClient: MetadataNetworkClient =
@@ -101,7 +132,10 @@ const requestHost = (request: MetadataNetworkRequest): string => {
 };
 
 const formatResponseBodySuffix = (body: string): string => {
-	const prefix = body.replace(/\s+/g, " ").trim().slice(0, ERROR_BODY_PREFIX_LENGTH);
+	const prefix = body
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, ERROR_BODY_PREFIX_LENGTH);
 	return prefix ? `: ${prefix}` : "";
 };
 
@@ -117,4 +151,28 @@ const parseMetadataProxyResponse = (
 			: `Metadata proxy HTTP ${response.status}`;
 		throw new Error(`${prefix}${formatResponseBodySuffix(body)}`);
 	}
+};
+
+const discoverAppleMusicTokenFromPage = async (
+	client: Pick<MetadataNetworkClient, "requestText">,
+	storefront = "cn",
+): Promise<string | null> => {
+	const page = await client.requestText({
+		url: `https://music.apple.com/${storefront}/search`,
+		headers: { Accept: "text/html,*/*", "User-Agent": "Mozilla/5.0" },
+	});
+	const moduleSources = Array.from(
+		page.matchAll(/<script[^>]+type=["']module["'][^>]+src=["']([^"']+)["']/gi),
+	).map((match) => match[1]);
+	for (const source of moduleSources) {
+		if (!source) continue;
+		const scriptUrl = new URL(source, "https://music.apple.com/").toString();
+		const script = await client.requestText({
+			url: scriptUrl,
+			headers: { Accept: "text/javascript,*/*", "User-Agent": "Mozilla/5.0" },
+		});
+		const token = script.match(/eyJhbGciOiJ[^"']+/)?.[0];
+		if (token) return token;
+	}
+	return null;
 };

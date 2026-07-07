@@ -4,8 +4,8 @@ import { addUniqueValues } from "./matching";
 import type {
 	MetadataCandidate,
 	MetadataSearchResult,
-	MetadataValues,
 	MetadataValueKey,
+	MetadataValues,
 } from "./types";
 
 export interface MetadataRegionGroup {

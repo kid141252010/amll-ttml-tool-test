@@ -34,7 +34,7 @@ import { playbackRateAtom, volumeAtom } from "$/modules/audio/states";
 import { readAudioCache } from "$/hooks/useFileOpener";
 import {
 	accentColorAtom,
-	AccentColor,
+	type AccentColor,
 	autosaveEnabledAtom,
 	autosaveIntervalAtom,
 	autosaveLimitAtom,

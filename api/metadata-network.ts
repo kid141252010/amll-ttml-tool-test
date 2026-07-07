@@ -78,8 +78,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 			body,
 		});
 	} catch (error) {
+		console.error("[Metadata Network Proxy Error]", error);
 		sendJson(res, 502, {
-			error: error instanceof Error ? error.message : "Metadata proxy error",
+			error: "Service temporarily unavailable",
+			code: "METADATA_PROXY_ERROR",
 		});
 	}
 }

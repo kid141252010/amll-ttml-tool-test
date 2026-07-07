@@ -1,8 +1,4 @@
-export type MetadataSource =
-	| "appleMusic"
-	| "qqMusic"
-	| "ncmMusic"
-	| "spotify";
+export type MetadataSource = "appleMusic" | "qqMusic" | "ncmMusic" | "spotify";
 
 export type MetadataValueKey =
 	| "musicName"
@@ -20,6 +16,8 @@ export interface MetadataSearchInput {
 	title?: string;
 	artists: string[];
 	album?: string;
+	durationMs?: number;
+	releaseDate?: string;
 	ids: {
 		ncmMusicId: string[];
 		qqMusicId: string[];
@@ -69,6 +67,7 @@ export interface MetadataNetworkRequest {
 export interface MetadataNetworkClient {
 	requestJson<T = unknown>(request: MetadataNetworkRequest): Promise<T>;
 	requestText(request: MetadataNetworkRequest): Promise<string>;
+	discoverAppleMusicToken?(): Promise<string | null>;
 }
 
 export interface SpotifyCredentials {
@@ -81,5 +80,13 @@ export interface SearchMetadataOptions {
 	spotifyCredentials?: SpotifyCredentials | null;
 	appleMusicToken?: string | null;
 	metadataProxyUrl?: string | null;
-	includeSources?: MetadataSource[];
+	includeSources?: readonly MetadataSource[];
+}
+
+export interface MetadataSearchCallbacks {
+	onSourceComplete?: (
+		source: MetadataSource,
+		result: MetadataSourceResult,
+	) => void;
+	onProgress?: (completed: number, total: number) => void;
 }

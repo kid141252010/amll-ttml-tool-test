@@ -32,8 +32,8 @@ export const HeaderFileInfo = () => {
 	const [filename, setFilename] = useAtom(saveFileNameAtom);
 	const lastSavedTime = useAtomValue(lastSavedTimeAtom);
 	const setHistoryDialogOpen = useSetAtom(historyRestoreDialogAtom);
-	const setConfirmDialog = useSetAtom(confirmDialogAtom);
-	const setMetadataRenameDialog = useSetAtom(metadataRenameDialogAtom);
+	const _setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const _setMetadataRenameDialog = useSetAtom(metadataRenameDialogAtom);
 	const metadata = useAtomValue(lyricLinesAtom).metadata;
 	const [isEditing, setIsEditing] = useState(false);
 	const [draftName, setDraftName] = useState("");
@@ -42,7 +42,7 @@ export const HeaderFileInfo = () => {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const lastSavedTimeRef = useRef<number | null>(null);
 	const suffix = ".ttml";
-	const suggestedFile = getSuggestedTtmlFileName(metadata);
+	const _suggestedFile = getSuggestedTtmlFileName(metadata);
 
 	const getBaseName = useCallback(
 		(value: string) =>
@@ -93,8 +93,8 @@ export const HeaderFileInfo = () => {
 
 	// 使用元数据重命名
 	const handleMetadataRename = useCallback(() => {
-		setMetadataRenameDialog({ open: true });
-	}, [setMetadataRenameDialog]);
+		_setMetadataRenameDialog({ open: true });
+	}, [_setMetadataRenameDialog]);
 
 	// 处理文件名点击 - 现在直接开始编辑
 	const handleNameClick = useCallback(() => {

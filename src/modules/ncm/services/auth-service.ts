@@ -4,27 +4,58 @@ import type { NeteaseResponse } from "./index";
 
 const autoLoginFailureKey = "neteaseAutoLoginFailures";
 const maxAutoLoginFailures = 3;
+const autoLoginFailureWindowMs = 24 * 60 * 60 * 1000;
+
+type AutoLoginFailureState = {
+	count: number;
+	firstFailureAt: number;
+};
 
 const readAutoLoginFailures = () => {
-	if (typeof localStorage === "undefined") {
+	if (typeof sessionStorage === "undefined") {
 		return 0;
 	}
 	try {
-		const raw = localStorage.getItem(autoLoginFailureKey);
+		localStorage?.removeItem(autoLoginFailureKey);
+		const raw = sessionStorage.getItem(autoLoginFailureKey);
 		if (!raw) return 0;
-		const parsed = Number.parseInt(raw, 10);
-		return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+		const parsed = JSON.parse(raw) as Partial<AutoLoginFailureState>;
+		if (
+			typeof parsed.count !== "number" ||
+			typeof parsed.firstFailureAt !== "number" ||
+			Date.now() - parsed.firstFailureAt > autoLoginFailureWindowMs
+		) {
+			sessionStorage.removeItem(autoLoginFailureKey);
+			return 0;
+		}
+		return Number.isFinite(parsed.count) && parsed.count > 0 ? parsed.count : 0;
 	} catch {
 		return 0;
 	}
 };
 
 const writeAutoLoginFailures = (value: number) => {
-	if (typeof localStorage === "undefined") {
+	if (typeof sessionStorage === "undefined") {
 		return;
 	}
 	try {
-		localStorage.setItem(autoLoginFailureKey, String(value));
+		localStorage?.removeItem(autoLoginFailureKey);
+		if (value <= 0) {
+			sessionStorage.removeItem(autoLoginFailureKey);
+			return;
+		}
+		const previousRaw = sessionStorage.getItem(autoLoginFailureKey);
+		const previous = previousRaw
+			? (JSON.parse(previousRaw) as Partial<AutoLoginFailureState>)
+			: null;
+		const firstFailureAt =
+			typeof previous?.firstFailureAt === "number"
+				? previous.firstFailureAt
+				: Date.now();
+		sessionStorage.setItem(
+			autoLoginFailureKey,
+			JSON.stringify({ count: value, firstFailureAt }),
+		);
 	} catch {
 		return;
 	}

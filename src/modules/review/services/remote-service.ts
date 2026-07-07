@@ -12,22 +12,8 @@ import {
 } from "$/modules/settings/states";
 import { pushNotificationAtom } from "$/states/notifications";
 import { ToolMode, reviewSessionAtom, toolModeAtom } from "$/states/main";
-
-const getSafeUrl = (input: string, requireTtml: boolean) => {
-	if (!input || /\s/.test(input)) return null;
-	try {
-		const url = new URL(input);
-		if (!["http:", "https:"].includes(url.protocol)) return null;
-		if (url.username || url.password) return null;
-		if (requireTtml) {
-			const path = url.pathname.toLowerCase();
-			if (!path.endsWith(".ttml")) return null;
-		}
-		return url;
-	} catch {
-		return null;
-	}
-};
+import { storeLyricsSitePkce } from "$/utils/security/oauth-pkce-storage";
+import { getSafeRemoteUrl } from "$/utils/security/url-policy";
 
 // ========== 歌词站登录 ==========
 
@@ -75,9 +61,7 @@ export const useLyricsSiteAuth = () => {
 		const codeChallenge = await generateCodeChallenge(codeVerifier);
 		const state = generateCodeVerifier();
 
-		// 存储到 sessionStorage
-		sessionStorage.setItem("lyrics_site_code_verifier", codeVerifier);
-		sessionStorage.setItem("lyrics_site_state", state);
+		storeLyricsSitePkce(codeVerifier, state);
 		setLoginPending(true);
 
 		// 构建授权 URL
@@ -117,9 +101,11 @@ export const useLyricsSiteAuth = () => {
 				return userData;
 			} catch (error) {
 				console.error("[LyricsSiteAuth] 刷新用户信息失败:", error);
+				setToken("");
+				setUser(null);
 				return null;
 			}
-		}, [token, setUser]);
+		}, [token, setToken, setUser]);
 
 	// 登出
 	const logout = useCallback(() => {
@@ -179,7 +165,7 @@ export const useRemoteReviewService = () => {
 				});
 				return false;
 			}
-			const url = getSafeUrl(fileUrl, true);
+			const url = getSafeRemoteUrl(fileUrl, { requireTtml: true });
 			if (!url) {
 				setPushNotification({
 					title: "远程文件地址非法",
@@ -233,7 +219,7 @@ export const useRemoteReviewService = () => {
 		const fileParam = params.get("file") ?? "";
 		const returnParam = params.get("return") ?? "";
 		if (returnParam) {
-			const retUrl = getSafeUrl(returnParam, false);
+			const retUrl = getSafeRemoteUrl(returnParam);
 			if (retUrl) {
 				returnUrlRef.current = retUrl.toString();
 			}
@@ -247,7 +233,7 @@ export const useRemoteReviewService = () => {
 		async (data?: Record<string, unknown>) => {
 			const ret = returnUrlRef.current;
 			if (!ret) return false;
-			const url = getSafeUrl(ret, false);
+			const url = getSafeRemoteUrl(ret);
 			if (!url) return false;
 			try {
 				const res = await fetch(url.toString(), {

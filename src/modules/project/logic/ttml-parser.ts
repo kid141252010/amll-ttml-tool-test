@@ -97,6 +97,10 @@ function getAttr(el: Element, target: string): string | null {
 	return null;
 }
 
+export function getElementTextContentForTtml(el: Pick<Element, "textContent">) {
+	return el.textContent ?? "";
+}
+
 function parseSpan(spanEl: Element): SpanNode {
 	const span: SpanNode = {
 		text: "",
@@ -1149,7 +1153,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						}
 						if (!line.translatedLyricByLang[transLang]) {
 							line.translatedLyricByLang[transLang] = {
-								data: wordEl.innerHTML,
+								data: getElementTextContentForTtml(wordEl),
 								isAutoFilled,
 							};
 						}
@@ -1160,7 +1164,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						}
 						if (!line.romanLyricByLang[defaultRomanLang]) {
 							line.romanLyricByLang[defaultRomanLang] = {
-								data: wordEl.innerHTML,
+								data: getElementTextContentForTtml(wordEl),
 								// 内嵌音译使用默认语言代码，视为自动填充
 								isAutoFilled: true,
 							};
@@ -1359,11 +1363,22 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			customSongParts.size > 0 ? Array.from(customSongParts) : undefined,
 	};
 
-	// 输出整个解析后的对象到控制台
-	console.log("[TTML Parser] Parsed TTML object:", result);
+	if (import.meta.env.DEV) {
+		console.log("[TTML Parser] Parsed TTML object:", sanitizeTtmlForLog(result));
+	}
 
 	return result;
 }
+
+const sanitizeTtmlForLog = (result: TTMLLyric): TTMLLyric => ({
+	...result,
+	metadata: result.metadata.map((item) => ({
+		...item,
+		value: /token|secret|cookie|password|auth|bearer|key/i.test(item.key)
+			? ["***REDACTED***"]
+			: item.value,
+	})),
+});
 
 /**
  * 对唱处理选项

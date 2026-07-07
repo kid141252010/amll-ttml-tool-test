@@ -177,6 +177,7 @@ function App() {
 	const pat = useAtomValue(githubPatAtom);
 	const login = useAtomValue(githubLoginAtom);
 	const hasAccess = useAtomValue(githubAmlldbAccessAtom);
+	const setPat = useSetAtom(githubPatAtom);
 	const setLogin = useSetAtom(githubLoginAtom);
 	const setHasAccess = useSetAtom(githubAmlldbAccessAtom);
 	const setReviewLabels = useSetAtom(reviewLabelsAtom);
@@ -208,7 +209,7 @@ function App() {
 
 	useEffect(() => {
 		setStartupWarningOpen(showBetaBranchWarning);
-	}, [showBetaBranchWarning, setStartupWarningOpen]);
+	}, [showBetaBranchWarning]);
 
 	useEffect(() => {
 		const token = initialPatRef.current?.trim();
@@ -233,12 +234,15 @@ function App() {
 				setReviewLabels([]);
 				return;
 			}
+			if (result.status === "invalid-token") {
+				setPat("");
+			}
 			setLogin("");
 			setHasAccess(false);
 			setReviewLabels([]);
 		};
 		void run();
-	}, [setHasAccess, setHiddenLabels, setLogin, setReviewLabels]);
+	}, [setHasAccess, setHiddenLabels, setLogin, setPat, setReviewLabels]);
 
 	useEffect(() => {
 		if (startupPendingUpdateSyncedRef.current) return;

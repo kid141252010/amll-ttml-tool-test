@@ -281,7 +281,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								style={{ width: "4em" }}
 								value={fontScale}
 								onChange={(e) => {
-									const value = Number.parseInt(e.target.value);
+									const value = Number.parseInt(e.target.value, 10);
 									if (Number.isFinite(value) && value >= 25 && value <= 400) {
 										setFontScale(value);
 									}
@@ -466,7 +466,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								style={{ width: "4em" }}
 								value={alignPosition}
 								onChange={(e) => {
-									const value = Number.parseInt(e.target.value);
+									const value = Number.parseInt(e.target.value, 10);
 									if (Number.isFinite(value) && value >= 0 && value <= 100) {
 										setAlignPosition(value);
 									}
@@ -501,7 +501,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								style={{ width: "4em" }}
 								value={bgLineOpacity}
 								onChange={(e) => {
-									const value = Number.parseInt(e.target.value);
+									const value = Number.parseInt(e.target.value, 10);
 									if (Number.isFinite(value) && value >= 0 && value <= 100) {
 										setBgLineOpacity(value);
 									}
@@ -536,7 +536,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 								style={{ width: "4em" }}
 								value={lyricWidth}
 								onChange={(e) => {
-									const value = Number.parseInt(e.target.value);
+									const value = Number.parseInt(e.target.value, 10);
 									if (Number.isFinite(value) && value >= 0 && value <= 100) {
 										setLyricWidth(value);
 									}

@@ -2,8 +2,8 @@ import { Converter } from "opencc-js";
 import type {
 	MetadataCandidate,
 	MetadataSearchInput,
-	MetadataValues,
 	MetadataValueKey,
+	MetadataValues,
 } from "./types";
 
 const toSimplified = Converter({ from: "tw", to: "cn" });
@@ -50,7 +50,9 @@ export const sameIdentifier = (left: unknown, right: unknown): boolean => {
 	const leftText = stringify(left);
 	const rightText = stringify(right);
 	return (
-		!!leftText && !!rightText && leftText.toLowerCase() === rightText.toLowerCase()
+		!!leftText &&
+		!!rightText &&
+		leftText.toLowerCase() === rightText.toLowerCase()
 	);
 };
 
@@ -81,13 +83,21 @@ export const scoreMetadataCandidate = (
 	input: MetadataSearchInput,
 	candidate: Pick<
 		MetadataCandidate,
-		"title" | "artists" | "album" | "isrc" | "sourceIndex"
+		| "title"
+		| "artists"
+		| "album"
+		| "isrc"
+		| "durationMs"
+		| "releaseDate"
+		| "sourceIndex"
 	>,
 	weights: {
 		isrc?: number;
 		title?: number;
 		artist?: number;
 		album?: number;
+		duration?: number;
+		releaseDate?: number;
 	} = {},
 ): number => {
 	if (instrumentalMarkerConflicts(input.title, candidate.title)) {
@@ -100,7 +110,8 @@ export const scoreMetadataCandidate = (
 	) {
 		score += weights.isrc ?? 500;
 	}
-	score += textMatchScore(input.title, candidate.title) * (weights.title ?? 100);
+	score +=
+		textMatchScore(input.title, candidate.title) * (weights.title ?? 100);
 	for (const artist of input.artists) {
 		score +=
 			Math.max(
@@ -111,6 +122,20 @@ export const scoreMetadataCandidate = (
 			) * (weights.artist ?? 80);
 	}
 	score += textMatchScore(input.album, candidate.album) * (weights.album ?? 40);
+	if (
+		input.durationMs !== undefined &&
+		candidate.durationMs !== undefined &&
+		Math.abs(input.durationMs - candidate.durationMs) <= 1000
+	) {
+		score += weights.duration ?? 30;
+	}
+	if (
+		input.releaseDate &&
+		candidate.releaseDate &&
+		input.releaseDate === candidate.releaseDate
+	) {
+		score += weights.releaseDate ?? 30;
+	}
 	return score;
 };
 
@@ -151,7 +176,9 @@ export const nestedGet = (value: unknown, ...keys: string[]): unknown => {
 	return current;
 };
 
-export const unique = (values: Iterable<string | null | undefined>): string[] => {
+export const unique = (
+	values: Iterable<string | null | undefined>,
+): string[] => {
 	const result: string[] = [];
 	for (const value of values) {
 		const text = stringify(value);
@@ -166,7 +193,8 @@ const instrumentalMarkerConflicts = (
 	expectedTitle: unknown,
 	candidateTitle: unknown,
 ): boolean =>
-	!hasInstrumentalMarker(expectedTitle) && hasInstrumentalMarker(candidateTitle);
+	!hasInstrumentalMarker(expectedTitle) &&
+	hasInstrumentalMarker(candidateTitle);
 
 const hasInstrumentalMarker = (value: unknown): boolean => {
 	const text = ` ${normalizeMatchText(value)} `;

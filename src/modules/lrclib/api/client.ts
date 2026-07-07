@@ -1,6 +1,7 @@
 import type { LrcLibTrack } from "../types";
 
 const BASE_URL = "https://lrclib.net/api";
+const MAX_SEARCH_QUERY_LENGTH = 200;
 
 export const LrcLibApi = {
 	/**
@@ -10,11 +11,17 @@ export const LrcLibApi = {
 	 * @throws 在 API 请求失败时抛出错误
 	 */
 	async search(query: string): Promise<LrcLibTrack[]> {
-		if (!query.trim()) return [];
+		const trimmed = query.trim();
+		if (!trimmed) return [];
+		if (trimmed.length > MAX_SEARCH_QUERY_LENGTH) {
+			throw new Error(
+				`Search query too long (max ${MAX_SEARCH_QUERY_LENGTH} characters)`,
+			);
+		}
 
 		try {
 			const response = await fetch(
-				`${BASE_URL}/search?q=${encodeURIComponent(query)}`,
+				`${BASE_URL}/search?q=${encodeURIComponent(trimmed)}`,
 			);
 			if (!response.ok) {
 				throw new Error(`LRCLIB Search failed: ${response.statusText}`);

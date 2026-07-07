@@ -9,7 +9,8 @@ import { Card } from "@radix-ui/themes";
 import structuredClone from "@ungap/structured-clone";
 import classNames from "classnames";
 import { useAtomValue } from "jotai";
-import React, { memo, useEffect, useMemo, useRef } from "react";
+import type React from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import { audioPlayingAtom, currentTimeAtom } from "$/modules/audio/states";
 import {
@@ -90,18 +91,18 @@ export const AMLLWrapper = memo(() => {
 	// const hideObsceneWords = useAtomValue(hideObsceneWordsAtom);
 	const hideInvalidRomanization = useAtomValue(hideInvalidRomanizationAtom);
 	const wordFadeWidth = useAtomValue(lyricWordFadeWidthAtom);
-	const normalizeSpaces = useAtomValue(amllNormalizeSpacesAtom);
-	const resetLineTimestamps = useAtomValue(amllResetLineTimestampsAtom);
-	const convertExcessiveBackgroundLines = useAtomValue(
+	const _normalizeSpaces = useAtomValue(amllNormalizeSpacesAtom);
+	const _resetLineTimestamps = useAtomValue(amllResetLineTimestampsAtom);
+	const _convertExcessiveBackgroundLines = useAtomValue(
 		amllConvertExcessiveBackgroundLinesAtom,
 	);
-	const syncMainAndBackgroundLines = useAtomValue(
+	const _syncMainAndBackgroundLines = useAtomValue(
 		amllSyncMainAndBackgroundLinesAtom,
 	);
-	const cleanUnintentionalOverlaps = useAtomValue(
+	const _cleanUnintentionalOverlaps = useAtomValue(
 		amllCleanUnintentionalOverlapsAtom,
 	);
-	const tryAdvanceStartTime = useAtomValue(amllTryAdvanceStartTimeAtom);
+	const _tryAdvanceStartTime = useAtomValue(amllTryAdvanceStartTimeAtom);
 	// 字体设置
 	const fontScale = useAtomValue(fontScaleAtom);
 	const originalFont = useAtomValue(originalFontAtom);
@@ -177,7 +178,7 @@ export const AMLLWrapper = memo(() => {
 			lyricPlayer.setLyricLines(lyricLines, currentTime * 1000);
 		}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [lyricLines, currentTime]);
 
 	useEffect(() => {
 		setTimeout(() => {

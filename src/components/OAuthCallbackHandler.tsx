@@ -5,6 +5,7 @@ import {
 	lyricsSiteTokenAtom,
 	lyricsSiteUserAtom,
 } from "$/modules/settings/states";
+import { consumeLyricsSitePkce } from "$/utils/security/oauth-pkce-storage";
 
 const LYRICS_SITE_URL = "https://amlldb.bikonoo.com";
 
@@ -48,16 +49,15 @@ export const OAuthCallbackHandler = () => {
 				return;
 			}
 
-			const storedState = sessionStorage.getItem("lyrics_site_state");
-			const codeVerifier = sessionStorage.getItem("lyrics_site_code_verifier");
+			const pkce = consumeLyricsSitePkce();
 
-			if (!storedState || !codeVerifier) {
+			if (!pkce) {
 				setStatus("error");
 				setErrorMessage("授权状态已过期，请重新登录");
 				return;
 			}
 
-			if (state !== storedState) {
+			if (state !== pkce.state) {
 				setStatus("error");
 				setErrorMessage("授权状态验证失败");
 				return;
@@ -75,13 +75,12 @@ export const OAuthCallbackHandler = () => {
 						code,
 						redirect_uri: `${window.location.origin}/callback`,
 						client_id: "amll-ttml-tool",
-						code_verifier: codeVerifier,
+						code_verifier: pkce.codeVerifier,
 					}),
 				});
 
 				if (!response.ok) {
-					const errorText = await response.text();
-					throw new Error(errorText);
+					throw new Error("token-exchange-failed");
 				}
 
 				const data = await response.json();
@@ -107,10 +106,6 @@ export const OAuthCallbackHandler = () => {
 				const userData = await userResponse.json();
 				setUser(userData);
 
-				// 清理 sessionStorage
-				sessionStorage.removeItem("lyrics_site_code_verifier");
-				sessionStorage.removeItem("lyrics_site_state");
-
 				// 清理 URL
 				window.history.replaceState(
 					{},
@@ -125,8 +120,9 @@ export const OAuthCallbackHandler = () => {
 					setStatus("idle");
 				}, 1500);
 			} catch (err) {
+				console.error("[OAuthCallback] 登录失败:", err);
 				setStatus("error");
-				setErrorMessage(err instanceof Error ? err.message : "登录失败");
+				setErrorMessage("登录失败，请稍后重试");
 			}
 		};
 

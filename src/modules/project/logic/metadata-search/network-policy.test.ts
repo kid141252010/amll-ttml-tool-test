@@ -1,10 +1,19 @@
 import { describe, expect, test } from "vitest";
 import {
 	filterMetadataRequestHeaders,
+	METADATA_NETWORK_ALLOWED_HEADERS,
+	METADATA_NETWORK_ALLOWED_HOSTS_LIST,
+	METADATA_NETWORK_ALLOWED_METHODS,
 	validateMetadataNetworkRequest,
 } from "./network-policy";
 
 describe("metadata network policy", () => {
+	test("exports serializable policy lists for proxy consumers", () => {
+		expect(METADATA_NETWORK_ALLOWED_HOSTS_LIST).toContain("music.apple.com");
+		expect(METADATA_NETWORK_ALLOWED_HEADERS).toContain("authorization");
+		expect(METADATA_NETWORK_ALLOWED_METHODS).toEqual(["GET", "POST"]);
+	});
+
 	test("allows whitelisted GET and POST requests", () => {
 		expect(
 			validateMetadataNetworkRequest({
@@ -51,9 +60,24 @@ describe("metadata network policy", () => {
 			validateMetadataNetworkRequest({
 				url: "https://api.spotify.com/v1/search",
 				method: "POST",
-				body: "x".repeat(65537),
+				body: "x".repeat(8 * 1024 + 1),
 			}),
 		).toEqual({ ok: false, error: "Body is too large" });
+	});
+
+	test("rejects deeply nested JSON request bodies", () => {
+		let nested: unknown = "leaf";
+		for (let i = 0; i < 12; i++) {
+			nested = { nested };
+		}
+
+		expect(
+			validateMetadataNetworkRequest({
+				url: "https://api.spotify.com/v1/search",
+				method: "POST",
+				body: JSON.stringify(nested),
+			}),
+		).toEqual({ ok: false, error: "Body structure is too deep" });
 	});
 
 	test("keeps supported metadata request headers and filters unsupported headers", () => {

@@ -1,4 +1,5 @@
 export const NETEASE_API_BASE = "https://ncmapi.bikonoo.com";
+export const NETEASE_REQUEST_TIMEOUT_MS = 10_000;
 
 export type NeteaseResponse<T> = {
 	code?: number;
@@ -32,10 +33,27 @@ export const requestNetease = async <T>(
 		url.searchParams.append(key, String(params[key]));
 	});
 
-	const res = await fetch(url.toString(), {
-		method: options.method || "GET",
-		credentials: "include",
-	});
+	const controller = new AbortController();
+	const timeoutId = setTimeout(
+		() => controller.abort(),
+		NETEASE_REQUEST_TIMEOUT_MS,
+	);
+
+	let res: Response;
+	try {
+		res = await fetch(url.toString(), {
+			method: options.method || "GET",
+			credentials: "include",
+			signal: controller.signal,
+		});
+	} catch (error) {
+		if (error instanceof Error && error.name === "AbortError") {
+			throw new Error("网易云请求超时，请稍后重试");
+		}
+		throw error;
+	} finally {
+		clearTimeout(timeoutId);
+	}
 
 	const data = (await res.json()) as NeteaseResponse<T>;
 	const responseCode =

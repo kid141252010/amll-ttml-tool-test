@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import { addLanguageDialogAtom } from "$/states/dialogs";
 
 // 同步滚动 hook
-const useSyncScroll = (hasOverflow: boolean) => {
+const useSyncScroll = (_hasOverflow: boolean) => {
 	const leftScrollRef = useRef<HTMLDivElement>(null);
 	const rightScrollRef = useRef<HTMLDivElement>(null);
 	const isScrollingRef = useRef(false);

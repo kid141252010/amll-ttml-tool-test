@@ -263,7 +263,6 @@ const parseJsonlInternal = (
 				if (node) nodes.push(node);
 			} catch {
 				onWarning?.();
-				continue;
 			}
 		}
 	}
@@ -455,7 +454,7 @@ const matchNode = (
 	return matches;
 };
 
-export const getMeatdataSuggestion = async (
+export const getMetadataSuggestion = async (
 	value: string,
 ): Promise<MetaSuggestionResult[]> => {
 	const trimmed = value.trim();

@@ -1,8 +1,8 @@
 // import MillionLint from "@million/lint";
 import { exec } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { Readable } from "node:stream";
-import { existsSync, mkdirSync, copyFileSync } from "node:fs";
-import { resolve, join } from "node:path";
 import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
 import react from "@vitejs/plugin-react";
 import jotaiDebugLabel from "jotai/babel/plugin-debug-label";
@@ -16,6 +16,12 @@ import { VitePWA } from "vite-plugin-pwa";
 // import topLevelAwait from "vite-plugin-top-level-await";
 import wasm from "vite-plugin-wasm";
 import svgLoader from "vite-svg-loader";
+import { discoverAppleMusicToken } from "./api/apple-music-token";
+import {
+	filterMetadataRequestHeaders,
+	validateMetadataNetworkRequest,
+} from "./src/modules/project/logic/metadata-search/network-policy";
+import type { MetadataNetworkRequest } from "./src/modules/project/logic/metadata-search/types";
 
 const ReactCompilerConfig = {
 	target: "19",
@@ -27,16 +33,16 @@ const plugins: Plugin[] = [
 		buildStart() {
 			const sourceDir = resolve(__dirname, "node_modules/kuromoji/dict");
 			const targetDir = resolve(__dirname, "public/kuromoji-dict");
-			
+
 			if (!existsSync(sourceDir)) {
 				console.warn("Kuromoji dict source not found, skipping copy");
 				return;
 			}
-			
+
 			if (!existsSync(targetDir)) {
 				mkdirSync(targetDir, { recursive: true });
 			}
-			
+
 			const files = [
 				"base.dat.gz",
 				"check.dat.gz",
@@ -51,7 +57,7 @@ const plugins: Plugin[] = [
 				"unk_map.dat.gz",
 				"unk_pos.dat.gz",
 			];
-			
+
 			for (const file of files) {
 				const sourcePath = join(sourceDir, file);
 				const targetPath = join(targetDir, file);
@@ -66,7 +72,10 @@ const plugins: Plugin[] = [
 		name: "kuromoji-dict-mime",
 		configureServer(server) {
 			server.middlewares.use((req, res, next) => {
-				if (req.url?.includes("/kuromoji-dict/") && req.url?.endsWith(".dat.gz")) {
+				if (
+					req.url?.includes("/kuromoji-dict/") &&
+					req.url?.endsWith(".dat.gz")
+				) {
 					res.setHeader("Content-Type", "application/gzip");
 					res.setHeader("Content-Encoding", "identity");
 				}
@@ -78,6 +87,13 @@ const plugins: Plugin[] = [
 		name: "github-proxy-dev",
 		configureServer(server) {
 			server.middlewares.use("/api/github", async (req, res) => {
+				if (isGithubProxyDevRateLimited(req)) {
+					sendJsonResponse(res, 429, {
+						error: "Too many requests",
+						code: "RATE_LIMITED",
+					});
+					return;
+				}
 				const requestUrl = new URL(req.url ?? "", "http://localhost");
 				const rawUrl = requestUrl.searchParams.get("url") ?? "";
 				const path = requestUrl.searchParams.get("path") ?? "";
@@ -124,8 +140,11 @@ const plugins: Plugin[] = [
 					const text = await response.text();
 					res.end(text);
 				} catch (error) {
-					res.statusCode = 502;
-					res.end(error instanceof Error ? error.message : "Proxy error");
+					console.error("[GitHub Proxy Dev Error]", error);
+					sendJsonResponse(res, 502, {
+						error: "Service temporarily unavailable",
+						code: "PROXY_ERROR",
+					});
 				}
 			});
 		},
@@ -134,7 +153,16 @@ const plugins: Plugin[] = [
 		name: "metadata-network-proxy-dev",
 		configureServer(server) {
 			server.middlewares.use("/api/metadata-network", async (req, res) => {
-				if ((req.method ?? "POST").toUpperCase() !== "POST") {
+				const method = (req.method ?? "POST").toUpperCase();
+				if (method === "OPTIONS") {
+					res.statusCode = 204;
+					res.setHeader("Access-Control-Allow-Origin", "*");
+					res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+					res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+					res.end("");
+					return;
+				}
+				if (method !== "POST") {
 					sendJsonResponse(res, 405, { error: "Method not allowed" });
 					return;
 				}
@@ -169,11 +197,40 @@ const plugins: Plugin[] = [
 						body,
 					});
 				} catch (error) {
+					console.error("[Metadata Network Proxy Dev Error]", error);
+					sendJsonResponse(res, 502, {
+						error: "Service temporarily unavailable",
+						code: "METADATA_PROXY_ERROR",
+					});
+				}
+			});
+		},
+	},
+	{
+		name: "apple-music-token-dev",
+		configureServer(server) {
+			server.middlewares.use("/api/apple-music-token", async (req, res) => {
+				const method = (req.method ?? "GET").toUpperCase();
+				if (method === "OPTIONS") {
+					res.statusCode = 204;
+					res.setHeader("Access-Control-Allow-Origin", "*");
+					res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+					res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+					res.end("");
+					return;
+				}
+				if (method !== "GET") {
+					sendJsonResponse(res, 405, { error: "Method not allowed" });
+					return;
+				}
+				try {
+					sendJsonResponse(res, 200, await discoverAppleMusicToken());
+				} catch (error) {
 					sendJsonResponse(res, 502, {
 						error:
 							error instanceof Error
 								? error.message
-								: "Metadata proxy error",
+								: "Apple Music token discovery failed",
 					});
 				}
 			});
@@ -288,87 +345,58 @@ const ALLOWED_HOSTS = new Set([
 	"github.com",
 	"raw.githubusercontent.com",
 ]);
-const METADATA_NETWORK_ALLOWED_HOSTS = new Set([
-	"accounts.spotify.com",
-	"api.spotify.com",
-	"amp-api.music.apple.com",
-	"music.apple.com",
-	"u.y.qq.com",
-	"ncmapi.bikonoo.com",
-	"music163.xuanmou.com.cn",
-	"neteasecloudmusicapi-main-api.vercel.app",
-	"api-enhanced-six-beta.vercel.app",
-]);
-const METADATA_NETWORK_MAX_BODY_BYTES = 64 * 1024;
-
-type MetadataNetworkRequest = {
-	url: string;
-	method?: string;
-	headers?: Record<string, string>;
-	body?: string;
-};
-
-const validateMetadataNetworkRequest = (
-	request: MetadataNetworkRequest,
-):
-	| { ok: true; url: URL; method: "GET" | "POST" }
-	| { ok: false; error: string } => {
-	let url: URL;
-	try {
-		url = new URL(request.url);
-	} catch {
-		return { ok: false, error: "URL is invalid" };
-	}
-	if (url.protocol !== "https:") {
-		return { ok: false, error: "Protocol is not allowed" };
-	}
-	if (!METADATA_NETWORK_ALLOWED_HOSTS.has(url.hostname)) {
-		return { ok: false, error: "Host is not allowed" };
-	}
-	const method = (request.method ?? "GET").toUpperCase();
-	if (method !== "GET" && method !== "POST") {
-		return { ok: false, error: "Method is not allowed" };
-	}
-	if (
-		request.body &&
-		Buffer.byteLength(request.body, "utf-8") > METADATA_NETWORK_MAX_BODY_BYTES
-	) {
-		return { ok: false, error: "Body is too large" };
-	}
-	return { ok: true, url, method };
-};
-
-const filterMetadataRequestHeaders = (
-	headers: Record<string, string> | undefined,
-) => {
-	const allowed = new Set([
-		"accept",
-		"accept-language",
-		"authorization",
-		"cache-control",
-		"content-type",
-		"origin",
-		"pragma",
-		"referer",
-		"user-agent",
-	]);
-	const result: Record<string, string> = {};
-	for (const [key, value] of Object.entries(headers ?? {})) {
-		if (allowed.has(key.toLowerCase())) {
-			result[key] = value;
-		}
-	}
-	return result;
-};
+const GITHUB_PROXY_DEV_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const GITHUB_PROXY_DEV_RATE_LIMIT_MAX_REQUESTS = 60;
+const githubProxyDevRateLimitBuckets = new Map<
+	string,
+	{ count: number; resetAt: number }
+>();
 
 const sendJsonResponse = (
-	res: { statusCode: number; setHeader: (key: string, value: string) => void; end: (body: string) => void },
+	res: {
+		statusCode: number;
+		setHeader: (key: string, value: string) => void;
+		end: (body: string) => void;
+	},
 	status: number,
 	payload: unknown,
 ) => {
 	res.statusCode = status;
 	res.setHeader("content-type", "application/json");
 	res.end(JSON.stringify(payload));
+};
+
+const getHeaderValue = (
+	headers: Record<string, string | string[] | undefined>,
+	key: string,
+) => {
+	const value = headers[key] ?? headers[key.toLowerCase()];
+	if (Array.isArray(value)) return value[0] ?? "";
+	return value ?? "";
+};
+
+const isGithubProxyDevRateLimited = (req: {
+	headers: Record<string, string | string[] | undefined>;
+}) => {
+	const now = Date.now();
+	const forwardedFor = getHeaderValue(req.headers, "x-forwarded-for")
+		.split(",")[0]
+		.trim();
+	const clientKey =
+		forwardedFor || getHeaderValue(req.headers, "x-real-ip").trim() || "dev";
+	const current = githubProxyDevRateLimitBuckets.get(clientKey);
+	if (!current || now >= current.resetAt) {
+		githubProxyDevRateLimitBuckets.set(clientKey, {
+			count: 1,
+			resetAt: now + GITHUB_PROXY_DEV_RATE_LIMIT_WINDOW_MS,
+		});
+		return false;
+	}
+	if (current.count >= GITHUB_PROXY_DEV_RATE_LIMIT_MAX_REQUESTS) {
+		return true;
+	}
+	current.count += 1;
+	return false;
 };
 
 const buildTargetUrl = (path: string, query: URLSearchParams) => {
@@ -384,7 +412,13 @@ const buildTargetUrl = (path: string, query: URLSearchParams) => {
 const buildTargetFromUrl = (rawUrl: string) => {
 	try {
 		const url = new URL(rawUrl);
-		if (!ALLOWED_HOSTS.has(url.hostname)) {
+		if (url.protocol !== "https:") {
+			return null;
+		}
+		if (url.username || url.password) {
+			return null;
+		}
+		if (!ALLOWED_HOSTS.has(url.hostname.toLowerCase())) {
 			return null;
 		}
 		return url;
@@ -419,6 +453,9 @@ export default defineConfig({
 		headers: {
 			"Cross-Origin-Embedder-Policy": "require-corp",
 			"Cross-Origin-Opener-Policy": "same-origin",
+			"Cross-Origin-Resource-Policy": "same-origin",
+			"Referrer-Policy": "strict-origin-when-cross-origin",
+			"X-Content-Type-Options": "nosniff",
 		},
 		strictPort: true,
 	},

@@ -12,12 +12,10 @@ import {
 } from "@fluentui/react-icons";
 import {
 	Button,
-	Checkbox,
 	Dialog,
 	DropdownMenu,
 	Flex,
 	IconButton,
-	Popover,
 	Spinner,
 	Text,
 	TextField,
@@ -40,29 +38,15 @@ import {
 	fetchNeteaseSongMeta,
 	type NeteaseSongMeta,
 } from "$/modules/ncm/services/meta-service";
-import {
-	getMeatdataSuggestion,
-	type MetaSuggestionResult,
-} from "$/modules/project/logic/meatdata-suggestion";
-import {
-	buildMetadataSearchInput,
-	candidateKey,
-	canSearchMetadata,
-	formatMetadataSearchError,
-	type MetadataCandidate,
-	type MetadataSearchResult,
-	type MetadataSource,
-	type MetadataValues,
-	searchMetadata,
+import type {
+	MetadataCandidate,
+	MetadataSource,
+	MetadataValues,
 } from "$/modules/project/logic/metadata-search";
 import {
-	buildMetadataCandidateValueItems,
-	buildMetadataMergePreview,
-	buildMetadataValuesFromValueSelection,
-	buildSelectedMetadataValueKeys,
-	flattenMetadataSearchCandidates,
-	groupMetadataCandidatesByRegion,
-} from "$/modules/project/logic/metadata-search/metadata-search-ui";
+	getMetadataSuggestion,
+	type MetaSuggestionResult,
+} from "$/modules/project/logic/metadata-suggestion";
 import {
 	appleMusicBearerTokenAtom,
 	githubLoginAtom,
@@ -75,6 +59,8 @@ import { metadataEditorDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { TTMLLyric, TTMLMetadata } from "$/types/ttml";
 import styles from "./MetadataEditor.module.css";
+import { MetadataSearchPopover } from "./metadata-search/MetadataSearchPopover";
+import { useMetadataSearch } from "./metadata-search/useMetadataSearch";
 import {
 	AppleMusicIcon,
 	GithubIcon,
@@ -159,7 +145,7 @@ const MetadataValueRow = ({
 				active = false;
 			};
 		}
-		getMeatdataSuggestion(currentValue)
+		getMetadataSuggestion(currentValue)
 			.then((results) => {
 				if (!active) return;
 				if (results.length === 1) {
@@ -706,19 +692,6 @@ export const MetadataEditor = () => {
 	const [lyricLines, setLyricLines] = useImmerAtom(lyricLinesAtom);
 	const addKeyButtonRef = useRef<HTMLButtonElement | null>(null);
 	const neteaseMetaCacheRef = useRef<Map<string, NeteaseSongMeta>>(new Map());
-	const [metadataSearchOpen, setMetadataSearchOpen] = useState(false);
-	const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
-	const [metadataSearchResult, setMetadataSearchResult] =
-		useState<MetadataSearchResult | null>(null);
-	const [selectedMetadataValueKeys, setSelectedMetadataValueKeys] = useState<
-		string[]
-	>([]);
-	const [metadataSearchPreviewOpen, setMetadataSearchPreviewOpen] =
-		useState(false);
-	const metadataSearchRunIdRef = useRef(0);
-	const metadataSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-		null,
-	);
 
 	const { t } = useTranslation();
 	const appendMetadataValues = useCallback(
@@ -772,135 +745,21 @@ export const MetadataEditor = () => {
 		[appendMetadataValues],
 	);
 
-	const metadataSearchInput = useMemo(
-		() => buildMetadataSearchInput(lyricLines.metadata),
-		[lyricLines.metadata],
-	);
-
-	const runMetadataSearch = useCallback(async () => {
-		const searchRunId = metadataSearchRunIdRef.current + 1;
-		metadataSearchRunIdRef.current = searchRunId;
-		if (metadataSearchTimeoutRef.current) {
-			clearTimeout(metadataSearchTimeoutRef.current);
-		}
-		setMetadataSearchOpen(true);
-		setMetadataSearchPreviewOpen(false);
-		if (!canSearchMetadata(metadataSearchInput)) {
-			setMetadataSearchResult({
-				sources: {},
-				recommendedCandidateIds: [],
-				errors: [
-					t(
-						"metadataDialog.search.requirement",
-						"流媒体 ID 与歌名必须至少提供一个",
-					),
-				],
-				warnings: [],
-			});
-			setSelectedMetadataValueKeys([]);
-			return;
-		}
-		if (isSearchingMetadata) return;
-		setIsSearchingMetadata(true);
-		setMetadataSearchResult(null);
-		setSelectedMetadataValueKeys([]);
-		metadataSearchTimeoutRef.current = setTimeout(() => {
-			if (metadataSearchRunIdRef.current !== searchRunId) return;
-			metadataSearchRunIdRef.current += 1;
-			metadataSearchTimeoutRef.current = null;
-			setIsSearchingMetadata(false);
-			setMetadataSearchOpen(false);
-			setMetadataSearchPreviewOpen(false);
-		}, 30_000);
-		try {
-			const result = await searchMetadata(metadataSearchInput, {
-				appleMusicToken: appleMusicBearerToken.trim() || null,
-				spotifyCredentials:
-					spotifyClientId.trim() && spotifyClientSecret.trim()
-						? {
-								clientId: spotifyClientId.trim(),
-								clientSecret: spotifyClientSecret.trim(),
-							}
-						: null,
-				metadataProxyUrl: metadataProxyUrl.trim() || null,
-			});
-			if (metadataSearchRunIdRef.current !== searchRunId) return;
-			setMetadataSearchResult(result);
-			setSelectedMetadataValueKeys(
-				buildSelectedMetadataValueKeys(
-					flattenMetadataSearchCandidates(result, metadataSourceOrder),
-					result.recommendedCandidateIds,
-				),
-			);
-		} catch (error) {
-			if (metadataSearchRunIdRef.current !== searchRunId) return;
-			setMetadataSearchResult({
-				sources: {},
-				recommendedCandidateIds: [],
-				errors: [
-					formatMetadataSearchError(
-						error,
-						t("metadataDialog.search.failed", "元数据搜索失败"),
-					),
-				],
-				warnings: [],
-			});
-			setSelectedMetadataValueKeys([]);
-		} finally {
-			if (metadataSearchRunIdRef.current === searchRunId) {
-				if (metadataSearchTimeoutRef.current) {
-					clearTimeout(metadataSearchTimeoutRef.current);
-					metadataSearchTimeoutRef.current = null;
-				}
-				setIsSearchingMetadata(false);
-			}
-		}
-	}, [
-		isSearchingMetadata,
-		metadataSearchInput,
-		appleMusicBearerToken,
-		metadataProxyUrl,
-		spotifyClientId,
-		spotifyClientSecret,
-		t,
-	]);
-
-	useEffect(() => {
-		return () => {
-			metadataSearchRunIdRef.current += 1;
-			if (metadataSearchTimeoutRef.current) {
-				clearTimeout(metadataSearchTimeoutRef.current);
-			}
-		};
-	}, []);
-
-	const applyMetadataSearchSelection = useCallback(
-		(selectedValueKeys: string[]) => {
-			if (!metadataSearchResult) return;
-			if (selectedValueKeys.length === 0) return;
-			const values = buildMetadataValuesFromValueSelection(
-				flattenMetadataSearchCandidates(
-					metadataSearchResult,
-					metadataSourceOrder,
-				),
-				selectedValueKeys,
-			);
-			applyMetadataValues(values);
-			setMetadataSearchOpen(false);
-			setMetadataSearchPreviewOpen(false);
-		},
-		[applyMetadataValues, metadataSearchResult],
-	);
-
-	const toggleMetadataValue = useCallback((valueKey: string) => {
-		setSelectedMetadataValueKeys((prev) => {
-			if (prev.includes(valueKey)) {
-				return prev.filter((id) => id !== valueKey);
-			}
-			return [...prev, valueKey];
-		});
-	}, []);
-
+	const metadataSearch = useMetadataSearch({
+		metadata: lyricLines.metadata,
+		appleMusicToken: appleMusicBearerToken.trim() || null,
+		spotifyCredentials:
+			spotifyClientId.trim() && spotifyClientSecret.trim()
+				? {
+						clientId: spotifyClientId.trim(),
+						clientSecret: spotifyClientSecret.trim(),
+					}
+				: null,
+		metadataProxyUrl: metadataProxyUrl.trim() || null,
+		translate: t,
+		applyMetadataValues,
+		sourceOrder: metadataSourceOrder,
+	});
 	const requestNeteaseMeta = useCallback(
 		async (id: string) => {
 			const trimmed = id.trim();
@@ -1157,35 +1016,6 @@ export const MetadataEditor = () => {
 		addKeyButtonRef.current?.focus();
 	}, []);
 
-	const metadataSearchCandidates = useMemo(() => {
-		return flattenMetadataSearchCandidates(
-			metadataSearchResult,
-			metadataSourceOrder,
-		);
-	}, [metadataSearchResult]);
-	const metadataSearchRegionGroups = useMemo(
-		() => groupMetadataCandidatesByRegion(metadataSearchCandidates),
-		[metadataSearchCandidates],
-	);
-	const metadataSearchPreview = useMemo(
-		() =>
-			buildMetadataMergePreview(
-				lyricLines.metadata,
-				metadataSearchCandidates,
-				selectedMetadataValueKeys,
-			),
-		[lyricLines.metadata, metadataSearchCandidates, selectedMetadataValueKeys],
-	);
-	const metadataSearchMessages = useMemo(() => {
-		if (!metadataSearchResult) return [];
-		return Array.from(
-			new Set([
-				...metadataSearchResult.errors,
-				...metadataSearchResult.warnings,
-			]),
-		);
-	}, [metadataSearchResult]);
-
 	return (
 		<Dialog.Root
 			open={metadataEditorDialog}
@@ -1255,319 +1085,27 @@ export const MetadataEditor = () => {
 					}}
 					className={styles.dialogFooter}
 				>
-					<Popover.Root
-						modal={isSearchingMetadata}
-						open={metadataSearchOpen}
-						onOpenChange={(open) => {
-							if (isSearchingMetadata && !open) return;
-							setMetadataSearchOpen(open);
-						}}
-					>
-						<Popover.Trigger
-							style={{
-								flex: "1 0 auto",
-							}}
-						>
-							<Button
-								variant="soft"
-								type="button"
-								onClick={(event) => {
-									event.preventDefault();
-									if (isSearchingMetadata) return;
-									void runMetadataSearch();
-								}}
-							>
-								{isSearchingMetadata ? (
-									<Spinner size="1" />
-								) : (
-									<GlobeSearch20Regular />
-								)}
-								{t("metadataDialog.search.action", "自动搜索元数据")}
-							</Button>
-						</Popover.Trigger>
-						<Popover.Content
-							className={styles.metadataSearchMenu}
-							onInteractOutside={(event) => {
-								if (isSearchingMetadata) event.preventDefault();
-							}}
-							onPointerDownOutside={(event) => {
-								if (isSearchingMetadata) event.preventDefault();
-							}}
-						>
-							{isSearchingMetadata && (
-								<div className={styles.metadataSearchStatus}>
-									<Flex align="center" gap="2" wrap="wrap">
-										<Spinner size="1" />
-										{t("metadataDialog.search.searching", "正在搜索...")}
-									</Flex>
-								</div>
-							)}
-							{!isSearchingMetadata &&
-								metadataSearchResult &&
-								(metadataSearchPreviewOpen ? (
-									<>
-										<div className={styles.metadataSearchToolbar}>
-											<Flex
-												justify="between"
-												align="center"
-												gap="2"
-												wrap="wrap"
-											>
-												<Text size="2" weight="bold">
-													{t("metadataDialog.search.previewTitle", "合并预览")}
-												</Text>
-												<Flex gap="2" wrap="wrap">
-													<Button
-														size="1"
-														variant="soft"
-														color="gray"
-														onClick={() => setMetadataSearchPreviewOpen(false)}
-													>
-														{t(
-															"metadataDialog.search.backToSelection",
-															"返回选择",
-														)}
-													</Button>
-													<Button
-														size="1"
-														disabled={selectedMetadataValueKeys.length === 0}
-														onClick={() =>
-															applyMetadataSearchSelection(
-																selectedMetadataValueKeys,
-															)
-														}
-													>
-														{t(
-															"metadataDialog.search.confirmApply",
-															"确认应用",
-														)}
-													</Button>
-												</Flex>
-											</Flex>
-										</div>
-										{metadataSearchPreview.length > 0 ? (
-											<div className={styles.metadataPreviewList}>
-												{metadataSearchPreview.map((item) => (
-													<div
-														className={styles.metadataPreviewItem}
-														key={item.key}
-													>
-														<Text size="1" weight="bold">
-															{metadataValueLabels[item.key]}
-														</Text>
-														{item.added.length > 0 && (
-															<Text size="1" color="green" wrap="wrap">
-																{t(
-																	"metadataDialog.search.previewAdded",
-																	"新增",
-																)}
-																: {item.added.join(" / ")}
-															</Text>
-														)}
-														{item.skipped.length > 0 && (
-															<Text size="1" color="gray" wrap="wrap">
-																{t(
-																	"metadataDialog.search.previewSkipped",
-																	"已存在，跳过",
-																)}
-																: {item.skipped.join(" / ")}
-															</Text>
-														)}
-													</div>
-												))}
-											</div>
-										) : (
-											<div className={styles.metadataSearchStatus}>
-												<Text size="1" color="gray" wrap="wrap">
-													{t(
-														"metadataDialog.search.previewEmpty",
-														"所选候选没有可新增的元数据",
-													)}
-												</Text>
-											</div>
-										)}
-									</>
-								) : (
-									<>
-										<div className={styles.metadataSearchToolbar}>
-											<Flex
-												justify="between"
-												align="center"
-												gap="2"
-												wrap="wrap"
-											>
-												<Text size="1" color="gray">
-													{t(
-														"metadataDialog.search.selectedCount",
-														"已选 {count} 项",
-														{
-															count: selectedMetadataValueKeys.length,
-														},
-													)}
-												</Text>
-												<Flex gap="2" wrap="wrap">
-													{metadataSearchResult.recommendedCandidateIds.length >
-														0 && (
-														<Button
-															size="1"
-															variant="soft"
-															onClick={() =>
-																setSelectedMetadataValueKeys(
-																	buildSelectedMetadataValueKeys(
-																		metadataSearchCandidates,
-																		metadataSearchResult.recommendedCandidateIds,
-																	),
-																)
-															}
-														>
-															{t(
-																"metadataDialog.search.selectRecommended",
-																"选择推荐",
-															)}
-														</Button>
-													)}
-													<Button
-														size="1"
-														variant="soft"
-														disabled={selectedMetadataValueKeys.length === 0}
-														onClick={() => setMetadataSearchPreviewOpen(true)}
-													>
-														{t(
-															"metadataDialog.search.previewSelected",
-															"预览已选",
-														)}
-													</Button>
-												</Flex>
-											</Flex>
-										</div>
-										{metadataSearchMessages.map((error) => (
-											<div
-												className={styles.metadataSearchMessage}
-												key={`metadata-search-error-${error}`}
-											>
-												<Text color="orange" size="1" wrap="wrap">
-													{error}
-												</Text>
-											</div>
-										))}
-										{metadataSearchMessages.length > 0 &&
-											metadataSearchCandidates.length > 0 && (
-												<div className={styles.metadataSearchSeparator} />
-											)}
-										{metadataSearchRegionGroups.map((group) => (
-											<div
-												className={styles.metadataSourceGroup}
-												key={`metadata-search-region-${group.region}`}
-											>
-												<div className={styles.metadataSourceHeader}>
-													<Text size="1" weight="bold">
-														{group.region}
-													</Text>
-												</div>
-												{group.candidates.slice(0, 12).map((candidate) => {
-													const id = candidateKey(candidate);
-													const valueItems = buildMetadataCandidateValueItems([
-														candidate,
-													]);
-													const selected = valueItems.some((item) =>
-														selectedMetadataValueKeys.includes(item.id),
-													);
-													return (
-														<div
-															key={id}
-															className={styles.metadataCandidateItem}
-															data-selected={selected ? "true" : undefined}
-														>
-															<Flex
-																direction="column"
-																gap="2"
-																style={{ minWidth: 0 }}
-															>
-																<Flex
-																	direction="column"
-																	gap="1"
-																	style={{ minWidth: 0 }}
-																>
-																	<Text size="2" weight="medium" wrap="wrap">
-																		{candidateTitle(candidate)}
-																	</Text>
-																	<Text size="1" color="gray" wrap="wrap">
-																		{candidateMeta(candidate)}
-																	</Text>
-																</Flex>
-																<div
-																	className={styles.metadataCandidateValueList}
-																>
-																	{valueItems.map((item) => {
-																		const valueSelected =
-																			selectedMetadataValueKeys.includes(
-																				item.id,
-																			);
-																		return (
-																			<label
-																				key={item.id}
-																				className={
-																					styles.metadataCandidateValueItem
-																				}
-																				data-selected={
-																					valueSelected ? "true" : undefined
-																				}
-																			>
-																				<div
-																					className={
-																						styles.metadataCandidateValueText
-																					}
-																				>
-																					<Text
-																						className={
-																							styles.metadataCandidateValueKey
-																						}
-																						size="1"
-																						weight="bold"
-																						wrap="wrap"
-																					>
-																						{metadataValueLabels[item.key]}
-																					</Text>
-																					<Text
-																						className={
-																							styles.metadataCandidateValueValue
-																						}
-																						size="1"
-																						color="gray"
-																						wrap="wrap"
-																					>
-																						{item.value}
-																					</Text>
-																				</div>
-																				<Checkbox
-																					checked={valueSelected}
-																					onCheckedChange={() =>
-																						toggleMetadataValue(item.id)
-																					}
-																				/>
-																			</label>
-																		);
-																	})}
-																</div>
-															</Flex>
-														</div>
-													);
-												})}
-											</div>
-										))}
-										{metadataSearchCandidates.length === 0 &&
-											metadataSearchMessages.length === 0 && (
-												<div className={styles.metadataSearchStatus}>
-													{t(
-														"metadataDialog.search.noCandidates",
-														"未找到可用候选",
-													)}
-												</div>
-											)}
-									</>
-								))}
-						</Popover.Content>
-					</Popover.Root>
+					<MetadataSearchPopover
+						open={metadataSearch.open}
+						setOpen={metadataSearch.setOpen}
+						isSearching={metadataSearch.isSearching}
+						result={metadataSearch.result}
+						selectedValueKeys={metadataSearch.selectedValueKeys}
+						previewOpen={metadataSearch.previewOpen}
+						setPreviewOpen={metadataSearch.setPreviewOpen}
+						candidates={metadataSearch.candidates}
+						regionGroups={metadataSearch.regionGroups}
+						preview={metadataSearch.preview}
+						messages={metadataSearch.messages}
+						runSearch={metadataSearch.runSearch}
+						applySelection={metadataSearch.applySelection}
+						toggleValue={metadataSearch.toggleValue}
+						selectRecommended={metadataSearch.selectRecommended}
+						metadataValueLabels={metadataValueLabels}
+						candidateTitle={candidateTitle}
+						candidateMeta={candidateMeta}
+						t={t}
+					/>
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger
 							style={{

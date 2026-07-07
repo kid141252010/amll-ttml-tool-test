@@ -32,7 +32,6 @@ import {
 import {
 	bgLyricIgnoreSyncAtom,
 	lyricLinesAtom,
-	selectedLinesAtom,
 } from "$/states/main.ts";
 import {
 	Checkbox,
@@ -42,10 +41,10 @@ import {
 	Text,
 	TextField,
 } from "@radix-ui/themes";
-import { useAtom, useAtomValue, atom } from "jotai";
+import { atom, useAtom, useAtomValue } from "jotai";
 import { splitAtom } from "jotai/utils";
 import { useSetImmerAtom } from "jotai-immer";
-import { type FC, forwardRef, useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "../KeyBinding/index.tsx";
 import { RibbonFrame, RibbonSection } from "./common";

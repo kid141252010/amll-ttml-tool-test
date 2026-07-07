@@ -17,17 +17,20 @@
 				"width": 800,
 				"height": 600,
 				"resizable": true,
-				"devtools": true,
+				"devtools": false,
 				"fullscreen": false,
 				"dragDropEnabled": false,
 				"visible": false
 			}
 		],
 		"security": {
-			"csp": null,
+			"csp": "default-src 'self' asset: customprotocol:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: asset:; font-src 'self' data:; connect-src 'self' https: wss: ipc: http://ipc.localhost; media-src 'self' data: blob: https: asset:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
 			"headers": {
 				"Cross-Origin-Opener-Policy": "same-origin",
-				"Cross-Origin-Embedder-Policy": "require-corp"
+				"Cross-Origin-Embedder-Policy": "require-corp",
+				"X-Content-Type-Options": "nosniff",
+				"X-Frame-Options": "DENY",
+				"Referrer-Policy": "strict-origin-when-cross-origin"
 			}
 		}
 	},

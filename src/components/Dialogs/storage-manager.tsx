@@ -161,7 +161,7 @@ export const StorageManagerDialog = () => {
 				dbNames: otherNames,
 			});
 			setEntries(knownEntries);
-		} catch (error) {
+		} catch (_error) {
 			setEntries([]);
 			setPushNotification({
 				title: t("storage.loadFailed", "读取存储信息失败"),

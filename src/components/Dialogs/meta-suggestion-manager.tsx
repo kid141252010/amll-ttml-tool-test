@@ -1,6 +1,6 @@
-import { Button, Card, Dialog, Flex, Text, Box } from "@radix-ui/themes";
-import JSZip from "jszip";
+import { Box, Button, Card, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useAtom, useSetAtom } from "jotai";
+import JSZip from "jszip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
@@ -10,7 +10,7 @@ import {
 	parseJsonlWithWarnings,
 	setUserMetaSuggestionFiles,
 	type UserMetaSuggestionFile,
-} from "$/modules/project/logic/meatdata-suggestion";
+} from "$/modules/project/logic/metadata-suggestion";
 import { metaSuggestionManagerDialogAtom } from "$/states/dialogs";
 import { pushNotificationAtom } from "$/states/notifications";
 
