@@ -8,10 +8,9 @@
 }
 
 .grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
-	align-content: start;
-	gap: var(--space-3);
+	column-width: 280px;
+	column-gap: var(--space-3);
+	padding: 0 var(--space-1);
 }
 
 .overlay {
@@ -152,6 +151,32 @@
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
+}
+
+.mainPager {
+	position: sticky;
+	bottom: var(--space-2);
+	z-index: 20;
+	align-self: center;
+	flex-wrap: wrap;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-4);
+	background: rgba(255, 255, 255, 0.72);
+	backdrop-filter: blur(14px);
+	-webkit-backdrop-filter: blur(14px);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.mainPagerJump {
+	padding-left: var(--space-1);
+}
+
+.mainPagerInput {
+	width: 72px;
+}
+
+:global(.radix-themes.dark) .mainPager {
+	background: rgba(24, 24, 24, 0.72);
 }
 
 .filterChip {
@@ -303,6 +328,122 @@
 	border: 0;
 	border-top: 1px solid var(--gray-6);
 	margin: var(--space-2) 0;
+}
+
+.groupSlot {
+	position: relative;
+	width: 100%;
+	cursor: pointer;
+	break-inside: avoid;
+	margin-bottom: var(--space-3);
+}
+
+.currentReviewGroup {
+	outline: 2px solid var(--accent-8);
+	outline-offset: 3px;
+	border-radius: var(--radius-4);
+}
+
+.currentReviewGroup::before {
+	content: "正在审核";
+	position: absolute;
+	left: var(--space-2);
+	top: -10px;
+	z-index: 12;
+	padding: 1px 8px;
+	border-radius: 999px;
+	background: var(--accent-9);
+	color: white;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 18px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+
+.groupStack {
+	position: relative;
+	isolation: isolate;
+	padding-right: calc(4px * (var(--stack-count) - 1));
+	padding-bottom: calc(4px * (var(--stack-count) - 1));
+}
+
+.groupStackBackdrop {
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+}
+
+.groupStackLayer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: calc(100% - 4px * (var(--stack-count) - 1));
+	height: calc(100% - 4px * (var(--stack-count) - 1));
+	border: 1px solid var(--gray-a5);
+	border-radius: var(--radius-4);
+	background-color: var(--color-panel);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.groupBadge {
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	z-index: 10;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 24px;
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 999px;
+	background: var(--accent-9);
+	color: white;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+:global(.radix-themes.dark) .groupStackLayer {
+	background-color: #ffffff1f;
+}
+
+.groupPickerCard {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.groupPickerInner {
+	height: 100%;
+	padding: var(--space-3);
+}
+
+.groupPickerList {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	align-content: start;
+	gap: var(--space-3);
+	overflow: auto;
+	padding: var(--space-1);
+	min-height: 0;
+	flex: 1;
+}
+
+.groupPickerPager {
+	flex-shrink: 0;
+	padding-top: var(--space-2);
+	border-top: 1px solid var(--gray-a5);
+}
+
+.groupPickerItem {
+	cursor: pointer;
+	transition:
+		transform 200ms ease,
+		box-shadow 160ms ease;
+}
+
+.groupPickerItem:hover {
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
 }
 
 .card {

@@ -11,10 +11,10 @@ import {
 import { Search20Regular, Target20Regular } from "@fluentui/react-icons";
 import { useSetAtom } from "jotai";
 import {
+	type CSSProperties,
 	type MouseEvent,
 	useCallback,
 	useEffect,
-	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -22,20 +22,92 @@ import {
 } from "react";
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
-import { renderCardContent, type ReviewPullRequest } from "./card-service";
+import {
+	parseReviewMetadata,
+	renderCardContent,
+	type ReviewMetadata,
+	type ReviewPullRequest,
+} from "./card-service";
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
 import { pushNotificationAtom } from "$/states/notifications";
 import styles from "../index.module.css";
 
+type ReviewCardGroupItem = ReviewPullRequest[];
+
+const GROUP_PICKER_PAGE_SIZE = 12;
+const MAIN_REVIEW_PAGE_SIZE = 60;
+
+const getMetadataIds = (metadata: ReviewMetadata) =>
+	[
+		...metadata.ncmId.map((id) => `ncm:${id}`),
+		...metadata.qqMusicId.map((id) => `qq:${id}`),
+		...metadata.spotifyId.map((id) => `spotify:${id}`),
+		...metadata.appleMusicId.map((id) => `apple:${id}`),
+	]
+		.map((id) => id.trim().toLowerCase())
+		.filter(Boolean);
+
+const groupPullRequestsBySharedIds = (
+	items: ReviewPullRequest[],
+): ReviewCardGroupItem[] => {
+	const idToIndexes = new Map<string, Set<number>>();
+	const prIds = items.map((pr, index) => {
+		const ids = Array.from(new Set(getMetadataIds(parseReviewMetadata(pr.body))));
+		for (const id of ids) {
+			const indexes = idToIndexes.get(id) ?? new Set<number>();
+			indexes.add(index);
+			idToIndexes.set(id, indexes);
+		}
+		return ids;
+	});
+	const visited = new Set<number>();
+	return items.flatMap((_, index) => {
+		if (visited.has(index)) return [];
+		const groupIndexes = new Set([index]);
+		const queue = [index];
+		visited.add(index);
+		for (let cursor = 0; cursor < queue.length; cursor += 1) {
+			const currentIndex = queue[cursor];
+			for (const id of prIds[currentIndex] ?? []) {
+				for (const linkedIndex of idToIndexes.get(id) ?? []) {
+					if (visited.has(linkedIndex)) continue;
+					visited.add(linkedIndex);
+					groupIndexes.add(linkedIndex);
+					queue.push(linkedIndex);
+				}
+			}
+		}
+		return [
+			Array.from(groupIndexes)
+				.sort((a, b) => a - b)
+				.map((itemIndex) => items[itemIndex])
+				.filter((item): item is ReviewPullRequest => Boolean(item)),
+		];
+	});
+};
+
+const getGroupKey = (group: ReviewCardGroupItem) =>
+	group.map((item) => item.number).join("-");
+
+const getGroupSharedIds = (group: ReviewCardGroupItem) =>
+	Array.from(
+		new Set(group.flatMap((item) => getMetadataIds(parseReviewMetadata(item.body)))),
+	);
+
 const ReviewPage = () => {
-	const containerRef = useRef<HTMLDivElement | null>(null);
 	const closeTimerRef = useRef<number | null>(null);
 	const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-	const cardRectsRef = useRef<Map<number, DOMRect>>(new Map());
-	const cardAnimationsRef = useRef<Map<number, Animation>>(new Map());
 	const [expandedCard, setExpandedCard] = useState<{
 		pr: ReviewPullRequest;
+		from: DOMRect;
+		to: DOMRect;
+		phase: "opening" | "open" | "closing";
+		overlayTopInset: number;
+		onAfterClose?: () => void;
+	} | null>(null);
+	const [expandedGroup, setExpandedGroup] = useState<{
+		group: ReviewCardGroupItem;
 		from: DOMRect;
 		to: DOMRect;
 		phase: "opening" | "open" | "closing";
@@ -43,8 +115,13 @@ const ReviewPage = () => {
 	} | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const deferredSearchQuery = useDeferredValue(searchQuery);
+	const [mainReviewPage, setMainReviewPage] = useState(1);
+	const [mainPageInput, setMainPageInput] = useState("");
+	const [groupPickerPage, setGroupPickerPage] = useState(1);
 	const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
 	const [targetPrNumber, setTargetPrNumber] = useState("");
+	const [pendingTargetPrNumber, setPendingTargetPrNumber] = useState<number | null>(null);
+	const [preferredDisplayPrNumber, setPreferredDisplayPrNumber] = useState<number | null>(null);
 	const [flashingPrNumber, setFlashingPrNumber] = useState<number | null>(null);
 	const {
 		audioLoadPendingId,
@@ -96,18 +173,99 @@ const ReviewPage = () => {
 		});
 		return itemsWithPriority.map((item) => item.pr);
 	}, [filteredItems, deferredSearchQuery]);
+	const rawGroupedItems = useMemo(
+		() => groupPullRequestsBySharedIds(sortedItems),
+		[sortedItems],
+	);
+	const currentReviewPrNumber = reviewSession?.prNumber;
+	const groupedItems = useMemo(() => {
+		if (!currentReviewPrNumber) return rawGroupedItems;
+		const currentGroupIndex = rawGroupedItems.findIndex((group) =>
+			group.some((pr) => pr.number === currentReviewPrNumber),
+		);
+		if (currentGroupIndex <= 0) return rawGroupedItems;
+		const currentGroup = rawGroupedItems[currentGroupIndex];
+		if (!currentGroup) return rawGroupedItems;
+		return [
+			currentGroup,
+			...rawGroupedItems.slice(0, currentGroupIndex),
+			...rawGroupedItems.slice(currentGroupIndex + 1),
+		];
+	}, [rawGroupedItems, currentReviewPrNumber]);
+	const mainReviewPageCount = Math.max(
+		1,
+		Math.ceil(groupedItems.length / MAIN_REVIEW_PAGE_SIZE),
+	);
+	const currentMainReviewPage = Math.min(mainReviewPage, mainReviewPageCount);
+	const mainPagerNumbers = useMemo(
+		() =>
+			Array.from(
+				new Set([
+					...Array.from({ length: Math.min(3, mainReviewPageCount) }, (_, index) =>
+						index + 1,
+					),
+					...Array.from({ length: Math.min(3, mainReviewPageCount) }, (_, index) =>
+						mainReviewPageCount - Math.min(3, mainReviewPageCount) + index + 1,
+					),
+				]),
+			).sort((a, b) => a - b),
+		[mainReviewPageCount],
+	);
+	const pagedGroupedItems = groupedItems.slice(
+		(currentMainReviewPage - 1) * MAIN_REVIEW_PAGE_SIZE,
+		currentMainReviewPage * MAIN_REVIEW_PAGE_SIZE,
+	);
+	const groupPickerPageCount = expandedGroup
+		? Math.max(1, Math.ceil(expandedGroup.group.length / GROUP_PICKER_PAGE_SIZE))
+		: 1;
+	const currentGroupPickerPage = Math.min(groupPickerPage, groupPickerPageCount);
+	const groupPickerPageItems = expandedGroup
+		? expandedGroup.group.slice(
+				(currentGroupPickerPage - 1) * GROUP_PICKER_PAGE_SIZE,
+				currentGroupPickerPage * GROUP_PICKER_PAGE_SIZE,
+			)
+		: [];
+
+	useEffect(() => {
+		setMainReviewPage(1);
+	}, [deferredSearchQuery, selectedUser, currentReviewPrNumber]);
+
+	useEffect(() => {
+		setMainReviewPage((page) => Math.min(page, mainReviewPageCount));
+	}, [mainReviewPageCount]);
+
+	const jumpToMainPage = useCallback(() => {
+		const page = Number.parseInt(mainPageInput, 10);
+		if (Number.isNaN(page)) return;
+		setMainReviewPage(Math.min(mainReviewPageCount, Math.max(1, page)));
+		setMainPageInput("");
+	}, [mainPageInput, mainReviewPageCount]);
 
 	const closeExpanded = useCallback(() => {
 		if (!expandedCard || expandedCard.phase === "closing") return;
 		if (closeTimerRef.current) {
 			window.clearTimeout(closeTimerRef.current);
 		}
+		const onAfterClose = expandedCard.onAfterClose;
 		setExpandedCard((prev) => (prev ? { ...prev, phase: "closing" } : prev));
 		closeTimerRef.current = window.setTimeout(() => {
 			setExpandedCard(null);
 			closeTimerRef.current = null;
+			onAfterClose?.();
 		}, 200);
 	}, [expandedCard]);
+
+	const closeExpandedGroup = useCallback(() => {
+		if (!expandedGroup || expandedGroup.phase === "closing") return;
+		if (closeTimerRef.current) {
+			window.clearTimeout(closeTimerRef.current);
+		}
+		setExpandedGroup((prev) => (prev ? { ...prev, phase: "closing" } : prev));
+		closeTimerRef.current = window.setTimeout(() => {
+			setExpandedGroup(null);
+			closeTimerRef.current = null;
+		}, 200);
+	}, [expandedGroup]);
 
 	const handleTargetPr = useCallback(() => {
 		const prNumber = Number.parseInt(targetPrNumber, 10);
@@ -125,31 +283,15 @@ const ReviewPage = () => {
 			return;
 		}
 
-		// 清除搜索词，确保目标 PR 可见
+		// 清除搜索词和用户筛选，确保目标 PR 可见
 		setSearchQuery("");
 		setSelectedUser(null);
+		setPendingTargetPrNumber(prNumber);
+		setPreferredDisplayPrNumber(prNumber);
 
 		// 关闭对话框
 		setIsTargetDialogOpen(false);
 		setTargetPrNumber("");
-
-		// 等待渲染完成后滚动到目标位置
-		requestAnimationFrame(() => {
-			const cardNode = cardRefs.current.get(prNumber);
-			if (cardNode) {
-				cardNode.scrollIntoView({ behavior: "smooth", block: "center" });
-				// 触发闪烁效果
-				setFlashingPrNumber(prNumber);
-				setTimeout(() => setFlashingPrNumber(null), 2000);
-			} else {
-				pushNotification({
-					title: "定位失败",
-					description: `无法定位到 PR #${prNumber}，可能不在当前列表中`,
-					level: "warning",
-					source: "审阅",
-				});
-			}
-		});
 	}, [
 		targetPrNumber,
 		items,
@@ -158,12 +300,76 @@ const ReviewPage = () => {
 		setSelectedUser,
 	]);
 
+	useEffect(() => {
+		if (pendingTargetPrNumber === null) return;
+		if (searchQuery || deferredSearchQuery || selectedUser) return;
+
+		const targetGroupIndex = groupedItems.findIndex((group) =>
+			group.some((pr) => pr.number === pendingTargetPrNumber),
+		);
+		if (targetGroupIndex < 0) {
+			pushNotification({
+				title: "定位失败",
+				description: `无法定位到 PR #${pendingTargetPrNumber}，可能不在当前列表中`,
+				level: "warning",
+				source: "审阅",
+			});
+			setPendingTargetPrNumber(null);
+			return;
+		}
+
+		const targetPage =
+			Math.floor(targetGroupIndex / MAIN_REVIEW_PAGE_SIZE) + 1;
+		if (currentMainReviewPage !== targetPage) {
+			setMainReviewPage(targetPage);
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			const cardNode = cardRefs.current.get(pendingTargetPrNumber);
+			if (cardNode) {
+				cardNode.scrollIntoView({ behavior: "smooth", block: "center" });
+				setFlashingPrNumber(pendingTargetPrNumber);
+				setTimeout(() => setFlashingPrNumber(null), 2000);
+			} else {
+				pushNotification({
+					title: "定位失败",
+					description: `无法定位到 PR #${pendingTargetPrNumber}，可能不在当前页中`,
+					level: "warning",
+					source: "审阅",
+				});
+			}
+			setPendingTargetPrNumber(null);
+		});
+	}, [
+		pendingTargetPrNumber,
+		searchQuery,
+		deferredSearchQuery,
+		selectedUser,
+		groupedItems,
+		currentMainReviewPage,
+		pushNotification,
+	]);
+
 	const setCardRef = useCallback(
 		(prNumber: number) => (node: HTMLDivElement | null) => {
 			if (node) {
 				cardRefs.current.set(prNumber, node);
 			} else {
 				cardRefs.current.delete(prNumber);
+			}
+		},
+		[],
+	);
+
+	const setGroupRef = useCallback(
+		(group: ReviewCardGroupItem) => (node: HTMLDivElement | null) => {
+			for (const pr of group) {
+				if (node) {
+					cardRefs.current.set(pr.number, node);
+				} else {
+					cardRefs.current.delete(pr.number);
+				}
 			}
 		},
 		[],
@@ -182,7 +388,11 @@ const ReviewPage = () => {
 	}, []);
 
 	const openExpanded = useCallback(
-		(pr: ReviewPullRequest, rect: DOMRect) => {
+		(
+			pr: ReviewPullRequest,
+			rect: DOMRect,
+			onAfterClose?: () => void,
+		) => {
 			if (closeTimerRef.current) {
 				window.clearTimeout(closeTimerRef.current);
 				closeTimerRef.current = null;
@@ -199,7 +409,6 @@ const ReviewPage = () => {
 			const maxHeight = Math.max(0, containerRect.height - padding * 2);
 			const targetWidth = Math.min(730, maxWidth);
 			const targetHeight = Math.min(460, maxHeight);
-			// 计算屏幕中心位置
 			const centerX = containerRect.left + containerRect.width / 2;
 			const centerY = containerRect.top + containerRect.height / 2;
 			const left = centerX - targetWidth / 2;
@@ -211,9 +420,47 @@ const ReviewPage = () => {
 				to: toRect,
 				phase: "opening",
 				overlayTopInset,
+				onAfterClose,
 			});
 			requestAnimationFrame(() => {
 				setExpandedCard((prev) =>
+					prev && prev.phase === "opening" ? { ...prev, phase: "open" } : prev,
+				);
+			});
+		},
+		[getOverlayTopInset],
+	);
+
+	const openExpandedGroup = useCallback(
+		(group: ReviewCardGroupItem, rect: DOMRect) => {
+			const overlayTopInset = getOverlayTopInset();
+			const containerRect = new DOMRect(
+				0,
+				overlayTopInset,
+				window.innerWidth,
+				Math.max(0, window.innerHeight - overlayTopInset),
+			);
+			const padding = 24;
+			const targetWidth = Math.min(
+				760,
+				Math.max(0, containerRect.width - padding * 2),
+			);
+			const targetHeight = Math.min(
+				Math.max(220, 132 + group.length * 108),
+				Math.max(0, containerRect.height - padding * 2),
+			);
+			const left = containerRect.left + containerRect.width / 2 - targetWidth / 2;
+			const top = containerRect.top + containerRect.height / 2 - targetHeight / 2;
+			setGroupPickerPage(1);
+			setExpandedGroup({
+				group,
+				from: rect,
+				to: new DOMRect(left, top, targetWidth, targetHeight),
+				phase: "opening",
+				overlayTopInset,
+			});
+			requestAnimationFrame(() => {
+				setExpandedGroup((prev) =>
 					prev && prev.phase === "opening" ? { ...prev, phase: "open" } : prev,
 				);
 			});
@@ -231,63 +478,36 @@ const ReviewPage = () => {
 		[openExpanded, refreshReviewTimeline],
 	);
 
-	useLayoutEffect(() => {
-		const listSize = sortedItems.length;
-		const prefersReducedMotion =
-			typeof window !== "undefined" &&
-			typeof window.matchMedia === "function" &&
-			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		const shouldAnimate =
-			!prefersReducedMotion && listSize > 0 && listSize <= 140;
-		const containerRect = containerRef.current?.getBoundingClientRect();
-		const viewportMargin = 80;
-		const maxAnimated = 80;
-		let animatedCount = 0;
-		const previousRects = cardRectsRef.current;
-		const nextRects = new Map<number, DOMRect>();
-		cardRefs.current.forEach((node, key) => {
-			if (!node) return;
-			const rect = node.getBoundingClientRect();
-			nextRects.set(key, rect);
-			const previous = previousRects.get(key);
-			if (!previous) return;
-			const deltaX = previous.left - rect.left;
-			const deltaY = previous.top - rect.top;
-			if (deltaX === 0 && deltaY === 0) return;
-			if (!shouldAnimate) return;
-			if (
-				containerRect &&
-				(rect.bottom < containerRect.top - viewportMargin ||
-					rect.top > containerRect.bottom + viewportMargin)
-			) {
+	const handleGroupClick = useCallback(
+		(group: ReviewCardGroupItem, event: MouseEvent<HTMLDivElement>) => {
+			event.stopPropagation();
+			const rect = event.currentTarget.getBoundingClientRect();
+			if (group.length <= 1) {
+				const pr = group[0];
+				if (!pr) return;
+				void refreshReviewTimeline(pr.number);
+				openExpanded(pr, rect);
 				return;
 			}
-			if (animatedCount >= maxAnimated) return;
-			animatedCount += 1;
-			if (typeof node.animate !== "function") return;
-			const existing = cardAnimationsRef.current.get(key);
-			if (existing) existing.cancel();
-			const animation = node.animate(
-				[
-					{ transform: `translate(${deltaX}px, ${deltaY}px)` },
-					{ transform: "translate(0, 0)" },
-				],
-				{
-					duration: 220,
-					easing: "cubic-bezier(0.2, 0.1, 0, 1)",
-				},
-			);
-			cardAnimationsRef.current.set(key, animation);
-			animation.finished
-				.then(() => {
-					if (cardAnimationsRef.current.get(key) === animation) {
-						cardAnimationsRef.current.delete(key);
-					}
-				})
-				.catch(() => {});
-		});
-		cardRectsRef.current = nextRects;
-	});
+			openExpandedGroup(group, rect);
+		},
+		[openExpanded, openExpandedGroup, refreshReviewTimeline],
+	);
+
+	const handleGroupItemClick = useCallback(
+		(pr: ReviewPullRequest, event: MouseEvent<HTMLDivElement>) => {
+			event.stopPropagation();
+			if (!expandedGroup) return;
+			const groupToRestore = expandedGroup;
+			void refreshReviewTimeline(pr.number);
+			const rect = event.currentTarget.getBoundingClientRect();
+			setExpandedGroup(null);
+			openExpanded(pr, rect, () => {
+				setExpandedGroup({ ...groupToRestore, phase: "open" });
+			});
+		},
+		[expandedGroup, openExpanded, refreshReviewTimeline],
+	);
 
 	useEffect(() => {
 		return () => {
@@ -336,7 +556,7 @@ const ReviewPage = () => {
 	}
 
 	return (
-		<Box className={styles.container} ref={containerRef}>
+		<Box className={styles.container}>
 			{/* 用户信息栏 */}
 			<Flex align="center" justify="between" className={styles.userBar}>
 				<Flex align="center" gap="2">
@@ -456,40 +676,271 @@ const ReviewPage = () => {
 				</TextField.Root>
 			</Box>
 			<Box className={styles.grid}>
-				{sortedItems.map((pr) => {
-					const isExpanded = expandedCard?.pr.number === pr.number;
-					const isPlaceholder = isExpanded && expandedCard?.phase === "open";
+				{pagedGroupedItems.map((group) => {
+					const primaryPr =
+						group.find((pr) => pr.number === preferredDisplayPrNumber) ??
+						group.find((pr) => pr.number === currentReviewPrNumber) ??
+						group[0];
+					if (!primaryPr) return null;
+					const groupKey = getGroupKey(group);
+					const isExpanded = group.some(
+						(pr) => expandedCard?.pr.number === pr.number,
+					);
+					const isGroupExpanded = expandedGroup
+						? getGroupKey(expandedGroup.group) === groupKey
+						: false;
+					const isPlaceholder =
+						(isExpanded && expandedCard?.phase === "open") ||
+						(isGroupExpanded && expandedGroup?.phase === "open");
 					const placeholderStyle =
-						isPlaceholder && expandedCard
-							? { height: expandedCard.from.height }
+						isPlaceholder && (expandedCard || expandedGroup)
+							? { height: (expandedCard ?? expandedGroup)?.from.height }
 							: undefined;
-					const isFlashing = flashingPrNumber === pr.number;
+					const isFlashing = group.some(
+						(pr) => flashingPrNumber === pr.number,
+					);
+					const isCurrentReviewGroup = group.some(
+						(pr) => pr.number === currentReviewPrNumber,
+					);
+					const isGrouped = group.length > 1;
+					const stackCount = isGrouped ? group.length : 0;
 					return (
-						<Card
-							key={pr.number}
-							className={`${styles.card} ${
-								reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
-							} ${isPlaceholder ? styles.cardPlaceholder : ""} ${
-								isFlashing ? styles.flashingCard : ""
+						<Box
+							key={groupKey}
+							className={`${styles.groupSlot} ${
+								isPlaceholder ? styles.cardPlaceholder : ""
+							} ${isFlashing ? styles.flashingCard : ""} ${
+								isCurrentReviewGroup ? styles.currentReviewGroup : ""
 							}`}
-							onClick={(event) => handleCardClick(pr, event)}
-							ref={setCardRef(pr.number)}
+							onClick={(event) => handleGroupClick(group, event)}
+							ref={setGroupRef(group)}
 							style={placeholderStyle}
 						>
-							{isPlaceholder
-								? null
-								: renderCardContent({
-										pr,
-										hiddenLabelSet,
-										styles,
-										reviewedByUser: reviewedByUserMap[pr.number] === true,
-										onSelectUser: (user) =>
-											setSelectedUser((prev) => (prev === user ? null : user)),
-									})}
-						</Card>
+							{isPlaceholder ? null : (
+								<Box
+									className={isGrouped ? styles.groupStack : undefined}
+									style={
+										isGrouped
+											? ({ "--stack-count": String(stackCount) } as CSSProperties)
+											: undefined
+									}
+								>
+									{isGrouped && (
+										<div className={styles.groupStackBackdrop}>
+											{Array.from({ length: stackCount }).map((_, index) => (
+												<div
+													key={index}
+													className={styles.groupStackLayer}
+													style={{
+														transform: `translate(${index * 4}px, ${index * 4}px)`,
+														zIndex: stackCount - index,
+													}}
+												/>
+											))}
+										</div>
+									)}
+									<Box>
+										<Card
+											className={`${styles.card} ${
+												reviewSession?.prNumber === primaryPr.number
+													? styles.reviewCard
+													: ""
+											}`}
+										>
+											{renderCardContent({
+												pr: primaryPr,
+												hiddenLabelSet,
+												styles,
+												reviewedByUser:
+													reviewedByUserMap[primaryPr.number] === true,
+												onSelectUser: (user) =>
+													setSelectedUser((prev) =>
+														prev === user ? null : user,
+													),
+											})}
+										</Card>
+									</Box>
+									{isGrouped && (
+										<Box className={styles.groupBadge}>
+											<Text size="1" weight="bold">
+											{group.length}
+										</Text>
+										</Box>
+									)}
+								</Box>
+							)}
+						</Box>
 					);
 				})}
 			</Box>
+			{mainReviewPageCount > 1 && (
+				<Flex align="center" justify="center" gap="2" className={styles.mainPager}>
+					<Button
+						size="2"
+						variant="soft"
+						color="gray"
+						disabled={currentMainReviewPage <= 1}
+						onClick={() => setMainReviewPage((page) => Math.max(1, page - 1))}
+					>
+						上一页
+					</Button>
+					{mainPagerNumbers.map((page, index) => (
+						<Flex key={page} align="center" gap="2">
+							{index > 0 && page - mainPagerNumbers[index - 1] > 1 && (
+								<Text size="2" color="gray">
+									…
+								</Text>
+							)}
+							<Button
+								size="2"
+								variant={page === currentMainReviewPage ? "solid" : "soft"}
+								color={page === currentMainReviewPage ? undefined : "gray"}
+								onClick={() => setMainReviewPage(page)}
+							>
+								{page}
+							</Button>
+						</Flex>
+					))}
+					<Button
+						size="2"
+						variant="soft"
+						color="gray"
+						disabled={currentMainReviewPage >= mainReviewPageCount}
+						onClick={() =>
+							setMainReviewPage((page) =>
+								Math.min(mainReviewPageCount, page + 1),
+							)
+						}
+					>
+						下一页
+					</Button>
+					<Flex align="center" gap="2" className={styles.mainPagerJump}>
+						<Text size="2" color="gray">
+							跳转
+						</Text>
+						<TextField.Root
+							size="2"
+							type="number"
+							min={1}
+							max={mainReviewPageCount}
+							placeholder={`${currentMainReviewPage}`}
+							value={mainPageInput}
+							onChange={(event) => setMainPageInput(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									jumpToMainPage();
+								}
+							}}
+							className={styles.mainPagerInput}
+						/>
+						<Button size="2" variant="soft" color="gray" onClick={jumpToMainPage}>
+							确定
+						</Button>
+					</Flex>
+					<Text size="2" color="gray">
+						共 {mainReviewPageCount} 页 / {groupedItems.length} 组
+					</Text>
+				</Flex>
+			)}
+			{expandedGroup && (
+				<Box
+					className={`${styles.overlay} ${
+						expandedGroup.phase === "open" ? styles.overlayVisible : ""
+					}`}
+					style={{
+						inset: `${expandedGroup.overlayTopInset}px 0 0 0`,
+					}}
+					onClick={closeExpandedGroup}
+				>
+					<Card
+						className={`${styles.overlayCard} ${styles.groupPickerCard}`}
+						style={{
+							left:
+								expandedGroup.phase === "open"
+									? expandedGroup.to.left
+									: expandedGroup.from.left,
+							top:
+								expandedGroup.phase === "open"
+									? expandedGroup.to.top
+									: expandedGroup.from.top,
+							width:
+								expandedGroup.phase === "open"
+									? expandedGroup.to.width
+									: expandedGroup.from.width,
+							height:
+								expandedGroup.phase === "open"
+									? expandedGroup.to.height
+									: expandedGroup.from.height,
+						}}
+						onClick={(event) => event.stopPropagation()}
+					>
+						<Flex direction="column" gap="3" className={styles.groupPickerInner}>
+							<Flex align="center" justify="between" gap="3">
+								<Box>
+									<Text size="3" weight="medium">
+										相同 ID 的 PR
+									</Text>
+									<Text size="1" color="gray" asChild>
+										<div>{getGroupSharedIds(expandedGroup.group).join(" / ")}</div>
+									</Text>
+								</Box>
+								<Button size="1" variant="ghost" color="gray" onClick={closeExpandedGroup}>
+									关闭
+								</Button>
+							</Flex>
+							<Box className={styles.groupPickerList}>
+								{groupPickerPageItems.map((pr) => (
+									<Card
+										key={pr.number}
+										className={`${styles.card} ${styles.groupPickerItem} ${
+											reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
+										}`}
+										onClick={(event) => handleGroupItemClick(pr, event)}
+									>
+										{renderCardContent({
+											pr,
+											hiddenLabelSet,
+											styles,
+											reviewedByUser: reviewedByUserMap[pr.number] === true,
+											onSelectUser: (user) =>
+												setSelectedUser((prev) => (prev === user ? null : user)),
+										})}
+									</Card>
+								))}
+							</Box>
+							{groupPickerPageCount > 1 && (
+								<Flex align="center" justify="between" gap="3" className={styles.groupPickerPager}>
+									<Button
+										size="1"
+										variant="soft"
+										color="gray"
+										disabled={currentGroupPickerPage <= 1}
+										onClick={() => setGroupPickerPage((page) => Math.max(1, page - 1))}
+									>
+										上一页
+									</Button>
+									<Text size="2" color="gray">
+										{currentGroupPickerPage} / {groupPickerPageCount}
+									</Text>
+									<Button
+										size="1"
+										variant="soft"
+										color="gray"
+										disabled={currentGroupPickerPage >= groupPickerPageCount}
+										onClick={() =>
+											setGroupPickerPage((page) =>
+												Math.min(groupPickerPageCount, page + 1),
+											)
+										}
+									>
+										下一页
+									</Button>
+								</Flex>
+							)}
+						</Flex>
+					</Card>
+				</Box>
+			)}
 			{expandedCard && (
 				<Box
 					className={`${styles.overlay} ${

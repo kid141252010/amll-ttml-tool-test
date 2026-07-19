@@ -22,7 +22,7 @@ export type ReviewPullRequest = {
 	labels: ReviewLabel[];
 };
 
-type ReviewMetadata = {
+export type ReviewMetadata = {
 	musicName: string[];
 	artists: string[];
 	album: string[];
@@ -50,17 +50,8 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		appleMusicId: [],
 		remark: [],
 	};
-	const pushValues = (
-		key:
-			| "musicName"
-			| "artists"
-			| "album"
-			| "ncmId"
-			| "qqMusicId"
-			| "spotifyId"
-			| "appleMusicId",
-		value: string,
-	) => {
+	type MetadataKey = Exclude<keyof ReviewMetadata, "remark">;
+	const pushValues = (key: MetadataKey, value: string) => {
 		const cleaned = value
 			.replace(/^[-*]\s+/, "")
 			.replace(/^\[[ xX]\]\s*/, "")
@@ -74,10 +65,11 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 			.filter(Boolean);
 		result[key].push(...values);
 	};
-	const pushRemark = (value: string) => {
-		const cleaned = value.trimEnd();
-		if (!cleaned) return;
-		result.remark.push(cleaned);
+	const pushRemarkLines = (value: string) => {
+		const lines = value.split(/\r?\n/).map((line) => line.trimEnd());
+		while (lines.length > 0 && !lines[0]?.trim()) lines.shift();
+		while (lines.length > 0 && !lines[lines.length - 1]?.trim()) lines.pop();
+		result.remark.push(...lines);
 	};
 	const getKeyFromText = (text: string) => {
 		const normalized = text.replace(/\s/g, "").toLowerCase();
@@ -117,61 +109,27 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 		}
 		return null;
 	};
-	let currentKey:
-		| "musicName"
-		| "artists"
-		| "album"
-		| "ncmId"
-		| "qqMusicId"
-		| "spotifyId"
-		| "appleMusicId"
-		| "remark"
-		| null = null;
-	const lines = body.split(/\r?\n/);
-	for (const rawLine of lines) {
-		const trimmedLine = rawLine.trim();
-		if (!trimmedLine) {
-			if (currentKey === "remark") {
-				result.remark.push("");
-			}
-			continue;
-		}
-		const line = trimmedLine;
-		const inlineMatch = line.match(
-			/^(?:[-*]\s*)?(?:#+\s*)?(?:\*\*)?(.+?)(?:\*\*)?\s*[:：]\s*(.+)$/,
-		);
-		if (inlineMatch) {
-			const key = getKeyFromText(inlineMatch[1] ?? "");
-			if (key) {
-				currentKey = key;
-				if (key === "remark") {
-					pushRemark(inlineMatch[2] ?? "");
-				} else {
-					pushValues(key, inlineMatch[2] ?? "");
-				}
-				continue;
-			}
-		}
-		const headingMatch = line.match(
-			/^(?:[-*]\s*)?(?:#+\s*)?(?:\*\*)?(.+?)(?:\*\*)?$/,
-		);
-		if (headingMatch) {
-			const key = getKeyFromText(headingMatch[1] ?? "");
-			if (key) {
-				currentKey = key;
-				continue;
-			}
-			if (/^#+\s+/.test(line)) {
-				currentKey = null;
-				continue;
-			}
-		}
-		if (currentKey) {
-			if (currentKey === "remark") {
-				pushRemark(line);
-			} else {
-				pushValues(currentKey, line);
-			}
+	const headingPattern = /^###\s+(.+?)\s*$/gm;
+	const headings = [...body.matchAll(headingPattern)];
+	const remarkHeading = headings.find(
+		(match) => getKeyFromText(match[1] ?? "") === "remark",
+	);
+	const remarkIndex = remarkHeading?.index ?? -1;
+	const metadataBody = remarkIndex >= 0 ? body.slice(0, remarkIndex) : body;
+	if (remarkHeading && remarkIndex >= 0) {
+		pushRemarkLines(body.slice(remarkIndex + remarkHeading[0].length));
+	}
+	const sections = [...metadataBody.matchAll(headingPattern)];
+	for (let index = 0; index < sections.length; index += 1) {
+		const section = sections[index];
+		const sectionIndex = section.index ?? 0;
+		const key = getKeyFromText(section[1] ?? "");
+		if (!key || key === "remark") continue;
+		const contentStart = sectionIndex + section[0].length;
+		const contentEnd = sections[index + 1]?.index ?? metadataBody.length;
+		const content = metadataBody.slice(contentStart, contentEnd);
+		for (const line of content.split(/\r?\n/)) {
+			pushValues(key, line);
 		}
 	}
 	return result;
