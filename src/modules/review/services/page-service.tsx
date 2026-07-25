@@ -8,10 +8,11 @@ import {
 	TextField,
 	Avatar,
 } from "@radix-ui/themes";
-import { Search20Regular, Target20Regular } from "@fluentui/react-icons";
+import { Search20Regular, Target20Regular, Filter20Regular } from "@fluentui/react-icons";
 import { useSetAtom } from "jotai";
 import {
 	type CSSProperties,
+	type DragEvent,
 	type MouseEvent,
 	useCallback,
 	useEffect,
@@ -31,6 +32,7 @@ import {
 import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
 import { pushNotificationAtom } from "$/states/notifications";
+import { reviewReportDialogAtom } from "$/states/dialogs";
 import styles from "../index.module.css";
 
 type ReviewCardGroupItem = ReviewPullRequest[];
@@ -98,6 +100,10 @@ const getGroupSharedIds = (group: ReviewCardGroupItem) =>
 const ReviewPage = () => {
 	const closeTimerRef = useRef<number | null>(null);
 	const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+	const groupSlotNodesRef = useRef<Map<string, HTMLDivElement>>(new Map());
+	const groupWheelHandlersRef = useRef<
+		Map<string, (event: WheelEvent) => void>
+	>(new Map());
 	const [expandedCard, setExpandedCard] = useState<{
 		pr: ReviewPullRequest;
 		from: DOMRect;
@@ -121,8 +127,13 @@ const ReviewPage = () => {
 	const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
 	const [targetPrNumber, setTargetPrNumber] = useState("");
 	const [pendingTargetPrNumber, setPendingTargetPrNumber] = useState<number | null>(null);
-	const [preferredDisplayPrNumber, setPreferredDisplayPrNumber] = useState<number | null>(null);
+	const [preferredDisplayPrByGroup, setPreferredDisplayPrByGroup] = useState<
+		Record<string, number>
+	>({});
 	const [flashingPrNumber, setFlashingPrNumber] = useState<number | null>(null);
+	const [isLabelFilterDialogOpen, setIsLabelFilterDialogOpen] = useState(false);
+	const [draggingLabel, setDraggingLabel] = useState<string | null>(null);
+	const [dragOverZone, setDragOverZone] = useState<"sufficient" | "necessary" | null>(null);
 	const {
 		audioLoadPendingId,
 		error,
@@ -130,8 +141,10 @@ const ReviewPage = () => {
 		hasAccess,
 		hiddenLabelSet,
 		items,
+		labels,
 		lastNeteaseIdByPr,
 		loading,
+		necessaryLabels,
 		neteaseIdDialog,
 		openReviewFile,
 		downloadReviewFile,
@@ -140,8 +153,12 @@ const ReviewPage = () => {
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
+		setNecessaryLabels,
+		setSufficientLabels,
+		sufficientLabels,
 	} = useReviewPageLogic();
 	const pushNotification = useSetAtom(pushNotificationAtom);
+	const setReviewReportDialog = useSetAtom(reviewReportDialogAtom);
 	const {
 		user: lyricsSiteUser,
 		isLoggedIn: isLyricsSiteLoggedIn,
@@ -149,6 +166,81 @@ const ReviewPage = () => {
 		initiateLogin: initiateLyricsSiteLogin,
 		logout: logoutLyricsSite,
 	} = useLyricsSiteAuth();
+
+	// === 标签筛选对话框相关 ===
+	const labelColorMap = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const label of labels) {
+			map.set(label.name, label.color);
+		}
+		return map;
+	}, [labels]);
+	const getLabelColor = useCallback(
+		(name: string) => labelColorMap.get(name) ?? "gray",
+		[labelColorMap],
+	);
+	// 在对话框内移除标签(从任一条件中移除)
+	const handleRemoveLabel = useCallback(
+		(name: string) => {
+			setSufficientLabels((prev) => prev.filter((l) => l !== name));
+			setNecessaryLabels((prev) => prev.filter((l) => l !== name));
+		},
+		[setNecessaryLabels, setSufficientLabels],
+	);
+	// 拖拽起点
+	const handleDragStart = useCallback(
+		(event: DragEvent<HTMLDivElement>, name: string) => {
+			setDraggingLabel(name);
+			event.dataTransfer.effectAllowed = "move";
+			event.dataTransfer.setData("text/plain", name);
+		},
+		[],
+	);
+	const handleDragEnd = useCallback(() => {
+		setDraggingLabel(null);
+		setDragOverZone(null);
+	}, []);
+	// 拖拽悬停
+	const handleDragOver = useCallback(
+		(event: DragEvent<HTMLDivElement>, zone: "sufficient" | "necessary") => {
+			event.preventDefault();
+			event.dataTransfer.dropEffect = "move";
+			setDragOverZone(zone);
+		},
+		[],
+	);
+	const handleDragLeave = useCallback(
+		(event: DragEvent<HTMLDivElement>, zone: "sufficient" | "necessary") => {
+			// 仅当离开整个 drop zone 时才清空(避免子元素切换导致闪烁)
+			const related = event.relatedTarget as Node | null;
+			if (related && event.currentTarget.contains(related)) return;
+			setDragOverZone((prev) => (prev === zone ? null : prev));
+		},
+		[],
+	);
+	// 放置: 从原条件移除, 加入目标条件
+	const handleDrop = useCallback(
+		(event: DragEvent<HTMLDivElement>, zone: "sufficient" | "necessary") => {
+			event.preventDefault();
+			const name = draggingLabel;
+			setDraggingLabel(null);
+			setDragOverZone(null);
+			if (!name) return;
+			if (zone === "sufficient") {
+				setSufficientLabels((prev) =>
+					prev.includes(name) ? prev : [...prev, name],
+				);
+				setNecessaryLabels((prev) => prev.filter((l) => l !== name));
+			} else {
+				setNecessaryLabels((prev) =>
+					prev.includes(name) ? prev : [...prev, name],
+				);
+				setSufficientLabels((prev) => prev.filter((l) => l !== name));
+			}
+		},
+		[draggingLabel, setNecessaryLabels, setSufficientLabels],
+	);
+	const labelFilterTotal = sufficientLabels.length + necessaryLabels.length;
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
@@ -255,6 +347,20 @@ const ReviewPage = () => {
 		}, 200);
 	}, [expandedCard]);
 
+	const handleDirectReview = useCallback(
+		(pr: ReviewPullRequest) => {
+			setReviewReportDialog({
+				open: true,
+				prNumber: pr.number,
+				prTitle: pr.title,
+				report: "",
+				draftId: null,
+			});
+			closeExpanded();
+		},
+		[setReviewReportDialog, closeExpanded],
+	);
+
 	const closeExpandedGroup = useCallback(() => {
 		if (!expandedGroup || expandedGroup.phase === "closing") return;
 		if (closeTimerRef.current) {
@@ -287,7 +393,6 @@ const ReviewPage = () => {
 		setSearchQuery("");
 		setSelectedUser(null);
 		setPendingTargetPrNumber(prNumber);
-		setPreferredDisplayPrNumber(prNumber);
 
 		// 关闭对话框
 		setIsTargetDialogOpen(false);
@@ -331,6 +436,14 @@ const ReviewPage = () => {
 				cardNode.scrollIntoView({ behavior: "smooth", block: "center" });
 				setFlashingPrNumber(pendingTargetPrNumber);
 				setTimeout(() => setFlashingPrNumber(null), 2000);
+				const targetGroup = groupedItems[targetGroupIndex];
+				if (targetGroup) {
+					const groupKey = getGroupKey(targetGroup);
+					setPreferredDisplayPrByGroup((prev) => ({
+						...prev,
+						[groupKey]: pendingTargetPrNumber,
+					}));
+				}
 			} else {
 				pushNotification({
 					title: "定位失败",
@@ -364,6 +477,8 @@ const ReviewPage = () => {
 
 	const setGroupRef = useCallback(
 		(group: ReviewCardGroupItem) => (node: HTMLDivElement | null) => {
+			const groupKey = getGroupKey(group);
+
 			for (const pr of group) {
 				if (node) {
 					cardRefs.current.set(pr.number, node);
@@ -371,9 +486,67 @@ const ReviewPage = () => {
 					cardRefs.current.delete(pr.number);
 				}
 			}
+
+			const prevNode = groupSlotNodesRef.current.get(groupKey);
+			const prevHandler = groupWheelHandlersRef.current.get(groupKey);
+			if (prevNode && prevHandler) {
+				prevNode.removeEventListener("wheel", prevHandler);
+			}
+
+			if (node) {
+				groupSlotNodesRef.current.set(groupKey, node);
+
+				if (group.length > 1) {
+					const handler = (event: WheelEvent) => {
+					if (Math.abs(event.deltaY) < 1) return;
+					event.preventDefault();
+					const now = Date.now();
+					const lastTime =
+						lastWheelTimeRef.current.get(groupKey) ?? 0;
+					if (now - lastTime < 220) return;
+					lastWheelTimeRef.current.set(groupKey, now);
+
+					const currentDisplay =
+						preferredDisplayPrByGroupRef.current[groupKey];
+					const currentIndex = group.findIndex(
+						(pr) => pr.number === currentDisplay,
+					);
+					const startIndex =
+						currentIndex >= 0 ? currentIndex : 0;
+					const direction = event.deltaY > 0 ? 1 : -1;
+					const nextIndex =
+						(startIndex + direction + group.length) %
+						group.length;
+					const nextPr = group[nextIndex];
+					if (nextPr) {
+						setPreferredDisplayPrByGroup((prev) => ({
+							...prev,
+							[groupKey]: nextPr.number,
+						}));
+					}
+				};
+
+					node.addEventListener("wheel", handler, {
+						passive: false,
+					});
+					groupWheelHandlersRef.current.set(groupKey, handler);
+				} else {
+					groupWheelHandlersRef.current.delete(groupKey);
+				}
+			} else {
+				groupSlotNodesRef.current.delete(groupKey);
+				groupWheelHandlersRef.current.delete(groupKey);
+			}
 		},
 		[],
 	);
+
+	const preferredDisplayPrByGroupRef = useRef<Record<string, number>>({});
+	useEffect(() => {
+		preferredDisplayPrByGroupRef.current = preferredDisplayPrByGroup;
+	}, [preferredDisplayPrByGroup]);
+
+	const lastWheelTimeRef = useRef<Map<string, number>>(new Map());
 
 	const getOverlayTopInset = useCallback(() => {
 		if (typeof document === "undefined") return 52;
@@ -663,26 +836,43 @@ const ReviewPage = () => {
 						</TextField.Slot>
 					)}
 					<TextField.Slot>
-						<Button
-							size="1"
-							variant="ghost"
-							color="gray"
-							onClick={() => setIsTargetDialogOpen(true)}
-							title="定位到指定 PR"
-						>
-							<Target20Regular />
-						</Button>
-					</TextField.Slot>
+					<Button
+						size="1"
+						variant="ghost"
+						color="gray"
+						onClick={() => setIsTargetDialogOpen(true)}
+						title="定位到指定 PR"
+					>
+						<Target20Regular />
+					</Button>
+				</TextField.Slot>
+				<TextField.Slot>
+					<Button
+						size="1"
+						variant={labelFilterTotal > 0 ? "soft" : "ghost"}
+						color={labelFilterTotal > 0 ? "blue" : "gray"}
+						onClick={() => setIsLabelFilterDialogOpen(true)}
+						title="标签筛选"
+					>
+						<Filter20Regular />
+						{labelFilterTotal > 0 && (
+							<Box className={styles.filterBadge}>{labelFilterTotal}</Box>
+						)}
+					</Button>
+				</TextField.Slot>
 				</TextField.Root>
 			</Box>
 			<Box className={styles.grid}>
 				{pagedGroupedItems.map((group) => {
+					const groupKey = getGroupKey(group);
 					const primaryPr =
-						group.find((pr) => pr.number === preferredDisplayPrNumber) ??
+						group.find(
+							(pr) => pr.number === preferredDisplayPrByGroup[groupKey],
+						) ??
+						group.find((pr) => pr.number === pendingTargetPrNumber) ??
 						group.find((pr) => pr.number === currentReviewPrNumber) ??
 						group[0];
 					if (!primaryPr) return null;
-					const groupKey = getGroupKey(group);
 					const isExpanded = group.some(
 						(pr) => expandedCard?.pr.number === pr.number,
 					);
@@ -739,27 +929,30 @@ const ReviewPage = () => {
 											))}
 										</div>
 									)}
-									<Box>
-										<Card
-											className={`${styles.card} ${
-												reviewSession?.prNumber === primaryPr.number
-													? styles.reviewCard
-													: ""
-											}`}
-										>
-											{renderCardContent({
-												pr: primaryPr,
-												hiddenLabelSet,
-												styles,
-												reviewedByUser:
-													reviewedByUserMap[primaryPr.number] === true,
-												onSelectUser: (user) =>
-													setSelectedUser((prev) =>
-														prev === user ? null : user,
-													),
-											})}
-										</Card>
-									</Box>
+									<Box
+									key={primaryPr.number}
+									className={styles.groupStackContent}
+								>
+									<Card
+										className={`${styles.card} ${
+											reviewSession?.prNumber === primaryPr.number
+												? styles.reviewCard
+												: ""
+										}`}
+									>
+										{renderCardContent({
+											pr: primaryPr,
+											hiddenLabelSet,
+											styles,
+											reviewedByUser:
+												reviewedByUserMap[primaryPr.number] === true,
+											onSelectUser: (user) =>
+												setSelectedUser((prev) =>
+													prev === user ? null : user,
+												),
+										})}
+									</Card>
+								</Box>
 									{isGrouped && (
 										<Box className={styles.groupBadge}>
 											<Text size="1" weight="bold">
@@ -980,6 +1173,7 @@ const ReviewPage = () => {
 							lastNeteaseIdByPr={lastNeteaseIdByPr}
 							onOpenFile={openReviewFile}
 							onDownloadFile={downloadReviewFile}
+							onDirectReview={handleDirectReview}
 							onClose={closeExpanded}
 							reviewedByUser={
 								reviewedByUserMap[expandedCard.pr.number] === true
@@ -1037,14 +1231,189 @@ const ReviewPage = () => {
 									取消
 								</Button>
 								<Button onClick={handleTargetPr} disabled={!targetPrNumber}>
-									定位
-								</Button>
-							</Flex>
+								定位
+							</Button>
 						</Flex>
-					</Card>
-				</Box>
-			)}
-		</Box>
+					</Flex>
+				</Card>
+			</Box>
+		)}
+		{/* 标签筛选对话框 */}
+		{isLabelFilterDialogOpen && (
+			<Box
+				className={`${styles.overlay} ${styles.overlayVisible}`}
+				style={{ inset: 0 }}
+				onClick={() => setIsLabelFilterDialogOpen(false)}
+			>
+				<Card
+					className={styles.labelFilterDialog}
+					onClick={(event) => event.stopPropagation()}
+				>
+					<Flex direction="column" style={{ height: "100%" }}>
+						{/* 标题栏 */}
+						<Flex
+							align="center"
+							justify="between"
+							className={styles.labelFilterHeader}
+						>
+							<Text size="3" weight="medium">
+								标签筛选
+							</Text>
+							<Button
+								size="1"
+								variant="ghost"
+								color="gray"
+								onClick={() => setIsLabelFilterDialogOpen(false)}
+							>
+								关闭
+							</Button>
+						</Flex>
+						{/* 主体: 两个 drop zone */}
+						<Box className={styles.labelFilterBody}>
+							{/* 充分条件 */}
+							<Box
+								className={`${styles.labelFilterSection} ${styles.labelFilterSectionSufficient} ${
+									dragOverZone === "sufficient" ? styles.labelFilterSectionOver : ""
+								}`}
+								onDragOver={(e) => handleDragOver(e, "sufficient")}
+								onDragLeave={(e) => handleDragLeave(e, "sufficient")}
+								onDrop={(e) => handleDrop(e, "sufficient")}
+							>
+								<Flex align="center" gap="2">
+									<Box
+										className={styles.labelFilterSectionDot}
+										style={{ backgroundColor: "var(--blue-9)" }}
+									/>
+									<Text className={styles.labelFilterSectionTitle}>
+										充分条件
+									</Text>
+									<Text size="1" color="gray">
+										({sufficientLabels.length})
+									</Text>
+								</Flex>
+								<Text className={styles.labelFilterSectionDesc}>
+									PR 包含至少一个以下标签即通过
+								</Text>
+								<Box className={styles.labelFilterList}>
+									{sufficientLabels.length === 0 ? (
+										<Text className={styles.labelEmpty}>
+											从工具栏选中标签, 或从右侧拖入
+										</Text>
+									) : (
+										sufficientLabels.map((name) => (
+											<Box
+												key={name}
+												className={`${styles.labelChip} ${
+													draggingLabel === name ? styles.labelChipDragging : ""
+												}`}
+												draggable
+												onDragStart={(e) => handleDragStart(e, name)}
+												onDragEnd={handleDragEnd}
+											>
+												<Box
+													className={styles.labelChipDot}
+													style={{ backgroundColor: `#${getLabelColor(name)}` }}
+												/>
+												<Text className={styles.labelChipText}>{name}</Text>
+												<button
+													type="button"
+													className={styles.labelChipRemove}
+													onClick={() => handleRemoveLabel(name)}
+													title="移除"
+												>
+													×
+												</button>
+											</Box>
+										))
+									)}
+								</Box>
+							</Box>
+							{/* 必要条件 */}
+							<Box
+								className={`${styles.labelFilterSection} ${styles.labelFilterSectionNecessary} ${
+									dragOverZone === "necessary" ? styles.labelFilterSectionOver : ""
+								}`}
+								onDragOver={(e) => handleDragOver(e, "necessary")}
+								onDragLeave={(e) => handleDragLeave(e, "necessary")}
+								onDrop={(e) => handleDrop(e, "necessary")}
+							>
+								<Flex align="center" gap="2">
+									<Box
+										className={styles.labelFilterSectionDot}
+										style={{ backgroundColor: "var(--red-9)" }}
+									/>
+									<Text className={styles.labelFilterSectionTitle}>
+										必要条件
+									</Text>
+									<Text size="1" color="gray">
+										({necessaryLabels.length})
+									</Text>
+								</Flex>
+								<Text className={styles.labelFilterSectionDesc}>
+									PR 必须包含全部以下标签才通过
+								</Text>
+								<Box className={styles.labelFilterList}>
+									{necessaryLabels.length === 0 ? (
+										<Text className={styles.labelEmpty}>
+											从左侧拖入标签作为必要条件
+										</Text>
+									) : (
+										necessaryLabels.map((name) => (
+											<Box
+												key={name}
+												className={`${styles.labelChip} ${
+													draggingLabel === name ? styles.labelChipDragging : ""
+												}`}
+												draggable
+												onDragStart={(e) => handleDragStart(e, name)}
+												onDragEnd={handleDragEnd}
+											>
+												<Box
+													className={styles.labelChipDot}
+													style={{ backgroundColor: `#${getLabelColor(name)}` }}
+												/>
+												<Text className={styles.labelChipText}>{name}</Text>
+												<button
+													type="button"
+													className={styles.labelChipRemove}
+													onClick={() => handleRemoveLabel(name)}
+													title="移除"
+												>
+													×
+												</button>
+											</Box>
+										))
+									)}
+								</Box>
+							</Box>
+						</Box>
+						{/* 底部 */}
+						<Flex
+							align="center"
+							justify="between"
+							className={styles.labelFilterFooter}
+						>
+							<Text className={styles.labelFilterSummary}>
+							筛选逻辑: 同时满足必要条件与充分条件
+						</Text>
+							<Button
+								size="1"
+								variant="soft"
+								color="gray"
+								onClick={() => {
+									setSufficientLabels([]);
+									setNecessaryLabels([]);
+								}}
+								disabled={labelFilterTotal === 0}
+							>
+								清空全部
+							</Button>
+						</Flex>
+					</Flex>
+				</Card>
+			</Box>
+		)}
+	</Box>
 	);
 };
 

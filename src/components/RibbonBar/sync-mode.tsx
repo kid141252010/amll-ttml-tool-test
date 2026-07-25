@@ -9,7 +9,9 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
-import { LyricWorldViewEdit } from "$/modules/lyric-editor/components/lyric-word-view.tsx";
+import { ManualWordSplitter } from "$/modules/segmentation/components/ManualWordSplitter.tsx";
+import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig.ts";
+import { recalculateWordTime } from "$/modules/segmentation/utils/segmentation.ts";
 import { useCurrentLocation } from "$/modules/lyric-editor/utils/lyric-states.ts";
 import {
 	displayRomanizationInSyncAtom,
@@ -45,7 +47,7 @@ import {
 import { useAtom, useAtomValue, atom } from "jotai";
 import { splitAtom } from "jotai/utils";
 import { useSetImmerAtom } from "jotai-immer";
-import { type FC, forwardRef, useMemo } from "react";
+import { type FC, forwardRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { KeyBinding } from "../KeyBinding/index.tsx";
 import { RibbonFrame, RibbonSection } from "./common";
@@ -85,8 +87,95 @@ const EmptyBeatField = () => {
 const CurrentLineEditor = () => {
 	const currentLocation = useCurrentLocation({ requireWord: false });
 	const { t } = useTranslation();
+	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
+	const { config: segmentationConfig } = useSegmentationConfig();
 
-	if (!currentLocation) {
+	const line = currentLocation?.line;
+	const lineIndex = currentLocation?.lineIndex ?? -1;
+
+	// 将当前行所有单词拼接为连续文本，并记录单词边界位置作为已激活的分词点
+	const { lineText, splitIndices } = useMemo(() => {
+		if (!line) return { lineText: "", splitIndices: new Set<number>() };
+		let text = "";
+		const indices = new Set<number>();
+		for (let wi = 0; wi < line.words.length; wi++) {
+			if (wi > 0) indices.add(text.length);
+			text += line.words[wi].word;
+		}
+		return { lineText: text, splitIndices: indices };
+	}, [line]);
+
+	// 点击竖线时：若该位置已是单词边界则合并相邻单词，否则在单词内部拆分
+	const handleToggleSplit = useCallback(
+		(index: number) => {
+			if (lineIndex < 0) return;
+			editLyricLines((state) => {
+				const targetLine = state.lyricLines[lineIndex];
+				if (!targetLine) return;
+
+				let charOffset = 0;
+				for (let wi = 0; wi < targetLine.words.length; wi++) {
+					const word = targetLine.words[wi];
+					const wordStart = charOffset;
+					const wordEnd = charOffset + word.word.length;
+
+					if (index === wordStart && wi > 0) {
+						// 边界处 → 合并前一个单词与当前单词
+						const prevWord = targetLine.words[wi - 1];
+						if (!prevWord) return;
+						const merged = {
+							...prevWord,
+							word: prevWord.word + word.word,
+							startTime: prevWord.startTime,
+							endTime: word.endTime,
+						};
+						targetLine.words.splice(wi - 1, 2, merged);
+						return;
+					}
+
+					if (index > wordStart && index < wordEnd) {
+						// 单词内部 → 拆分为两段
+						const relIndex = index - wordStart;
+						const segments = [
+							word.word.slice(0, relIndex),
+							word.word.slice(relIndex),
+						];
+						if (segments[0].length === 0 || segments[1].length === 0) return;
+						const newWords = recalculateWordTime(
+							word,
+							segments,
+							segmentationConfig,
+						);
+						targetLine.words.splice(wi, 1, ...newWords);
+						return;
+					}
+
+					charOffset = wordEnd;
+				}
+			});
+		},
+		[editLyricLines, lineIndex, segmentationConfig],
+	);
+
+	const handleClearAllSplits = useCallback(() => {
+		if (lineIndex < 0) return;
+		editLyricLines((state) => {
+			const targetLine = state.lyricLines[lineIndex];
+			if (!targetLine || targetLine.words.length <= 1) return;
+			const firstWord = targetLine.words[0];
+			const lastWord = targetLine.words[targetLine.words.length - 1];
+			targetLine.words = [
+				{
+					...firstWord,
+					word: targetLine.words.map((w) => w.word).join(""),
+					startTime: firstWord.startTime,
+					endTime: lastWord.endTime,
+				},
+			];
+		});
+	}, [editLyricLines, lineIndex]);
+
+	if (!currentLocation || !line || lineText.length === 0) {
 		return (
 			<Text size="1" color="gray">
 				{t("ribbonBar.syncMode.noLineSelected", "未选择歌词行")}
@@ -94,22 +183,15 @@ const CurrentLineEditor = () => {
 		);
 	}
 
-	const line = currentLocation.line;
-	const wordAtoms = line.words.map((word) => atom(word));
-
 	return (
-		<Flex gap="2" align="center" wrap="wrap">
-			{wordAtoms.map((wordAtom, wi) => (
-				<LyricWorldViewEdit
-					key={`sync-word-${line.id}-${wi}`}
-					wordAtom={wordAtom}
-					wordIndex={wi}
-					line={line}
-					lineIndex={currentLocation.lineIndex}
-					forceDraggable
-				/>
-			))}
-		</Flex>
+		<ManualWordSplitter
+			word={lineText}
+			splitIndices={splitIndices}
+			onSplitIndexToggle={handleToggleSplit}
+			onClearAllSplits={
+				line.words.length > 1 ? handleClearAllSplits : undefined
+			}
+		/>
 	);
 };
 
@@ -270,7 +352,7 @@ export const SyncModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 						</Grid>
 					</Flex>
 				</RibbonSection>
-				<RibbonSection label="">
+				<RibbonSection label={t("ribbonBar.syncMode.segmentation", "分词")}>
 					<CurrentLineEditor />
 				</RibbonSection>
 			</RibbonFrame>

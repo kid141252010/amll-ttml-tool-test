@@ -19,6 +19,7 @@ import {
 	githubPatAtom,
 	reviewHiddenLabelsAtom,
 	reviewLabelsAtom,
+	reviewNecessaryLabelsAtom,
 	reviewPendingFilterAtom,
 	reviewRefreshTokenAtom,
 	reviewSelectedLabelsAtom,
@@ -46,6 +47,7 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>((_props, ref) => {
 	const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 	const [displayName, setDisplayName] = useState<string>("");
 	const [selectedLabels, setSelectedLabels] = useAtom(reviewSelectedLabelsAtom);
+	const [necessaryLabels, setNecessaryLabels] = useAtom(reviewNecessaryLabelsAtom);
 	const [pendingChecked, setPendingChecked] = useAtom(reviewPendingFilterAtom);
 	const [updatedChecked, setUpdatedChecked] = useAtom(reviewUpdatedFilterAtom);
 	const setSettingsDialogOpen = useSetAtom(settingsDialogAtom);
@@ -136,25 +138,36 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>((_props, ref) => {
 	useEffect(() => {
 		if (!hasAccess || labels.length === 0) {
 			setSelectedLabels([]);
+			setNecessaryLabels([]);
 		}
-	}, [hasAccess, labels.length, setSelectedLabels]);
+	}, [hasAccess, labels.length, setSelectedLabels, setNecessaryLabels]);
 
 	useEffect(() => {
 		if (hiddenLabelSet.size === 0) return;
 		setSelectedLabels((prev) =>
 			prev.filter((label) => !hiddenLabelSet.has(label.toLowerCase())),
 		);
-	}, [hiddenLabelSet, setSelectedLabels]);
+		setNecessaryLabels((prev) =>
+			prev.filter((label) => !hiddenLabelSet.has(label.toLowerCase())),
+		);
+	}, [hiddenLabelSet, setSelectedLabels, setNecessaryLabels]);
 
 	const resolvedLogin = login || displayName;
 	const avatarFallback = resolvedLogin?.trim().slice(0, 1).toUpperCase() || "?";
 
 	const toggleLabel = (name: string) => {
-		setSelectedLabels((prev) =>
-			prev.includes(name)
-				? prev.filter((label) => label !== name)
-				: [...prev, name],
-		);
+		// 在充分条件中 → 移除(取消选中)
+		if (selectedLabels.includes(name)) {
+			setSelectedLabels((prev) => prev.filter((label) => label !== name));
+			return;
+		}
+		// 在必要条件中 → 移除(取消选中)
+		if (necessaryLabels.includes(name)) {
+			setNecessaryLabels((prev) => prev.filter((label) => label !== name));
+			return;
+		}
+		// 都不在 → 加入充分条件
+		setSelectedLabels((prev) => [...prev, name]);
 	};
 
 	const handleAvatarClick = () => {
@@ -279,8 +292,10 @@ export const ReviewModeRibbonBar = forwardRef<HTMLDivElement>((_props, ref) => {
 						</Text>
 					) : (
 						visibleLabels.map((label) => {
-							const isSelected = selectedLabels.includes(label.name);
-							return (
+						const isSelected =
+							selectedLabels.includes(label.name) ||
+							necessaryLabels.includes(label.name);
+						return (
 								<Button
 									key={label.name}
 									size="1"

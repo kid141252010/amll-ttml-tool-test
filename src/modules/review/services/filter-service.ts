@@ -11,7 +11,8 @@ export const applyReviewFilters = (options: {
 	updatedChecked: boolean;
 	hasPendingLabel: (labels: ReviewLabel[]) => boolean;
 	postPendingCommitMap: Record<number, boolean>;
-	selectedLabels: string[];
+	sufficientLabels: string[];
+	necessaryLabels: string[];
 	selectedUser: string | null;
 }) => {
 	const visibleItems = options.items.filter(
@@ -33,16 +34,35 @@ export const applyReviewFilters = (options: {
 		if (options.updatedChecked) return updatedMatch;
 		return true;
 	});
+	// 标签筛选逻辑:
+	// - 充分条件非空: PR 必须包含至少一个充分标签
+	// - 必要条件非空: PR 必须包含全部必要标签
+	// - 两者取 AND; 两者都为空则不做标签筛选
+	const sufficientSet = new Set(
+		options.sufficientLabels.map((label) => label.toLowerCase()),
+	);
+	const necessarySet = new Set(
+		options.necessaryLabels.map((label) => label.toLowerCase()),
+	);
 	const labelFilteredItems =
-		options.selectedLabels.length === 0
+		sufficientSet.size === 0 && necessarySet.size === 0
 			? statusFilteredItems
 			: statusFilteredItems.filter((pr) => {
-					const selectedSet = new Set(
-						options.selectedLabels.map((label) => label.toLowerCase()),
+					const prLabelNames = pr.labels.map((label) =>
+						label.name.toLowerCase(),
 					);
-					return pr.labels.some((label) =>
-						selectedSet.has(label.name.toLowerCase()),
-					);
+					const prLabelSet = new Set(prLabelNames);
+					const meetsNecessary =
+						necessarySet.size === 0 ||
+						Array.from(necessarySet).every((label) =>
+							prLabelSet.has(label),
+						);
+					const meetsSufficient =
+						sufficientSet.size === 0 ||
+						Array.from(sufficientSet).some((label) =>
+							prLabelSet.has(label),
+						);
+					return meetsNecessary && meetsSufficient;
 				});
 	if (!options.selectedUser) return labelFilteredItems;
 	const selectedUserLower = options.selectedUser.toLowerCase();

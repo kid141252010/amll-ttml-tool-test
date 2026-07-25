@@ -2,6 +2,7 @@ import {
 	ArrowSquareDown20Regular,
 	ArrowSquareUpRight20Regular,
 	Checkmark20Regular,
+	ClipboardCheckmark20Regular,
 	Clock20Regular,
 	Comment20Regular,
 	Dismiss20Regular,
@@ -38,6 +39,7 @@ export const ReviewExpandedContent = (options: {
 		pr: ReviewPullRequest,
 		ids: string[],
 	) => void | Promise<void>;
+	onDirectReview?: (pr: ReviewPullRequest) => void;
 	onClose?: () => void;
 	reviewedByUser?: boolean;
 	repoOwner: string;
@@ -406,6 +408,19 @@ export const ReviewExpandedContent = (options: {
 								<Text size="2">
 									{downloadFilePending ? "下载中..." : "下载文件"}
 								</Text>
+							</Flex>
+						</Button>
+					)}
+					{options.onDirectReview && (
+						<Button
+							onClick={() => options.onDirectReview?.(options.pr)}
+							size="2"
+							variant="soft"
+							color="green"
+						>
+							<Flex align="center" gap="2">
+								<ClipboardCheckmark20Regular className={options.styles.icon} />
+								<Text size="2">直接审核</Text>
 							</Flex>
 						</Button>
 					)}

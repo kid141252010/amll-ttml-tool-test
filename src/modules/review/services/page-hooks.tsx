@@ -8,6 +8,7 @@ import {
 	neteaseCookieAtom,
 	reviewHiddenLabelsAtom,
 	reviewLabelsAtom,
+	reviewNecessaryLabelsAtom,
 	reviewPendingFilterAtom,
 	reviewRefreshTokenAtom,
 	reviewSelectedLabelsAtom,
@@ -226,7 +227,9 @@ export const useReviewPageLogic = () => {
 	const hasLyricsSiteReviewAccess = lyricsSiteUser?.reviewPermission === 1;
 	const effectiveHasAccess = hasAccess || hasLyricsSiteReviewAccess;
 	const hiddenLabels = useAtomValue(reviewHiddenLabelsAtom);
+	const labels = useAtomValue(reviewLabelsAtom);
 	const selectedLabels = useAtomValue(reviewSelectedLabelsAtom);
+	const necessaryLabels = useAtomValue(reviewNecessaryLabelsAtom);
 	const pendingChecked = useAtomValue(reviewPendingFilterAtom);
 	const updatedChecked = useAtomValue(reviewUpdatedFilterAtom);
 	const refreshToken = useAtomValue(reviewRefreshTokenAtom);
@@ -234,6 +237,8 @@ export const useReviewPageLogic = () => {
 	const reviewSingleRefresh = useAtomValue(reviewSingleRefreshAtom);
 	const setReviewLabels = useSetAtom(reviewLabelsAtom);
 	const setHiddenLabels = useSetAtom(reviewHiddenLabelsAtom);
+	const setSufficientLabels = useSetAtom(reviewSelectedLabelsAtom);
+	const setNecessaryLabels = useSetAtom(reviewNecessaryLabelsAtom);
 	const setReviewReviewedPrs = useSetAtom(reviewReviewedPrsAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
 	const reviewSession = useAtomValue(reviewSessionAtom);
@@ -910,7 +915,8 @@ export const useReviewPageLogic = () => {
 				updatedChecked,
 				hasPendingLabel,
 				postPendingCommitMap,
-				selectedLabels,
+				sufficientLabels: selectedLabels,
+				necessaryLabels,
 				selectedUser,
 			}),
 		[
@@ -921,6 +927,7 @@ export const useReviewPageLogic = () => {
 			hasPendingLabel,
 			postPendingCommitMap,
 			selectedLabels,
+			necessaryLabels,
 			selectedUser,
 		],
 	);
@@ -933,8 +940,10 @@ export const useReviewPageLogic = () => {
 		hasAccess: effectiveHasAccess,
 		hiddenLabelSet,
 		items,
+		labels,
 		lastNeteaseIdByPr,
 		loading,
+		necessaryLabels,
 		neteaseIdDialog: {
 			open: neteaseIdDialog.open,
 			ids: neteaseIdDialog.ids,
@@ -948,5 +957,8 @@ export const useReviewPageLogic = () => {
 		reviewSession,
 		selectedUser,
 		setSelectedUser,
+		setNecessaryLabels,
+		setSufficientLabels,
+		sufficientLabels: selectedLabels,
 	};
 };

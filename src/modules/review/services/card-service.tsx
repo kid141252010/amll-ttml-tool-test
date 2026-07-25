@@ -136,20 +136,15 @@ export function parseReviewMetadata(body: string): ReviewMetadata {
 }
 
 export const formatTimeAgo = (iso: string) => {
-	const target = new Date(iso).getTime();
-	const now = Date.now();
-	const diff = Math.max(0, now - target);
-	const minutes = Math.floor(diff / 60000);
-	if (minutes < 1) return "刚刚";
-	if (minutes < 60) return `${minutes}分钟前`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}小时前`;
-	const days = Math.floor(hours / 24);
-	if (days < 30) return `${days}天前`;
-	const months = Math.floor(days / 30);
-	if (months < 12) return `${months}个月前`;
-	const years = Math.floor(months / 12);
-	return `${years}年前`;
+	const date = new Date(iso);
+	const pad = (value: number) => String(value).padStart(2, "0");
+	const year = date.getFullYear();
+	const month = pad(date.getMonth() + 1);
+	const day = pad(date.getDate());
+	const hours = pad(date.getHours());
+	const minutes = pad(date.getMinutes());
+	const seconds = pad(date.getSeconds());
+	return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 export const getLabelTextColor = (hex: string) => {

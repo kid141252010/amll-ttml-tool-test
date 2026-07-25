@@ -386,6 +386,21 @@
 	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
+.groupStackContent {
+	animation: groupCardContentEnter 200ms ease-out;
+}
+
+@keyframes groupCardContentEnter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 .groupBadge {
 	position: absolute;
 	top: -8px;
@@ -483,6 +498,187 @@
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* ===== 标签筛选对话框 ===== */
+.labelFilterDialog {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: min(640px, 92vw);
+	max-height: min(560px, 86vh);
+	z-index: 50;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.labelFilterHeader {
+	padding: var(--space-3) var(--space-3) 0;
+}
+
+.labelFilterBody {
+	flex: 1;
+	display: flex;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	overflow: auto;
+	min-height: 0;
+}
+
+.labelFilterSection {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	border: 2px dashed var(--gray-6);
+	border-radius: var(--radius-3);
+	padding: var(--space-2);
+	transition: border-color 120ms ease, background-color 120ms ease;
+	min-height: 180px;
+	background: var(--gray-a2);
+}
+
+.labelFilterSectionSufficient {
+	border-color: var(--blue-7);
+	background: var(--blue-a2);
+}
+
+.labelFilterSectionNecessary {
+	border-color: var(--red-7);
+	background: var(--red-a2);
+}
+
+.labelFilterSectionOver {
+	border-color: var(--accent-9);
+	background: var(--accent-a3);
+}
+
+.labelFilterSectionTitle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-size: var(--font-size-2);
+	font-weight: 600;
+}
+
+.labelFilterSectionDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	display: inline-block;
+}
+
+.labelFilterSectionDesc {
+	font-size: var(--font-size-1);
+	color: var(--gray-11);
+	line-height: 1.4;
+}
+
+.labelFilterList {
+	flex: 1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	align-content: flex-start;
+	min-height: 0;
+	overflow: auto;
+}
+
+.labelChip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: 2px 6px 2px 8px;
+	border-radius: 999px;
+	background: var(--color-panel-solid);
+	border: 1px solid var(--gray-6);
+	font-size: var(--font-size-1);
+	cursor: grab;
+	user-select: none;
+	transition: transform 80ms ease, box-shadow 80ms ease;
+}
+
+.labelChip:hover {
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.labelChip:active {
+	cursor: grabbing;
+}
+
+.labelChipDragging {
+	opacity: 0.4;
+}
+
+.labelChipDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	flex-shrink: 0;
+}
+
+.labelChipText {
+	white-space: nowrap;
+}
+
+.labelChipRemove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border: none;
+	background: transparent;
+	color: var(--gray-10);
+	cursor: pointer;
+	border-radius: 999px;
+	padding: 0;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.labelChipRemove:hover {
+	background: var(--gray-a4);
+	color: var(--gray-12);
+}
+
+.labelEmpty {
+	font-size: var(--font-size-1);
+	color: var(--gray-10);
+	padding: var(--space-2);
+	text-align: center;
+	width: 100%;
+}
+
+.labelFilterFooter {
+	padding: 0 var(--space-3) var(--space-3);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.labelFilterSummary {
+	font-size: var(--font-size-1);
+	color: var(--gray-11);
+}
+
+.filterBadge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: var(--accent-9);
+	color: var(--gray-1);
+	font-size: 10px;
+	font-weight: 600;
+	margin-left: 4px;
 }
 
 .meta {

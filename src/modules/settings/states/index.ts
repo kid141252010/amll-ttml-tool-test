@@ -106,6 +106,11 @@ export const reviewSelectedLabelsAtom = atomWithStorage<string[]>(
 	"reviewSelectedLabels",
 	[],
 );
+// 标签筛选「必要条件」: PR 必须包含此处全部标签
+export const reviewNecessaryLabelsAtom = atomWithStorage<string[]>(
+	"reviewNecessaryLabels",
+	[],
+);
 export const reviewPendingFilterAtom = atomWithStorage(
 	"reviewPendingFilter",
 	false,

@@ -128,6 +128,7 @@ export const ReviewReportDialog = () => {
 	const removeNotification = useSetAtom(removeNotificationAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const setReviewSession = useSetAtom(reviewSessionAtom);
+	const reviewSession = useAtomValue(reviewSessionAtom);
 	const pat = useAtomValue(githubPatAtom);
 	const submittedRef = useRef(false);
 	const [approvedByUser, setApprovedByUser] = useState(false);
@@ -270,7 +271,9 @@ export const ReviewReportDialog = () => {
 	const submitAndClose = () => {
 		cleanupDrafts(collectDraftIds());
 		submittedRef.current = true;
-		setReviewSession(null);
+		if (reviewSession?.prNumber === dialog.prNumber) {
+			setReviewSession(null);
+		}
 		closeDialog();
 	};
 	const getCleanReport = () => {
