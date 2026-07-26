@@ -17,6 +17,7 @@ export type PullRequestDetail = {
 	labels: Array<{ name: string; color: string }>;
 	htmlUrl?: string;
 	headSha?: string | null;
+	author?: string;
 };
 
 type PullRequestListItem = {
@@ -27,6 +28,7 @@ type PullRequestListItem = {
 	html_url?: string;
 	head?: { sha?: string | null };
 	labels?: Array<{ name: string; color: string }>;
+	user?: { login?: string };
 };
 
 type PullRequestPageResult = {
@@ -45,6 +47,7 @@ const mapPullRequestListItem = (
 	createdAt: item.created_at,
 	htmlUrl: item.html_url,
 	headSha: item.head?.sha ?? null,
+	author: item.user?.login,
 	labels:
 		item.labels?.map((label) => ({
 			name: label.name,
@@ -157,6 +160,7 @@ export const fetchPullRequestDetail = async (options: {
 		html_url?: string;
 		head?: { sha?: string | null };
 		labels?: Array<{ name: string; color: string }>;
+		user?: { login?: string };
 	};
 	return {
 		number: detail.number,
@@ -165,6 +169,7 @@ export const fetchPullRequestDetail = async (options: {
 		createdAt: detail.created_at,
 		htmlUrl: detail.html_url,
 		headSha: detail.head?.sha ?? null,
+		author: detail.user?.login,
 		labels:
 			detail.labels?.map((label) => ({
 				name: label.name,

@@ -20,6 +20,7 @@ export type ReviewPullRequest = {
 	body: string;
 	createdAt: string;
 	labels: ReviewLabel[];
+	author?: string;
 };
 
 export type ReviewMetadata = {

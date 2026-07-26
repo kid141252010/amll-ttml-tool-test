@@ -8,8 +8,14 @@ import {
 	TextField,
 	Avatar,
 } from "@radix-ui/themes";
-import { Search20Regular, Target20Regular, Filter20Regular } from "@fluentui/react-icons";
-import { useSetAtom } from "jotai";
+import {
+	Search20Regular,
+	Target20Regular,
+	Filter20Regular,
+	Eye20Regular,
+	EyeOff20Regular,
+} from "@fluentui/react-icons";
+import { useAtomValue, useSetAtom } from "jotai";
 import {
 	type CSSProperties,
 	type DragEvent,
@@ -24,6 +30,7 @@ import {
 import { NeteaseIdSelectDialog } from "$/modules/ncm/modals/NeteaseIdSelectDialog";
 import { ReviewExpandedContent } from "$/modules/review/modals/ReviewCardGroup";
 import {
+	extractMentions,
 	parseReviewMetadata,
 	renderCardContent,
 	type ReviewMetadata,
@@ -33,6 +40,7 @@ import { useReviewPageLogic } from "./page-hooks";
 import { useLyricsSiteAuth } from "./remote-service";
 import { pushNotificationAtom } from "$/states/notifications";
 import { reviewReportDialogAtom } from "$/states/dialogs";
+import { githubLoginAtom } from "$/modules/settings/states";
 import styles from "../index.module.css";
 
 type ReviewCardGroupItem = ReviewPullRequest[];
@@ -97,6 +105,16 @@ const getGroupSharedIds = (group: ReviewCardGroupItem) =>
 		new Set(group.flatMap((item) => getMetadataIds(parseReviewMetadata(item.body)))),
 	);
 
+const isOwnPr = (pr: ReviewPullRequest, login: string) => {
+	if (!login) return false;
+	const lowerLogin = login.trim().toLowerCase();
+	if (!lowerLogin) return false;
+	if (pr.author?.toLowerCase() === lowerLogin) return true;
+	const mentions = extractMentions(pr.body);
+	if (mentions[0]?.toLowerCase() === lowerLogin) return true;
+	return false;
+};
+
 const ReviewPage = () => {
 	const closeTimerRef = useRef<number | null>(null);
 	const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -121,6 +139,7 @@ const ReviewPage = () => {
 	} | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 	const deferredSearchQuery = useDeferredValue(searchQuery);
+	const [showOwnPrsOnly, setShowOwnPrsOnly] = useState(false);
 	const [mainReviewPage, setMainReviewPage] = useState(1);
 	const [mainPageInput, setMainPageInput] = useState("");
 	const [groupPickerPage, setGroupPickerPage] = useState(1);
@@ -159,6 +178,7 @@ const ReviewPage = () => {
 	} = useReviewPageLogic();
 	const pushNotification = useSetAtom(pushNotificationAtom);
 	const setReviewReportDialog = useSetAtom(reviewReportDialogAtom);
+	const githubLogin = useAtomValue(githubLoginAtom);
 	const {
 		user: lyricsSiteUser,
 		isLoggedIn: isLyricsSiteLoggedIn,
@@ -244,19 +264,13 @@ const ReviewPage = () => {
 
 	const priorityLabelName = "参与审核招募";
 	const sortedItems = useMemo(() => {
-		const searchLower = deferredSearchQuery.trim().toLowerCase();
-		const itemsWithPriority = filteredItems
-			.filter((pr) => {
-				if (!searchLower) return true;
-				return pr.title.toLowerCase().includes(searchLower);
-			})
-			.map((pr, index) => ({
-				pr,
-				index,
-				hasPriorityLabel: pr.labels.some(
-					(label) => label.name.trim() === priorityLabelName,
-				),
-			}));
+		const itemsWithPriority = filteredItems.map((pr, index) => ({
+			pr,
+			index,
+			hasPriorityLabel: pr.labels.some(
+				(label) => label.name.trim() === priorityLabelName,
+			),
+		}));
 		itemsWithPriority.sort((a, b) => {
 			if (a.hasPriorityLabel === b.hasPriorityLabel) {
 				return a.index - b.index;
@@ -264,26 +278,39 @@ const ReviewPage = () => {
 			return a.hasPriorityLabel ? -1 : 1;
 		});
 		return itemsWithPriority.map((item) => item.pr);
-	}, [filteredItems, deferredSearchQuery]);
+	}, [filteredItems]);
 	const rawGroupedItems = useMemo(
 		() => groupPullRequestsBySharedIds(sortedItems),
 		[sortedItems],
 	);
+	const searchedGroupedItems = useMemo(() => {
+		const searchLower = deferredSearchQuery.trim().toLowerCase();
+		if (!searchLower) return rawGroupedItems;
+		return rawGroupedItems.filter((group) =>
+			group.some((pr) => pr.title.toLowerCase().includes(searchLower)),
+		);
+	}, [rawGroupedItems, deferredSearchQuery]);
+	const filteredGroupedItems = useMemo(() => {
+		if (!showOwnPrsOnly || !githubLogin) return searchedGroupedItems;
+		return searchedGroupedItems.filter((group) =>
+			group.some((pr) => isOwnPr(pr, githubLogin)),
+		);
+	}, [searchedGroupedItems, showOwnPrsOnly, githubLogin]);
 	const currentReviewPrNumber = reviewSession?.prNumber;
 	const groupedItems = useMemo(() => {
-		if (!currentReviewPrNumber) return rawGroupedItems;
-		const currentGroupIndex = rawGroupedItems.findIndex((group) =>
+		if (!currentReviewPrNumber) return filteredGroupedItems;
+		const currentGroupIndex = filteredGroupedItems.findIndex((group) =>
 			group.some((pr) => pr.number === currentReviewPrNumber),
 		);
-		if (currentGroupIndex <= 0) return rawGroupedItems;
-		const currentGroup = rawGroupedItems[currentGroupIndex];
-		if (!currentGroup) return rawGroupedItems;
+		if (currentGroupIndex <= 0) return filteredGroupedItems;
+		const currentGroup = filteredGroupedItems[currentGroupIndex];
+		if (!currentGroup) return filteredGroupedItems;
 		return [
 			currentGroup,
-			...rawGroupedItems.slice(0, currentGroupIndex),
-			...rawGroupedItems.slice(currentGroupIndex + 1),
+			...filteredGroupedItems.slice(0, currentGroupIndex),
+			...filteredGroupedItems.slice(currentGroupIndex + 1),
 		];
-	}, [rawGroupedItems, currentReviewPrNumber]);
+	}, [filteredGroupedItems, currentReviewPrNumber]);
 	const mainReviewPageCount = Math.max(
 		1,
 		Math.ceil(groupedItems.length / MAIN_REVIEW_PAGE_SIZE),
@@ -320,7 +347,7 @@ const ReviewPage = () => {
 
 	useEffect(() => {
 		setMainReviewPage(1);
-	}, [deferredSearchQuery, selectedUser, currentReviewPrNumber]);
+	}, [deferredSearchQuery, selectedUser, currentReviewPrNumber, showOwnPrsOnly]);
 
 	useEffect(() => {
 		setMainReviewPage((page) => Math.min(page, mainReviewPageCount));
@@ -392,6 +419,7 @@ const ReviewPage = () => {
 		// 清除搜索词和用户筛选，确保目标 PR 可见
 		setSearchQuery("");
 		setSelectedUser(null);
+		setShowOwnPrsOnly(false);
 		setPendingTargetPrNumber(prNumber);
 
 		// 关闭对话框
@@ -857,6 +885,22 @@ const ReviewPage = () => {
 						<Filter20Regular />
 						{labelFilterTotal > 0 && (
 							<Box className={styles.filterBadge}>{labelFilterTotal}</Box>
+						)}
+					</Button>
+				</TextField.Slot>
+				<TextField.Slot>
+					<Button
+						size="1"
+						variant={showOwnPrsOnly ? "soft" : "ghost"}
+						color={showOwnPrsOnly ? "green" : "gray"}
+						onClick={() => setShowOwnPrsOnly((prev) => !prev)}
+						title={showOwnPrsOnly ? "正在显示自己的 PR" : "显示自己的 PR"}
+						disabled={!githubLogin}
+					>
+						{showOwnPrsOnly ? (
+							<Eye20Regular />
+						) : (
+							<EyeOff20Regular />
 						)}
 					</Button>
 				</TextField.Slot>
