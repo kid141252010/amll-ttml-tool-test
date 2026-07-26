@@ -2,6 +2,18 @@ import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
 export const audioBufferAtom = atom<AudioBuffer | null>(null);
+
+/**
+ * @description 底部音频可视化模式：频谱图 / 波形图
+ *
+ * 控制 AudioControls 面板展开时显示哪种可视化，用户偏好持久化。
+ */
+export type AudioVisualizationMode = "spectrogram" | "waveform";
+export const audioVisualizationModeAtom = atomWithStorage<AudioVisualizationMode>(
+	"settings_audioVisualizationMode",
+	"spectrogram",
+);
+
 export const volumeAtom = atomWithStorage("volume", 0.5);
 export const playbackRateAtom = atomWithStorage("playbackRate", 1);
 export const audioPlayingAtom = atom(false);

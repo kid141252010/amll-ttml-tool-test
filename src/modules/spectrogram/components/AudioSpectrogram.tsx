@@ -27,14 +27,15 @@ import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { audioEngine } from "$/modules/audio/audio-engine.ts";
 import {
 	audioBufferAtom,
+	audioVisualizationModeAtom,
 	auditionTimeAtom,
 	currentTimeAtom,
 } from "$/modules/audio/states/index.ts";
 import { useScrubbing } from "$/modules/spectrogram/hooks/useScrubbing";
 import { useSpectrogramInteraction } from "$/modules/spectrogram/hooks/useSpectrogramInteraction.ts";
 import { useSpectrogramResize } from "$/modules/spectrogram/hooks/useSpectrogramResize.ts";
-import { useSpectrogramWorker } from "$/modules/spectrogram/hooks/useSpectrogramWorker.ts";
 import { useTimelineEditing } from "$/modules/spectrogram/hooks/useTimelineEditing.ts";
+import { useVisualizationWorker } from "$/modules/spectrogram/hooks/useVisualizationWorker.ts";
 import {
 	currentPaletteAtom,
 	spectrogramContainerWidthAtom,
@@ -60,7 +61,9 @@ import {
 } from "./TimelineRuler.tsx";
 
 const TILE_DURATION_S = 5;
-const LOD_WIDTHS = [512, 1024, 2048, 4096, 8192];
+const SPECTROGRAM_LOD_WIDTHS = [512, 1024, 2048, 4096, 8192];
+// 波形图计算量远小于频谱图（无 FFT），可使用更高 LOD 以在放大时呈现更精细的波形
+const WAVEFORM_LOD_WIDTHS = [512, 1024, 2048, 4096, 8192, 16384];
 
 export const AudioSpectrogram: FC = () => {
 	const audioBuffer = useAtomValue(audioBufferAtom);
@@ -75,6 +78,7 @@ export const AudioSpectrogram: FC = () => {
 	const [showUnselectedLines, setShowUnselectedLines] = useAtom(
 		showUnselectedLinesAtom,
 	);
+	const visualizationMode = useAtomValue(audioVisualizationModeAtom);
 
 	const { height: uiHeight, resizeHandleProps } = useSpectrogramResize({
 		initialHeight: dataHeight,
@@ -121,7 +125,7 @@ export const AudioSpectrogram: FC = () => {
 	const { t } = useTranslation();
 
 	const { tileCache, requestTileIfNeeded, lastTileTimestamp } =
-		useSpectrogramWorker(audioBuffer, palette.data);
+		useVisualizationWorker(audioBuffer, palette.data, visualizationMode);
 
 	const {
 		handleContainerMouseDown,
@@ -151,8 +155,28 @@ export const AudioSpectrogram: FC = () => {
 		if (!audioBuffer || !scrollContainerRef.current) return;
 
 		const pixelsPerSecond = zoom;
-		const tileDisplayWidthPx = TILE_DURATION_S * pixelsPerSecond;
-		const totalTiles = Math.ceil(audioBuffer.duration / TILE_DURATION_S);
+		const desiredTileWidthPx = TILE_DURATION_S * pixelsPerSecond;
+
+		const currentPaletteId = palette.id;
+		const lodWidths =
+			visualizationMode === "waveform"
+				? WAVEFORM_LOD_WIDTHS
+				: SPECTROGRAM_LOD_WIDTHS;
+		const maxLod = lodWidths[lodWidths.length - 1];
+
+		// 变瓦片时长：放大到超出 maxLod 时，按 2 的幂次缩短瓦片时长，
+		// 使每瓦片像素宽度保持在 [maxLod/2, maxLod] 区间内，从而在极高放大下仍能呈现更精细的波形/频谱
+		let tileDurationS = TILE_DURATION_S;
+		let tileDisplayWidthPx = desiredTileWidthPx;
+		if (desiredTileWidthPx > maxLod) {
+			const overflow = desiredTileWidthPx / maxLod;
+			const divisionLevel = Math.max(1, Math.ceil(Math.log2(overflow)));
+			const divisions = Math.pow(2, divisionLevel);
+			tileDurationS = TILE_DURATION_S / divisions;
+			tileDisplayWidthPx = tileDurationS * pixelsPerSecond;
+		}
+
+		const totalTiles = Math.ceil(audioBuffer.duration / tileDurationS);
 
 		const viewStart = scrollLeft;
 		const viewEnd = viewStart + containerWidth;
@@ -162,20 +186,18 @@ export const AudioSpectrogram: FC = () => {
 
 		const newVisibleTiles: TileComponentProps[] = [];
 
-		const currentPaletteId = palette.id;
-
 		for (let i = firstVisibleIndex - 2; i <= lastVisibleIndex + 2; i++) {
 			if (i < 0 || i >= totalTiles) continue;
 
 			const cacheId = `tile-${i}`;
 			const targetLodWidth =
-				LOD_WIDTHS.find((w) => w >= tileDisplayWidthPx) ||
-				LOD_WIDTHS[LOD_WIDTHS.length - 1];
+				lodWidths.find((w) => w >= tileDisplayWidthPx) ||
+				lodWidths[lodWidths.length - 1];
 
 			requestTileIfNeeded({
 				tileIndex: i,
-				startTime: i * TILE_DURATION_S,
-				endTime: i * TILE_DURATION_S + TILE_DURATION_S,
+				startTime: i * tileDurationS,
+				endTime: i * tileDurationS + tileDurationS,
 				gain: gain,
 				height: dataHeight,
 				tileWidthPx: targetLodWidth,
@@ -203,6 +225,7 @@ export const AudioSpectrogram: FC = () => {
 		requestTileIfNeeded,
 		tileCache,
 		palette.id,
+		visualizationMode,
 		zoom,
 		scrollLeft,
 	]);
@@ -297,7 +320,11 @@ export const AudioSpectrogram: FC = () => {
 	return (
 		<div
 			className={styles.spectrogramContainer}
-			style={{ height: `${uiHeight}px` }}
+			style={{
+				height: `${uiHeight}px`,
+				backgroundColor:
+					visualizationMode === "waveform" ? "#000000" : undefined,
+			}}
 		>
 			<div className={styles.resizeHandle} {...resizeHandleProps} />
 

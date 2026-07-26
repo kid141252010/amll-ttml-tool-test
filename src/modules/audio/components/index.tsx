@@ -12,9 +12,11 @@
 import {
 	ChevronDownFilled,
 	ChevronUpFilled,
+	ColumnTripleFilled,
 	MusicNote2Filled,
 	PauseFilled,
 	PlayFilled,
+	PulseFilled,
 } from "@fluentui/react-icons";
 import {
 	Card,
@@ -35,6 +37,7 @@ import { audioEngine } from "$/modules/audio/audio-engine";
 import { AudioSlider } from "$/modules/audio/components/AudioSlider";
 import {
 	audioPlayingAtom,
+	audioVisualizationModeAtom,
 	currentDurationAtom,
 	currentTimeAtom,
 	playbackRateAtom,
@@ -104,6 +107,9 @@ const AudioPlaybackKeyBinding = memo(() => {
 export const AudioControls: FC = memo(() => {
 	const [audioLoaded, setAudioLoaded] = useState(false);
 	const [spectrogramVisible, setSpectrogramVisible] = useState(false);
+	const [visualizationMode, setVisualizationMode] = useAtom(
+		audioVisualizationModeAtom,
+	);
 	const currentTime = useAtomValue(currentTimeAtom);
 	const currentDuration = useAtomValue(currentDurationAtom);
 	const [audioPlaying, setAudioPlaying] = useAtom(audioPlayingAtom);
@@ -271,6 +277,32 @@ export const AudioControls: FC = memo(() => {
 						>
 							{msToTimestamp(currentDuration)}
 						</Text>
+						<Tooltip
+							content={
+								visualizationMode === "spectrogram"
+									? t("audioPanel.switchToWaveform", "切换为波形图")
+									: t("audioPanel.switchToSpectrogram", "切换为频谱图")
+							}
+						>
+							<IconButton
+								my="2"
+								ml="0"
+								variant="soft"
+								onClick={() =>
+									setVisualizationMode(
+										visualizationMode === "spectrogram"
+											? "waveform"
+											: "spectrogram",
+									)
+								}
+							>
+								{visualizationMode === "spectrogram" ? (
+									<PulseFilled />
+								) : (
+									<ColumnTripleFilled />
+								)}
+							</IconButton>
+						</Tooltip>
 						<Tooltip
 							content={t("audioPanel.expandSpectrogram", "展开 / 收起频谱图")}
 						>

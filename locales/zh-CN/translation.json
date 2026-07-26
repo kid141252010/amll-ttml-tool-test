@@ -531,6 +531,8 @@
 		"clickToLoadMusic": "点击图标按钮以加载音乐",
 		"playPause": "播放 / 暂停音乐",
 		"expandSpectrogram": "展开 / 收起频谱图",
+		"switchToWaveform": "切换为波形图",
+		"switchToSpectrogram": "切换为频谱图",
 		"cachedAudioLoaded": "已从缓存加载音频",
 		"cachedAudioMissing": "未找到缓存音频",
 		"cachedAudioFailed": "读取缓存音频失败"

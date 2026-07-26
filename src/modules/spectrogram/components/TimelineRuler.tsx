@@ -13,7 +13,9 @@ export interface TimelineRulerHandle {
 	draw: (scrollLeft: number) => void;
 }
 
-const TICK_INTERVALS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+const TICK_INTERVALS = [
+	0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600,
+];
 
 interface TimelineRulerProps {
 	zoom: number;
@@ -23,7 +25,7 @@ interface TimelineRulerProps {
 }
 
 function getTickInterval(zoom: number) {
-	const minPxPerTick = 50;
+	const minPxPerTick = 30;
 	const minSecondsPerTick = minPxPerTick / zoom;
 	const majorInterval =
 		TICK_INTERVALS.find((i) => i >= minSecondsPerTick) ||
@@ -70,6 +72,10 @@ export const TimelineRuler = forwardRef<
 
 			const { major, minor } = getTickInterval(zoom);
 
+			// 小间隔（< 1s）时缩小字号，避免 10ms 精度下标签重叠
+			const fontSize = major < 1 ? 9 : 11;
+			ctx.font = `${fontSize}px ${styles.getPropertyValue("--default-mono-font-family").trim() || "monospace"}`;
+
 			const startTime = scrollLeft / zoom;
 			const endTime = (scrollLeft + containerWidth) / zoom;
 			const firstMajorTick = Math.ceil(startTime / major) * major;
@@ -91,7 +97,18 @@ export const TimelineRuler = forwardRef<
 				ctx.moveTo(x, RULER_HEIGHT - 10);
 				ctx.lineTo(x, RULER_HEIGHT);
 
-				const label = msToTimestamp(time * 1000);
+				// 10ms 精度下：100ms 整数倍显示完整时间戳，否则只显示厘秒（两位）
+				let label: string;
+				if (major === 0.01) {
+					const ms = Math.round(time * 1000);
+					if (ms % 100 === 0) {
+						label = msToTimestamp(time * 1000);
+					} else {
+						label = String(ms % 100).padStart(2, "0");
+					}
+				} else {
+					label = msToTimestamp(time * 1000);
+				}
 				ctx.fillText(label, x, RULER_HEIGHT - 12);
 			}
 			ctx.stroke();
@@ -134,7 +151,7 @@ export const TimelineRuler = forwardRef<
 			style={{
 				width: "100%",
 				height: `${RULER_HEIGHT}px`,
-				backgroundColor: "var(--white-3)",
+				backgroundColor: "#ffffff",
 			}}
 			onClick={handleClick}
 			onContextMenu={(e) => e.preventDefault()}

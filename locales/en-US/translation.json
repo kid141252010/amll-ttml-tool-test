@@ -509,6 +509,8 @@
 		"clickToLoadMusic": "Click the icon button to load music",
 		"playPause": "Play / pause music",
 		"expandSpectrogram": "Expand / collapse spectrogram",
+		"switchToWaveform": "Switch to waveform",
+		"switchToSpectrogram": "Switch to spectrogram",
 		"cachedAudioLoaded": "Loaded audio from cache",
 		"cachedAudioMissing": "No cached audio found",
 		"cachedAudioFailed": "Failed to load cached audio"
