@@ -170,6 +170,7 @@ const ReviewPage = () => {
 		refreshReviewTimeline,
 		reviewedByUserMap,
 		reviewSession,
+		reviewStateMap,
 		selectedUser,
 		setSelectedUser,
 		setNecessaryLabels,
@@ -263,6 +264,42 @@ const ReviewPage = () => {
 	const labelFilterTotal = sufficientLabels.length + necessaryLabels.length;
 
 	const priorityLabelName = "参与审核招募";
+	const priorityPrNumbers = useMemo(
+		() =>
+			new Set(
+				items
+					.filter((pr) =>
+						pr.labels.some(
+							(label) => label.name.trim() === priorityLabelName,
+						),
+					)
+					.map((pr) => pr.number),
+			),
+		[items],
+	);
+	const reviewRays = useMemo(() => {
+		const allRays: Array<{
+			prNumber: number;
+			reviewer: string;
+			type: "approved" | "changes_requested";
+			submittedAt: string;
+		}> = [];
+		for (const prNumber of priorityPrNumbers) {
+			const state = reviewStateMap[prNumber];
+			if (state?.reviews) {
+				for (const review of state.reviews) {
+					allRays.push({
+						prNumber,
+						reviewer: review.user,
+						type: review.type,
+						submittedAt: review.submittedAt,
+					});
+				}
+			}
+		}
+		allRays.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
+		return { rays: allRays };
+	}, [priorityPrNumbers, reviewStateMap]);
 	const sortedItems = useMemo(() => {
 		const itemsWithPriority = filteredItems.map((pr, index) => ({
 			pr,
@@ -982,6 +1019,10 @@ const ReviewPage = () => {
 											reviewSession?.prNumber === primaryPr.number
 												? styles.reviewCard
 												: ""
+										} ${
+											priorityPrNumbers.has(primaryPr.number)
+												? styles.priorityCard
+												: ""
 										}`}
 									>
 										{renderCardContent({
@@ -994,6 +1035,8 @@ const ReviewPage = () => {
 												setSelectedUser((prev) =>
 													prev === user ? null : user,
 												),
+											isPriority: priorityPrNumbers.has(primaryPr.number),
+											reviewRays,
 										})}
 									</Card>
 								</Box>
@@ -1131,6 +1174,10 @@ const ReviewPage = () => {
 										key={pr.number}
 										className={`${styles.card} ${styles.groupPickerItem} ${
 											reviewSession?.prNumber === pr.number ? styles.reviewCard : ""
+										} ${
+											priorityPrNumbers.has(pr.number)
+												? styles.priorityCard
+												: ""
 										}`}
 										onClick={(event) => handleGroupItemClick(pr, event)}
 									>
@@ -1141,6 +1188,8 @@ const ReviewPage = () => {
 											reviewedByUser: reviewedByUserMap[pr.number] === true,
 											onSelectUser: (user) =>
 												setSelectedUser((prev) => (prev === user ? null : user)),
+											isPriority: priorityPrNumbers.has(pr.number),
+											reviewRays,
 										})}
 									</Card>
 								))}

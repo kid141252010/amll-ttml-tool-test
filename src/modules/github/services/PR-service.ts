@@ -331,6 +331,91 @@ export type PullRequestTimelineItem = {
 	submitted_at?: string | null;
 };
 
+export type ReviewEntry = {
+	type: "approved" | "changes_requested";
+	user: string;
+	submittedAt: string;
+};
+
+export type PrReviewState = {
+	approved: boolean;
+	changesRequested: boolean;
+	approvedBy: string[];
+	changesRequestedBy: string[];
+	reviews: ReviewEntry[];
+};
+
+export const fetchPullRequestReviewState = async (options: {
+	token: string;
+	prNumber: number;
+}): Promise<PrReviewState | null> => {
+	const headers: Record<string, string> = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${options.token}`,
+	};
+	const response = await githubFetch(
+		`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${options.prNumber}/reviews`,
+		{
+			params: { per_page: 100 },
+			init: { headers },
+		},
+	);
+	if (!response.ok) return null;
+	const reviews = (await response.json()) as Array<{
+		user?: { login?: string | null };
+		state?: string;
+		submitted_at?: string | null;
+	}>;
+	const latestByUser = new Map<
+		string,
+		{ state?: string; submitted_at?: string | null }
+	>();
+	for (const review of reviews) {
+		const login = review.user?.login?.toLowerCase();
+		if (!login) continue;
+		const existing = latestByUser.get(login);
+		if (
+			!existing ||
+			(review.submitted_at &&
+				(!existing.submitted_at ||
+					review.submitted_at > existing.submitted_at))
+		) {
+			latestByUser.set(login, {
+				state: review.state,
+				submitted_at: review.submitted_at,
+			});
+		}
+	}
+	const approvedBy: string[] = [];
+	const changesRequestedBy: string[] = [];
+	const reviewEntries: ReviewEntry[] = [];
+	for (const [login, { state, submitted_at }] of latestByUser) {
+		if (state === "APPROVED") {
+			approvedBy.push(login);
+			reviewEntries.push({
+				type: "approved",
+				user: login,
+				submittedAt: submitted_at ?? "",
+			});
+		}
+		if (state === "CHANGES_REQUESTED") {
+			changesRequestedBy.push(login);
+			reviewEntries.push({
+				type: "changes_requested",
+				user: login,
+				submittedAt: submitted_at ?? "",
+			});
+		}
+	}
+	return {
+		approved: approvedBy.length > 0,
+		changesRequested: changesRequestedBy.length > 0,
+		approvedBy,
+		changesRequestedBy,
+		reviews: reviewEntries,
+	};
+};
+
 export const fetchPullRequestTimelinePage = async (options: {
 	token: string;
 	prNumber: number;

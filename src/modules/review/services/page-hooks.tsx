@@ -35,7 +35,9 @@ import { loadFileFromPullRequest } from "$/modules/github/services/file-service"
 import {
 	fetchOpenPullRequestPage,
 	fetchPullRequestDetail,
+	fetchPullRequestReviewState,
 	fetchPullRequestTimelinePage,
+	type PrReviewState,
 } from "$/modules/github/services/PR-service";
 import {
 	fetchLabels as fetchLabelsService,
@@ -55,10 +57,12 @@ const PENDING_COMMIT_CACHE_KEY = "pending-commits";
 const TIMELINE_CACHE_KEY = "timeline-reviewed";
 const PENDING_LABEL_NAME = "待更新";
 const PENDING_LABEL_KEY = PENDING_LABEL_NAME.toLowerCase();
+const PRIORITY_LABEL_NAME = "参与审核招募";
 const CACHE_TTL = 30 * 60 * 1000;
 const LABEL_CACHE_TTL = 30 * 60 * 1000;
 const PENDING_COMMIT_CACHE_TTL = 10 * 60 * 1000;
 const TIMELINE_CACHE_TTL = 30 * 60 * 1000;
+const REVIEW_STATE_CONCURRENCY = 5;
 
 // PR 文件内存缓存（非持久化）
 type PrFileCacheEntry = {
@@ -289,6 +293,10 @@ export const useReviewPageLogic = () => {
 	const [postPendingCommitMap, setPostPendingCommitMap] = useState<
 		Record<number, boolean>
 	>({});
+	const [reviewStateMap, setReviewStateMap] = useState<
+		Record<number, PrReviewState>
+	>({});
+	const reviewStateFetchedRef = useRef<Set<number>>(new Set());
 	const lastRefreshTokenRef = useRef(refreshToken);
 
 	const hasPendingLabel = useCallback(
@@ -906,6 +914,56 @@ export const useReviewPageLogic = () => {
 		};
 	}, [hasAccess, pat, refreshToken, fetchLabels, refreshPendingLabels]);
 
+	useEffect(() => {
+		if (!hasAccess) return;
+		const token = pat.trim();
+		if (!token) return;
+		const priorityPrs = items.filter((pr) =>
+			pr.labels.some(
+				(label) => label.name.trim() === PRIORITY_LABEL_NAME,
+			),
+		);
+		const toFetch = priorityPrs.filter(
+			(pr) => !reviewStateFetchedRef.current.has(pr.number),
+		);
+		if (toFetch.length === 0) return;
+		let cancelled = false;
+		const run = async () => {
+			for (
+				let i = 0;
+				i < toFetch.length;
+				i += REVIEW_STATE_CONCURRENCY
+			) {
+				if (cancelled) return;
+				const batch = toFetch.slice(i, i + REVIEW_STATE_CONCURRENCY);
+				const batchResults = await Promise.all(
+					batch.map(async (pr) => {
+						const state = await fetchPullRequestReviewState({
+							token,
+							prNumber: pr.number,
+						});
+						return { prNumber: pr.number, state };
+					}),
+				);
+				if (cancelled) return;
+				setReviewStateMap((prev) => {
+					const next = { ...prev };
+					for (const { prNumber, state } of batchResults) {
+						reviewStateFetchedRef.current.add(prNumber);
+						if (state) {
+							next[prNumber] = state;
+						}
+					}
+					return next;
+				});
+			}
+		};
+		void run();
+		return () => {
+			cancelled = true;
+		};
+	}, [hasAccess, items, pat]);
+
 	const filteredItems = useMemo(
 		() =>
 			applyReviewFilters({
@@ -955,6 +1013,7 @@ export const useReviewPageLogic = () => {
 		refreshReviewTimeline,
 		reviewedByUserMap,
 		reviewSession,
+		reviewStateMap,
 		selectedUser,
 		setSelectedUser,
 		setNecessaryLabels,

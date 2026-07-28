@@ -226,20 +226,124 @@ export const renderMetaValues = (
 	));
 };
 
+const ReviewStatusRays = ({
+	rays,
+	styles,
+}: {
+	rays: RayInfo[];
+	styles: Record<string, string>;
+}) => {
+	const totalRays = Math.max(5, rays.length);
+	const totalAngle = 360 + Math.max(0, totalRays - 5) * 20;
+	const angleStep = totalAngle / totalRays;
+	const size = 40;
+	const center = size / 2;
+	const maxRadius = 17;
+	const spiralStart = 5;
+	const spiralPitch = 1;
+	const maxRayLength = 15 - 1;
+	const maxOuterR =
+		spiralStart +
+		maxRayLength +
+		((totalRays - 1) * angleStep * spiralPitch) / 360;
+	const scale = maxRadius / maxOuterR;
+	const lines = [];
+	for (let i = 0; i < totalRays; i += 1) {
+		const angleDeg = (i - totalRays + 1) * angleStep - 90;
+		const angle = (angleDeg * Math.PI) / 180;
+		const spiralR = spiralStart + (i * angleStep * spiralPitch) / 360;
+		const rayLength = 15 - totalRays + i;
+		const innerR = spiralR * scale;
+		const outerR = (spiralR + rayLength) * scale;
+		const x1 = center + innerR * Math.cos(angle);
+		const y1 = center + innerR * Math.sin(angle);
+		const x2 = center + outerR * Math.cos(angle);
+		const y2 = center + outerR * Math.sin(angle);
+		let className: string | undefined;
+		let titleText: string | null = null;
+		if (i < rays.length) {
+			const ray = rays[i];
+			if (ray.type === "approved") {
+				className = styles.rayApproved;
+				titleText = `Approved by ${ray.reviewer} (#${ray.prNumber})`;
+			} else {
+				className = styles.rayRequested;
+				titleText = `Requested changes by ${ray.reviewer} (#${ray.prNumber})`;
+			}
+		} else {
+			className = styles.rayDefault;
+		}
+		lines.push(
+			<line
+				key={i}
+				x1={x1}
+				y1={y1}
+				x2={x2}
+				y2={y2}
+				className={className}
+			>
+				{titleText && <title>{titleText}</title>}
+			</line>,
+		);
+	}
+	return (
+		<svg
+			className={styles.reviewRays}
+			width={size}
+			height={size}
+			viewBox={`0 0 ${size} ${size}`}
+		>
+			{lines}
+		</svg>
+	);
+};
+
+export type RayInfo = {
+	prNumber: number;
+	reviewer: string;
+	type: "approved" | "changes_requested";
+	submittedAt: string;
+};
+
 export const renderCardContent = (options: {
 	pr: ReviewPullRequest;
 	hiddenLabelSet: Set<string>;
 	styles: Record<string, string>;
 	reviewedByUser?: boolean;
 	onSelectUser?: (user: string) => void;
+	isPriority?: boolean;
+	reviewRays?: {
+		rays: RayInfo[];
+	};
 }) => {
 	const mentions = extractMentions(options.pr.body);
 	const visibleLabels = options.pr.labels.filter(
 		(label) => !options.hiddenLabelSet.has(label.name.toLowerCase()),
 	);
 	return (
-		<Flex direction="column" gap="2">
-			<Flex align="center" justify="between">
+		<Flex
+			direction="column"
+			gap="2"
+			className={options.styles.cardContent}
+		>
+			{options.isPriority && options.reviewRays && (
+				<ReviewStatusRays
+					rays={options.reviewRays.rays}
+					styles={options.styles}
+				/>
+			)}
+			{options.isPriority && (
+				<Box className={options.styles.priorityBadge}>
+					<Text size="1">招募</Text>
+				</Box>
+			)}
+			<Flex
+				align="center"
+				justify="between"
+				className={
+					options.isPriority ? options.styles.cardTopRow : undefined
+				}
+			>
 				<Flex align="center" gap="1">
 					<Text size="2" weight="medium">
 						#{options.pr.number}

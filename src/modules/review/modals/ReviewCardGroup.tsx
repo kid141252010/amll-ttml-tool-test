@@ -11,6 +11,7 @@ import {
 	Stack20Regular,
 } from "@fluentui/react-icons";
 import { Box, Button, Flex, Spinner, Text } from "@radix-ui/themes";
+import { open } from "@tauri-apps/plugin-shell";
 import {
 	AppleMusicIcon,
 	NeteaseIcon,
@@ -75,6 +76,15 @@ export const ReviewExpandedContent = (options: {
 			setDownloadFilePending(false);
 		}
 	}, [neteaseIds, downloadFilePending, options]);
+
+	const handleOpenSplayer = useCallback(async (id: string) => {
+		const url = `splayer://${id}`;
+		if (import.meta.env.TAURI_ENV_PLATFORM) {
+			await open(url);
+		} else {
+			window.open(url);
+		}
+	}, []);
 	const platformItems = [
 		{
 			ids: neteaseIds,
@@ -319,29 +329,25 @@ export const ReviewExpandedContent = (options: {
 											</Text>
 										</Flex>
 										{isNetease ? (
-											<Flex wrap="wrap" gap="2">
-												{item.ids.map((id) => {
-													const isLoading = options.audioLoadPendingId === id;
-													const isLastOpened =
-														options.lastNeteaseIdByPr[options.pr.number] === id;
-													return (
-														<Button
-															key={id}
-															size="1"
-															onClick={() =>
-																options.onOpenFile(options.pr, [id])
-															}
-															disabled={isLoading}
-															{...(isLastOpened
-																? { variant: "soft", color: "blue" }
-																: {})}
-														>
-															{isLoading ? "加载中..." : id}
-														</Button>
-													);
-												})}
-											</Flex>
-										) : (
+										<Flex wrap="wrap" gap="2">
+											{item.ids.map((id) => {
+												const isLastOpened =
+													options.lastNeteaseIdByPr[options.pr.number] === id;
+												return (
+													<Button
+														key={id}
+														size="1"
+														onClick={() => handleOpenSplayer(id)}
+														{...(isLastOpened
+															? { variant: "soft", color: "blue" }
+															: {})}
+													>
+														{id}
+													</Button>
+												);
+											})}
+										</Flex>
+									) : (
 											<Button asChild size="1" variant="soft" color="gray">
 												<a
 													href={item.url ?? undefined}
