@@ -234,27 +234,49 @@ const ReviewStatusRays = ({
 	styles: Record<string, string>;
 }) => {
 	const totalRays = Math.max(5, rays.length);
-	const totalAngle = 360 + Math.max(0, totalRays - 5) * 20;
+	const totalAngle =
+		totalRays <= 5 ? 360 : 360 + 10 * totalRays;
 	const angleStep = totalAngle / totalRays;
-	const size = 40;
+	const size = 80;
 	const center = size / 2;
-	const maxRadius = 17;
-	const spiralStart = 5;
-	const spiralPitch = 1;
-	const maxRayLength = 15 - 1;
+	const maxRadius = center - 4;
+	const spiralStart = 1;
+	const spiralPitch = 10;
+	const rayLength = spiralPitch;
+	const extraSteps = 2;
 	const maxOuterR =
 		spiralStart +
-		maxRayLength +
+		rayLength +
 		((totalRays - 1) * angleStep * spiralPitch) / 360;
 	const scale = maxRadius / maxOuterR;
+	const spiralPathPoints: string[] = [];
+	const numSamples = 120;
+	const spiralThetaStart = -extraSteps * angleStep;
+	const spiralThetaEnd =
+		(totalRays - 1) * angleStep + (360 * rayLength) / spiralPitch;
+	for (let s = 0; s <= numSamples; s += 1) {
+		const t = s / numSamples;
+		const spiralTheta =
+			spiralThetaStart + t * (spiralThetaEnd - spiralThetaStart);
+		const r =
+			(spiralStart + (spiralTheta * spiralPitch) / 360) * scale;
+		const svgAngle =
+			(spiralTheta - (totalRays - 1) * angleStep - 90) *
+			(Math.PI / 180);
+		const x = center + r * Math.cos(svgAngle);
+		const y = center + r * Math.sin(svgAngle);
+		spiralPathPoints.push(
+			`${s === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`,
+		);
+	}
+	const spiralPath = spiralPathPoints.join(" ");
 	const lines = [];
 	for (let i = 0; i < totalRays; i += 1) {
 		const angleDeg = (i - totalRays + 1) * angleStep - 90;
 		const angle = (angleDeg * Math.PI) / 180;
 		const spiralR = spiralStart + (i * angleStep * spiralPitch) / 360;
-		const rayLength = 15 - totalRays + i;
-		const innerR = spiralR * scale;
-		const outerR = (spiralR + rayLength) * scale;
+		const innerR = spiralR * scale + 2;
+		const outerR = (spiralR + rayLength) * scale - 2;
 		const x1 = center + innerR * Math.cos(angle);
 		const y1 = center + innerR * Math.sin(angle);
 		const x2 = center + outerR * Math.cos(angle);
@@ -293,6 +315,7 @@ const ReviewStatusRays = ({
 			height={size}
 			viewBox={`0 0 ${size} ${size}`}
 		>
+			<path d={spiralPath} className={styles.spiralPath} />
 			{lines}
 		</svg>
 	);
