@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioVisualizationMode } from "$/modules/audio/states";
 import { LRUCache } from "$/modules/spectrogram/utils/lru-cache";
+import SpectrogramWorkerConstructor from "$/modules/spectrogram/workers/spectrogram.worker.ts?worker";
 import type {
 	SpectrogramWorker,
 	TileGenerationParams,
 	WorkerResponse,
 } from "$/modules/spectrogram/workers/types";
+import WaveformWorkerConstructor from "$/modules/waveform/workers/waveform.worker.ts?worker";
 
 const MAX_CACHED_TILES = 70;
 
@@ -37,8 +39,8 @@ class VisualizationWorkerClient {
 		}
 	>();
 
-	constructor(workerUrl: URL) {
-		this.worker = new Worker(workerUrl, { type: "module" });
+	constructor(mode: AudioVisualizationMode) {
+		this.worker = createVisualizationWorker(mode);
 		this.worker.onmessage = this.handleMessage.bind(this);
 	}
 
@@ -90,12 +92,13 @@ class VisualizationWorkerClient {
 	}
 }
 
-function getWorkerUrl(mode: AudioVisualizationMode): URL {
+function createVisualizationWorker(
+	mode: AudioVisualizationMode,
+): SpectrogramWorker {
 	if (mode === "waveform") {
-		// spectrogram/hooks/ → spectrogram/ → modules/ → waveform/workers/
-		return new URL("../../waveform/workers/waveform.worker.ts", import.meta.url);
+		return new WaveformWorkerConstructor() as unknown as SpectrogramWorker;
 	}
-	return new URL("../workers/spectrogram.worker.ts", import.meta.url);
+	return new SpectrogramWorkerConstructor() as unknown as SpectrogramWorker;
 }
 
 /**
@@ -144,7 +147,7 @@ export const useVisualizationWorker = (
 
 	// 模式切换时重建 Worker
 	useEffect(() => {
-		const client = new VisualizationWorkerClient(getWorkerUrl(mode));
+		const client = new VisualizationWorkerClient(mode);
 		clientRef.current = client;
 
 		// 清空旧模式的缓存与请求
@@ -191,19 +194,19 @@ export const useVisualizationWorker = (
 			if (!clientRef.current) return;
 
 			const currentMode = modeRef.current;
-		const cacheKey = `tile-${params.tileIndex}`;
-		const requestFingerprint = `${params.tileIndex}-s${params.startTime}-w${params.tileWidthPx}-h${params.height}-g${params.gain}-p${params.paletteId}-m${currentMode}`;
+			const cacheKey = `tile-${params.tileIndex}`;
+			const requestFingerprint = `${params.tileIndex}-s${params.startTime}-w${params.tileWidthPx}-h${params.height}-g${params.gain}-p${params.paletteId}-m${currentMode}`;
 
-		const cacheEntry = tileCache.current.get(cacheKey);
+			const cacheEntry = tileCache.current.get(cacheKey);
 
-		const isStale =
-			!cacheEntry ||
-			cacheEntry.startTime !== params.startTime ||
-			cacheEntry.width < params.tileWidthPx ||
-			cacheEntry.height !== params.height ||
-			cacheEntry.gain !== params.gain ||
-			cacheEntry.paletteId !== params.paletteId ||
-			cacheEntry.mode !== currentMode;
+			const isStale =
+				!cacheEntry ||
+				cacheEntry.startTime !== params.startTime ||
+				cacheEntry.width < params.tileWidthPx ||
+				cacheEntry.height !== params.height ||
+				cacheEntry.gain !== params.gain ||
+				cacheEntry.paletteId !== params.paletteId ||
+				cacheEntry.mode !== currentMode;
 
 			if (isStale && !activeRequests.current.has(requestFingerprint)) {
 				activeRequests.current.add(requestFingerprint);
