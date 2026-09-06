@@ -25,6 +25,10 @@ import "./utils/pwa.tsx";
 import { lyricLinesAtom } from "./states/main.ts";
 import { globalStore } from "./states/store.ts";
 
+window.addEventListener("vite:preloadError", () => {
+	window.location.reload();
+});
+
 async function startApp() {
 	enableMapSet();
 
