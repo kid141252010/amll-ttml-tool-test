@@ -103,7 +103,7 @@
 			"auxiliaryLineDisplay": "辅助行显示",
 			"rubyAnnotation": "Ruby 标注",
 			"grouping": "分组",
-			"amllTags": "AM 标记",
+			"amllTags": "标记声明",
 			"songPart": "Song Part",
 			"agent": "Agent",
 			"noAgents": "无可用 agent",

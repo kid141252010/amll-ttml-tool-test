@@ -1403,6 +1403,7 @@ const AuxiliaryDisplayField: FC = () => {
 
 const PrimaryContentField: FC = () => {
 	const { t } = useTranslation();
+	const primaryContentLabelId = useId();
 	const lyricLines = useAtomValue(lyricLinesAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
@@ -1615,23 +1616,32 @@ const PrimaryContentField: FC = () => {
 	]);
 
 	return (
-		<Grid columns="auto 1fr" gap="2" flexGrow="1" align="center">
-			<IconButton
-				variant="soft"
-				size="1"
-				onClick={openEditPrimaryLangDialog}
-				disabled={!selectedPrimaryLang}
-				aria-label={t("editLanguageDialog.editPrimary", "修改主要内容语言代码")}
-			>
-				<Edit16Regular />
-			</IconButton>
+		<>
+			<Flex align="center" gap="1">
+				<IconButton
+					variant="soft"
+					size="1"
+					onClick={openEditPrimaryLangDialog}
+					disabled={!selectedPrimaryLang}
+					aria-label={t("editLanguageDialog.editPrimary", "修改主要内容语言代码")}
+				>
+					<Edit16Regular />
+				</IconButton>
+				<Text size="1" id={primaryContentLabelId} wrap="nowrap">
+					{t("ribbonBar.editMode.primaryContent", "主要内容")}
+				</Text>
+			</Flex>
 			<Select.Root
 				value={selectedPrimaryLang}
 				onValueChange={handleLanguageChange}
 				disabled={languageOptions.length === 0}
 				size="1"
 			>
-				<Select.Trigger placeholder={placeholder} style={{ minWidth: "6ch" }} />
+				<Select.Trigger
+					placeholder={placeholder}
+					style={{ minWidth: "6em" }}
+					aria-labelledby={primaryContentLabelId}
+				/>
 				<Select.Content>
 					{languageOptions.map((lang) => (
 						<Box key={lang} position="relative">
@@ -1698,7 +1708,7 @@ const PrimaryContentField: FC = () => {
 					))}
 				</Select.Content>
 			</Select.Root>
-		</Grid>
+		</>
 	);
 };
 
@@ -2728,11 +2738,6 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 					</Grid>
 				</RibbonSection>
 				<RibbonSection
-					label={t("ribbonBar.editMode.primaryContent", "主要内容")}
-				>
-					<PrimaryContentField />
-				</RibbonSection>
-				<RibbonSection
 					label={t("ribbonBar.editMode.secondaryContent", "次要内容")}
 				>
 					<Grid columns="0fr 1fr" gap="2" gapY="1" flexGrow="1" align="center">
@@ -2774,8 +2779,9 @@ export const EditModeRibbonBar: FC = forwardRef<HTMLDivElement>(
 				>
 					<AuxiliaryDisplayField />
 				</RibbonSection>
-				<RibbonSection label={t("ribbonBar.editMode.amllTags", "AM 标记")}>
+				<RibbonSection label={t("ribbonBar.editMode.amllTags", "标记声明")}>
 					<Grid columns="auto 1fr" gap="2" gapY="1" flexGrow="1" align="center">
+						<PrimaryContentField />
 						<SongPartField />
 						<AgentField />
 					</Grid>
