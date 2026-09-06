@@ -22,17 +22,10 @@ import App from "./App.tsx";
 import "./i18n/index.ts";
 import "./index.css";
 import "./utils/pwa.tsx";
-import { wasm_start } from "@applemusic-like-lyrics/lyric";
-import { globalStore } from "./states/store.ts";
 import { lyricLinesAtom } from "./states/main.ts";
+import { globalStore } from "./states/store.ts";
 
 async function startApp() {
-	try {
-		wasm_start();
-	} catch (e) {
-		console.error("Error calling wasm_start:", e);
-	}
-
 	enableMapSet();
 
 	Sentry.init({
