@@ -10,6 +10,11 @@
  */
 
 import {
+	Add16Regular,
+	Delete16Regular,
+	Edit16Regular,
+} from "@fluentui/react-icons";
+import {
 	Box,
 	Button,
 	Checkbox,
@@ -24,34 +29,30 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-	addLanguageFontDialogAtom,
-	editLanguageDialogAtom,
-} from "$/states/dialogs";
-import { lyricLinesAtom } from "$/states/main";
-import {
 	alignPositionAtom,
 	annotationFontAtom,
 	bgLineOpacityAtom,
 	fontScaleAtom,
+	fontWeightAtom,
 	hideInvalidRomanizationAtom,
 	hideObsceneWordsAtom,
+	type LanguageFont,
 	languageFontsAtom,
-	lyricWordFadeWidthAtom,
 	lyricWidthAtom,
+	lyricWordFadeWidthAtom,
 	originalFontAtom,
 	romanFontAtom,
 	showAnnotationLinesAtom,
 	showRomanLinesAtom,
 	showTranslationLinesAtom,
 	translationFontAtom,
-	type LanguageFont,
 } from "$/modules/settings/states/preview";
-import { RibbonFrame, RibbonSection } from "./common";
 import {
-	Add16Regular,
-	Delete16Regular,
-	Edit16Regular,
-} from "@fluentui/react-icons";
+	addLanguageFontDialogAtom,
+	editLanguageDialogAtom,
+} from "$/states/dialogs";
+import { lyricLinesAtom } from "$/states/main";
+import { RibbonFrame, RibbonSection } from "./common";
 
 export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 	(_props, ref) => {
@@ -72,6 +73,7 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		);
 		// 字体设置
 		const [fontScale, setFontScale] = useAtom(fontScaleAtom);
+		const [fontWeight, setFontWeight] = useAtom(fontWeightAtom);
 		const [originalFont, setOriginalFont] = useAtom(originalFontAtom);
 		const [translationFont, setTranslationFont] = useAtom(translationFontAtom);
 		const [romanFont, setRomanFont] = useAtom(romanFontAtom);
@@ -80,8 +82,8 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const [languageFonts, setLanguageFonts] = useAtom(languageFontsAtom);
 		const [selectedLang, setSelectedLang] = useState<string>("");
 		const setAddLanguageFontDialog = useSetAtom(addLanguageFontDialogAtom);
-	const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
-	const lyricLines = useAtomValue(lyricLinesAtom);
+		const setEditLanguageDialog = useSetAtom(editLanguageDialogAtom);
+		const lyricLines = useAtomValue(lyricLinesAtom);
 		// 布局设置
 		const [alignPosition, setAlignPosition] = useAtom(alignPositionAtom);
 		const [bgLineOpacity, setBgLineOpacity] = useAtom(bgLineOpacityAtom);
@@ -89,18 +91,18 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		const { t } = useTranslation();
 
 		// 当歌词语言变化时，自动选择对应的语言字体
-	useEffect(() => {
-		const currentLyricLang = lyricLines.lyricLang;
-		if (currentLyricLang) {
-			const hasLanguageFont = languageFonts.some(
-				(lf) => lf.lang === currentLyricLang,
-			);
-			// 只有当当前选中的语言与歌词语言不匹配，且歌词语言有对应的语言字体时，才自动切换
-			if (hasLanguageFont && selectedLang !== currentLyricLang) {
-				setSelectedLang(currentLyricLang);
+		useEffect(() => {
+			const currentLyricLang = lyricLines.lyricLang;
+			if (currentLyricLang) {
+				const hasLanguageFont = languageFonts.some(
+					(lf) => lf.lang === currentLyricLang,
+				);
+				// 只有当当前选中的语言与歌词语言不匹配，且歌词语言有对应的语言字体时，才自动切换
+				if (hasLanguageFont && selectedLang !== currentLyricLang) {
+					setSelectedLang(currentLyricLang);
+				}
 			}
-		}
-	}, [lyricLines, languageFonts, selectedLang]);
+		}, [lyricLines, languageFonts, selectedLang]);
 
 		// 获取当前选中的语言字体对象
 		const selectedLanguageFont = useMemo(() => {
@@ -152,7 +154,13 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 					setSelectedLang(trimmed);
 				},
 			});
-		}, [selectedLang, languageFonts, lyricLines.lyricLines, setLanguageFonts, setEditLanguageDialog]);
+		}, [
+			selectedLang,
+			languageFonts,
+			lyricLines.lyricLines,
+			setLanguageFonts,
+			setEditLanguageDialog,
+		]);
 
 		// 处理删除语言字体
 		const handleDeleteLanguage = useCallback(
@@ -179,11 +187,11 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 		);
 
 		// 检查当前歌词语言是否匹配语言字体设置
-	const matchedLanguageFont = useMemo(() => {
-		const currentLyricLang = lyricLines.lyricLang;
-		if (!currentLyricLang) return null;
-		return languageFonts.find((lf) => lf.lang === currentLyricLang) || null;
-	}, [lyricLines, languageFonts]);
+		const matchedLanguageFont = useMemo(() => {
+			const currentLyricLang = lyricLines.lyricLang;
+			if (!currentLyricLang) return null;
+			return languageFonts.find((lf) => lf.lang === currentLyricLang) || null;
+		}, [lyricLines, languageFonts]);
 
 		// 获取实际使用的原文字体（考虑语言字体覆盖）
 		const effectiveOriginalFont = useMemo(() => {
@@ -298,6 +306,37 @@ export const PreviewModeRibbonBar = forwardRef<HTMLDivElement>(
 							>
 								<TextField.Slot>%</TextField.Slot>
 							</TextField.Root>
+						</div>
+						<Text wrap="nowrap" size="1">
+							{t("ribbonBar.previewMode.fontWeight", "字体字重")}
+						</Text>
+						<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+							<Slider
+								value={[fontWeight]}
+								onValueChange={(v) => setFontWeight(v[0])}
+								min={100}
+								max={900}
+								step={100}
+								style={{ width: "80px" }}
+							/>
+							<Select.Root
+								value={fontWeight.toString()}
+								onValueChange={(v) => setFontWeight(Number.parseInt(v, 10))}
+								size="1"
+							>
+								<Select.Trigger style={{ width: "85px" }} />
+								<Select.Content>
+									<Select.Item value="100">100 (极细)</Select.Item>
+									<Select.Item value="200">200 (特细)</Select.Item>
+									<Select.Item value="300">300 (细体)</Select.Item>
+									<Select.Item value="400">400 (常规)</Select.Item>
+									<Select.Item value="500">500 (中等)</Select.Item>
+									<Select.Item value="600">600 (半粗)</Select.Item>
+									<Select.Item value="700">700 (粗体)</Select.Item>
+									<Select.Item value="800">800 (特粗)</Select.Item>
+									<Select.Item value="900">900 (极粗)</Select.Item>
+								</Select.Content>
+							</Select.Root>
 						</div>
 					</Grid>
 				</RibbonSection>

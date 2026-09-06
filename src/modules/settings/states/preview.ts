@@ -21,6 +21,7 @@ export const lyricWordFadeWidthAtom = atomWithStorage(
 
 // 字体设置
 export const fontScaleAtom = atomWithStorage("fontScale", 100); // 字号倍率 25-400%
+export const fontWeightAtom = atomWithStorage("fontWeight", 700); // 字重 100-900，默认 700
 export const originalFontAtom = atomWithStorage("originalFont", ""); // 原文字体
 export const translationFontAtom = atomWithStorage("translationFont", ""); // 翻译字体
 export const romanFontAtom = atomWithStorage("romanFont", ""); // 音译字体

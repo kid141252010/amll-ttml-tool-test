@@ -14,6 +14,9 @@
 	--amll-lp-translation-font: inherit;
 	--amll-lp-roman-font: inherit;
 	--amll-lp-annotation-font: inherit;
+	--amll-lp-font-weight: 700;
+
+	font-weight: var(--amll-lp-font-weight, 700);
 
 	/* 布局设置 */
 	--amll-wrapper-width: 1; /* 默认 100% */
@@ -34,6 +37,7 @@
 /* 字体和背景行透明度映射到官方样式类名 */
 .amllWrapper :global(.FmKaba_lyricMainLine) {
 	font-family: var(--amll-lp-original-font, inherit);
+	font-weight: var(--amll-lp-font-weight, 700);
 }
 
 .amllWrapper :global(.FmKaba_lyricSubLine) {

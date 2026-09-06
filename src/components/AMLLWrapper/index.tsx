@@ -32,6 +32,7 @@ import {
 	annotationFontAtom,
 	bgLineOpacityAtom,
 	fontScaleAtom,
+	fontWeightAtom,
 	hideInvalidRomanizationAtom,
 	languageFontsAtom,
 	lyricWidthAtom,
@@ -110,6 +111,7 @@ export const AMLLWrapper = memo(() => {
 	const tryAdvanceStartTime = useAtomValue(amllTryAdvanceStartTimeAtom);
 	// 字体设置
 	const fontScale = useAtomValue(fontScaleAtom);
+	const fontWeight = useAtomValue(fontWeightAtom);
 	const originalFont = useAtomValue(originalFontAtom);
 	const translationFont = useAtomValue(translationFontAtom);
 	const romanFont = useAtomValue(romanFontAtom);
@@ -198,6 +200,7 @@ export const AMLLWrapper = memo(() => {
 				{
 					// 字体设置 CSS 变量
 					"--amll-lp-font-scale": fontScale / 100,
+					"--amll-lp-font-weight": fontWeight,
 					"--amll-lp-original-font": effectiveOriginalFont || "inherit",
 					"--amll-lp-translation-font": translationFont || "inherit",
 					"--amll-lp-roman-font": romanFont || "inherit",

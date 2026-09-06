@@ -126,6 +126,7 @@
 			"fadeWidth": "过渡宽度",
 			"font": "默认字体",
 			"fontScale": "字号倍率",
+			"fontWeight": "字体字重",
 			"originalFont": "原文字体",
 			"translationFont": "翻译字体",
 			"romanFont": "音译字体",
@@ -380,21 +381,20 @@
 				"alignEndTimestamps": "对齐尾部时间戳",
 				"reduceStutter": "消减卡顿"
 			},
-			"perWordRomanization":
-	{
-		"index": "逐字音译",
-		"check": "检查逐字音译一致性",
-		"distribute": "自动分配罗马音...",
-		"distributeBySpace": "按空格自动分配",
-		"distributeByCharCount": "按字数自动分配",
-		"autoTransliteration": {
-			"index": "自动音译",
-			"pinyin": "拼音",
-			"jyutping": "粤拼",
-			"japanese": "日语注音",
-			"korean": "韩语注音"
-		}
-	},
+			"perWordRomanization": {
+				"index": "逐字音译",
+				"check": "检查逐字音译一致性",
+				"distribute": "自动分配罗马音...",
+				"distributeBySpace": "按空格自动分配",
+				"distributeByCharCount": "按字数自动分配",
+				"autoTransliteration": {
+					"index": "自动音译",
+					"pinyin": "拼音",
+					"jyutping": "粤拼",
+					"japanese": "日语注音",
+					"korean": "韩语注音"
+				}
+			},
 			"help": "帮助",
 			"helpDoc": "使用说明",
 			"github": "GitHub",

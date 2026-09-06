@@ -117,7 +117,8 @@
 			"maskObsceneWords": "Mask Obscene Words",
 			"hideInvalidRoman": "Hide Invalid Romanization",
 			"word": "Word",
-			"fadeWidth": "Fade Width"
+			"fadeWidth": "Fade Width",
+			"fontWeight": "Font Weight"
 		},
 		"syncMode": {
 			"currentEmptyBeat": "Empty Beat",
@@ -358,21 +359,20 @@
 				"syncLineTimestamps": "Sync Line Timestamps",
 				"alignEndTimestamps": "Align End Timestamps"
 			},
-			"perWordRomanization":
-	{
-		"index": "Per-Word Romanization",
-		"check": "Check Per-Word Romanization",
-		"distribute": "Distribute Romanization...",
-		"distributeBySpace": "Distribute by Space",
-		"distributeByCharCount": "Distribute by Char Count",
-		"autoTransliteration": {
-			"index": "Auto Transliteration",
-			"pinyin": "Pinyin",
-			"jyutping": "Jyutping",
-			"japanese": "Japanese Ruby",
-			"korean": "Korean Ruby"
-		}
-	},
+			"perWordRomanization": {
+				"index": "Per-Word Romanization",
+				"check": "Check Per-Word Romanization",
+				"distribute": "Distribute Romanization...",
+				"distributeBySpace": "Distribute by Space",
+				"distributeByCharCount": "Distribute by Char Count",
+				"autoTransliteration": {
+					"index": "Auto Transliteration",
+					"pinyin": "Pinyin",
+					"jyutping": "Jyutping",
+					"japanese": "Japanese Ruby",
+					"korean": "Korean Ruby"
+				}
+			},
 			"help": "Help",
 			"helpDoc": "Documentation (CN)",
 			"github": "GitHub",
