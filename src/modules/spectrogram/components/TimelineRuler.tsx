@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import {
 	forwardRef,
 	useCallback,
@@ -5,6 +6,7 @@ import {
 	useImperativeHandle,
 	useRef,
 } from "react";
+import { isDarkThemeAtom } from "$/states/main";
 import { msToTimestamp } from "$/utils/timestamp";
 
 export const RULER_HEIGHT = 24;
@@ -42,6 +44,7 @@ export const TimelineRuler = forwardRef<
 >(({ zoom, duration, containerWidth, onSeek }, ref) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const lastScrollLeft = useRef(0);
+	const isDarkTheme = useAtomValue(isDarkThemeAtom);
 
 	const drawRuler = useCallback(
 		(scrollLeft: number) => {
@@ -126,9 +129,10 @@ export const TimelineRuler = forwardRef<
 		[drawRuler],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: 切换明暗主题时触发重绘
 	useEffect(() => {
 		drawRuler(lastScrollLeft.current);
-	}, [drawRuler]);
+	}, [drawRuler, isDarkTheme]);
 
 	const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
 		const canvas = canvasRef.current;
@@ -151,7 +155,9 @@ export const TimelineRuler = forwardRef<
 			style={{
 				width: "100%",
 				height: `${RULER_HEIGHT}px`,
-				backgroundColor: "#ffffff",
+				backgroundColor: "var(--gray-3)",
+				borderBottom: "1px solid var(--gray-4)",
+				boxSizing: "border-box",
 			}}
 			onClick={handleClick}
 			onContextMenu={(e) => e.preventDefault()}
