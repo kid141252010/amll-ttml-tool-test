@@ -30,8 +30,8 @@ type LineMetadata = {
 	main: string;
 	bg: string;
 	isAutoFilled?: boolean;
-	// 多背景行翻译映射：itunesKey -> 翻译文本
-	bgByKey?: Map<string, string>;
+	// 多背景行翻译列表（按顺序）
+	bgList?: string[];
 };
 
 /**
@@ -318,9 +318,8 @@ export default function exportTTMLText(
 
 	head.appendChild(metadataEl);
 
-	// L 从 0 开始 (L0, L1, L2...)，B 从 1 开始 (B1, B2, B3...)
+	// L 从 0 开始 (L0, L1, L2...)
 	let i = 0;
-	let bCounter = 1;
 
 	const translationByLangMap = new Map<string, Map<string, LineMetadata>>();
 	const wordTranslationByLangMap = new Map<
@@ -397,8 +396,7 @@ export default function exportTTMLText(
 				lineP.setAttribute("amll:rtl", "true");
 			}
 
-			// 分配或复用 itunesKey
-			// 主行使用 L 编号，背景行使用 B 编号
+			// 分配或复用 itunesKey（仅主行使用 L 编号，背景行不设 itunesKey）
 			let itunesKey: string;
 			if (line.itunesKey?.match(/^L\d+$/)) {
 				// 复用现有的 L 编号
@@ -457,21 +455,6 @@ export default function exportTTMLText(
 					"http://www.w3.org/ns/ttml#metadata",
 				);
 				bgLineSpan.setAttribute("ttm:role", "x-bg");
-
-				// 为 bg 行分配或复用 itunesKey（B 编号）
-				let bgItunesKey: string;
-				if (bgLine.itunesKey?.match(/^B\d+$/)) {
-					// 复用现有的 B 编号
-					bgItunesKey = bgLine.itunesKey;
-					// 更新 B 计数器
-					const keyNum = Number.parseInt(bgItunesKey.slice(1));
-					if (keyNum >= bCounter) bCounter = keyNum + 1;
-				} else {
-					// 分配新的 B 编号
-					bgItunesKey = `B${bCounter}`;
-					bCounter++;
-				}
-				bgLineSpan.setAttribute("itunes:key", bgItunesKey);
 
 				// 为 bg 行导出 agent 属性（如果有的话）
 				if (bgLine.agent) {
@@ -546,35 +529,28 @@ export default function exportTTMLText(
 		for (const lang of translationLangs) {
 			if (lang === "und") continue; // 跳过 und，不输出
 			const mainData = line.translatedLyricByLang?.[lang];
-			// 收集所有背景行的翻译，按 itunesKey 分组
-			const bgByKey = new Map<string, string>();
+			// 收集所有背景行的翻译，按顺序存入列表
+			const bgList: string[] = [];
 			for (const bgLine of bgLines) {
 				const bgData = bgLine.translatedLyricByLang?.[lang];
-				if (bgData && bgLine.itunesKey) {
+				if (bgData) {
 					const bgParsed = getLangData(bgData, "");
 					if (bgParsed.data.trim()) {
-						bgByKey.set(bgLine.itunesKey, bgParsed.data);
+						bgList.push(bgParsed.data.trim());
 					}
 				}
 			}
-			// 如果没有多背景行，使用旧的 bg 字段
-			let bg = "";
-			if (bgLines.length === 1 && bgByKey.size === 0) {
-				const bgData = bgLines[0]?.translatedLyricByLang?.[lang];
-				if (bgData) {
-					bg = getLangData(bgData, "").data;
-				}
-			}
+			const bg = bgList.length > 0 ? bgList[0] : "";
 			// 使用辅助函数兼容旧数据格式
 			const mainParsed = getLangData(mainData, "");
 			const main = mainParsed.data;
 			// 检查是否为自动填充的语言代码
 			const isAutoFilled = mainParsed.isAutoFilled;
-			if (main.trim().length === 0 && bg.trim().length === 0 && bgByKey.size === 0) continue;
+			if (main.trim().length === 0 && bgList.length === 0) continue;
 			if (!translationByLangMap.has(lang)) {
 				translationByLangMap.set(lang, new Map());
 			}
-			translationByLangMap.get(lang)?.set(itunesKey, { main, bg, isAutoFilled, bgByKey });
+			translationByLangMap.get(lang)?.set(itunesKey, { main, bg, isAutoFilled, bgList });
 		}
 			// 注意：不输出无语言代码的 translatedLyric
 
@@ -620,19 +596,32 @@ export default function exportTTMLText(
 		for (const lang of romanLangs) {
 			if (lang === "und") continue; // 跳过 und，不输出
 			const mainData = line.romanLyricByLang?.[lang];
-			const bgData = bgLines.length === 1 ? bgLines[0]?.romanLyricByLang?.[lang] : undefined;
+			// 收集所有背景行的音译，按顺序存入列表
+			const bgList: string[] = [];
+			let anyBgAutoFilled = false;
+			for (const bgLine of bgLines) {
+				const bgData = bgLine.romanLyricByLang?.[lang];
+				if (bgData) {
+					const bgParsed = getLangData(bgData, "");
+					if (bgParsed.data.trim()) {
+						bgList.push(bgParsed.data.trim());
+					}
+					if (bgParsed.isAutoFilled) {
+						anyBgAutoFilled = true;
+					}
+				}
+			}
+			const bg = bgList.length > 0 ? bgList[0] : "";
 			// 使用辅助函数兼容旧数据格式
 			const mainParsed = getLangData(mainData, "");
-			const bgParsed = getLangData(bgData, "");
 			const main = mainParsed.data;
-			const bg = bgParsed.data;
 			// 检查是否为自动填充的语言代码
-			const isAutoFilled = mainParsed.isAutoFilled || bgParsed.isAutoFilled;
-			if (main.trim().length === 0 && bg.trim().length === 0) continue;
+			const isAutoFilled = mainParsed.isAutoFilled || anyBgAutoFilled;
+			if (main.trim().length === 0 && bgList.length === 0) continue;
 			if (!romanizationByLangMap.has(lang)) {
 				romanizationByLangMap.set(lang, new Map());
 			}
-			romanizationByLangMap.get(lang)?.set(itunesKey, { main, bg, isAutoFilled });
+			romanizationByLangMap.get(lang)?.set(itunesKey, { main, bg, isAutoFilled, bgList });
 		}
 			// 注意：不输出无语言代码的 romanLyric
 
@@ -738,29 +727,17 @@ export default function exportTTMLText(
 
 			// 2.1 处理逐行翻译（translationByLangMap）- type="subtitle"
 			for (const [lang, entries] of translationByLangMap.entries()) {
-				for (const [key, { main, bg, isAutoFilled, bgByKey }] of entries.entries()) {
+				for (const [key, { main, bg, isAutoFilled, bgList }] of entries.entries()) {
 					const textEl = doc.createElement("text");
 					textEl.setAttribute("for", key);
 					if (main.trim().length > 0) {
 						textEl.appendChild(doc.createTextNode(main));
 					}
-					// 多背景行支持：优先输出 bgByKey
-					if (bgByKey && bgByKey.size > 0) {
-						for (const [bgKey, bgText] of bgByKey.entries()) {
-							if (bgText.trim().length === 0) continue;
-							const bgSpan = doc.createElement("span");
-							bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-							bgSpan.setAttribute(
-								"xmlns:ttm",
-								"http://www.w3.org/ns/ttml#metadata",
-							);
-							bgSpan.setAttribute("ttm:role", "x-bg");
-							bgSpan.setAttribute("for", bgKey);
-							bgSpan.appendChild(doc.createTextNode(bgText));
-							textEl.appendChild(bgSpan);
-						}
-					} else if (bg.trim().length > 0) {
-						// 旧格式：单个背景行
+					// 多背景行支持：按顺序输出背景句翻译（Apple 标准，无 for 属性）
+					const effectiveBgList =
+						bgList && bgList.length > 0 ? bgList : bg.trim().length > 0 ? [bg] : [];
+					for (const bgText of effectiveBgList) {
+						if (bgText.trim().length === 0) continue;
 						const bgSpan = doc.createElement("span");
 						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
 						bgSpan.setAttribute(
@@ -768,7 +745,7 @@ export default function exportTTMLText(
 							"http://www.w3.org/ns/ttml#metadata",
 						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
-						bgSpan.appendChild(doc.createTextNode(bg));
+						bgSpan.appendChild(doc.createTextNode(bgText));
 						textEl.appendChild(bgSpan);
 					}
 					const translation = getOrCreateTranslation(lang, "subtitle", isAutoFilled);
@@ -876,13 +853,16 @@ export default function exportTTMLText(
 
 			// 处理逐行音译（romanizationByLangMap）
 			for (const [lang, entries] of romanizationByLangMap.entries()) {
-				for (const [key, { main, bg, isAutoFilled }] of entries.entries()) {
+				for (const [key, { main, bg, isAutoFilled, bgList }] of entries.entries()) {
 					const textEl = doc.createElement("text");
 					textEl.setAttribute("for", key);
 					if (main.trim().length > 0) {
 						textEl.appendChild(doc.createTextNode(main));
 					}
-					if (bg.trim().length > 0) {
+					const effectiveBgList =
+						bgList && bgList.length > 0 ? bgList : bg.trim().length > 0 ? [bg] : [];
+					for (const bgText of effectiveBgList) {
+						if (bgText.trim().length === 0) continue;
 						const bgSpan = doc.createElement("span");
 						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
 						bgSpan.setAttribute(
@@ -890,7 +870,7 @@ export default function exportTTMLText(
 							"http://www.w3.org/ns/ttml#metadata",
 						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
-						bgSpan.appendChild(doc.createTextNode(bg));
+						bgSpan.appendChild(doc.createTextNode(bgText));
 						textEl.appendChild(bgSpan);
 					}
 					const transliteration = getOrCreateTransliteration(lang, isAutoFilled);

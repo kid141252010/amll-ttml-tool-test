@@ -154,9 +154,7 @@ export interface LyricLine extends AMLLLyricLine {
 	 */
 	isRtl?: boolean;
 	/**
-	 * @description 该行的 itunes:key
-	 * - 主行: "L0", "L1", "L2"...
-	 * - 背景行: "B0", "B1", "B2"...
+	 * @description 该行的 itunes:key（仅主歌词行有效，格式如 "L0", "L1", "L2"...；背景行无 itunesKey）
 	 */
 	itunesKey?: string;
 }

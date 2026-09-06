@@ -106,17 +106,27 @@ const parseLineVocalIds = (value?: string | string[]) => {
 // 定义一个派生 Atom，用于计算每一行的显示行号
 const lineDisplayNumbersAtom = atom((get) => {
 	const { lyricLines } = get(lyricLinesAtom);
-	const displayNumbers: number[] = [];
+	const displayNumbers: string[] = [];
 	let currentNumber = 0;
 
-	for (const [index, line] of lyricLines.entries()) {
-		// 核心逻辑：只有当不是背景行时，计数器才+1
-		// 这样背景行就会自动继承上一行的行号
-		// 特例：首行从 1 开始
-		if (!index || !line.isBG) {
+	for (let index = 0; index < lyricLines.length; index++) {
+		const line = lyricLines[index];
+		if (!line.isBG) {
 			currentNumber++;
+			displayNumbers.push(`${currentNumber}`);
+		} else {
+			// 背景行：计算在当前主行下的背景序号（1, 2...）
+			let bgIndex = 1;
+			for (let i = index - 1; i >= 0 && lyricLines[i]?.isBG; i--) {
+				bgIndex++;
+			}
+			const hasNextBg = lyricLines[index + 1]?.isBG;
+			if (bgIndex > 1 || hasNextBg) {
+				displayNumbers.push(`${currentNumber}-BG${bgIndex}`);
+			} else {
+				displayNumbers.push(`${currentNumber}-BG`);
+			}
 		}
-		displayNumbers.push(currentNumber);
 	}
 
 	return displayNumbers;
@@ -385,17 +395,8 @@ export const LyricLineView: FC<{
 
 	// 创建一个仅订阅当前行显示行号的 atom，优化性能
 	const displayNumberAtom = useMemo(
-		() =>
-			atom((get) => {
-				const mainNumber = get(lineDisplayNumbersAtom)[lineIndex];
-				const currentLine = get(lineAtom);
-				// 背景行显示为 "主行号-itunesKey" 格式（如: 1-B0）
-				if (currentLine.isBG && currentLine.itunesKey) {
-					return `${mainNumber}-${currentLine.itunesKey}`;
-				}
-				return `${mainNumber}`;
-			}),
-		[lineIndex, lineAtom],
+		() => atom((get) => get(lineDisplayNumbersAtom)[lineIndex]),
+		[lineIndex],
 	);
 	const displayNumber = useAtomValue(displayNumberAtom);
 
@@ -407,8 +408,9 @@ export const LyricLineView: FC<{
 		const currentKey = line.itunesKey;
 		const isBG = line.isBG;
 
-		// 如果当前行已经有正确的 key 前缀，不需要更新
-		if (isBG && currentKey?.startsWith("B")) return;
+		// 如果状态已匹配，无需更新：
+		// 背景行不应有 itunesKey；主行必须有 L 开头的 itunesKey
+		if (isBG && !currentKey) return;
 		if (!isBG && currentKey?.startsWith("L")) return;
 
 		// 分配新的 key - 在回调内部计算，确保基于最新状态
@@ -417,15 +419,8 @@ export const LyricLineView: FC<{
 			if (!targetLine) return;
 
 			if (isBG) {
-				// 转为背景行：分配 B 编号
-				let maxB = 0;
-				for (const l of state.lyricLines) {
-					if (l.itunesKey?.startsWith("B")) {
-						const num = Number.parseInt(l.itunesKey.slice(1));
-						if (!Number.isNaN(num) && num > maxB) maxB = num;
-					}
-				}
-				targetLine.itunesKey = `B${maxB + 1}`;
+				// 转为背景行：移除 itunesKey
+				delete targetLine.itunesKey;
 			} else {
 				// 转为主行：分配 L 编号
 				let maxL = -1;

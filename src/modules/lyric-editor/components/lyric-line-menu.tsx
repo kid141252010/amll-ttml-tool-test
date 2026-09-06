@@ -45,33 +45,26 @@ export const LyricLineMenu = ({ lineIndex }: { lineIndex: number }) => {
 	function bgOnCheck(checked: boolean | "indeterminate") {
 		if (checked === "indeterminate") return;
 		setBgChecked(checked);
-		// 批量更新：同时更新 isBG 和 itunesKey，确保编号连续
+		// 批量更新：更新 isBG 状态，背景行移除 itunesKey，主行分配 L 编号
 		editLyricLines((state) => {
 			const lines = state.lyricLines.filter((line) =>
 				selectedLines.has(line.id),
 			);
 
-			// 计算当前最大的 L 和 B 编号
+			// 计算当前最大的 L 编号
 			let maxL = -1;
-			let maxB = 0;
 			for (const line of state.lyricLines) {
-				if (line.itunesKey) {
-					if (line.itunesKey.startsWith("L")) {
-						const num = Number.parseInt(line.itunesKey.slice(1));
-						if (!Number.isNaN(num) && num > maxL) maxL = num;
-					} else if (line.itunesKey.startsWith("B")) {
-						const num = Number.parseInt(line.itunesKey.slice(1));
-						if (!Number.isNaN(num) && num > maxB) maxB = num;
-					}
+				if (line.itunesKey?.startsWith("L")) {
+					const num = Number.parseInt(line.itunesKey.slice(1));
+					if (!Number.isNaN(num) && num > maxL) maxL = num;
 				}
 			}
 
 			for (const line of lines) {
 				line.isBG = checked;
 				if (checked) {
-					// 转为背景行：分配 B 编号（从 B1 开始）
-					maxB++;
-					line.itunesKey = `B${maxB}`;
+					// 转为背景行：移除 itunesKey（背景行无 itunesKey）
+					delete line.itunesKey;
 				} else {
 					// 转为主行：分配 L 编号（从 L0 开始）
 					maxL++;
