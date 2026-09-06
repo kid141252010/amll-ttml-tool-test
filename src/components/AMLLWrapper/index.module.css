@@ -16,10 +16,38 @@
 	--amll-lp-annotation-font: inherit;
 
 	/* 布局设置 */
-	--amll-lp-width: 1; /* 默认 100% */
+	--amll-wrapper-width: 1; /* 默认 100% */
+	--amll-lp-width: 100%; /* 确保 AMLL 官方歌词行宽度正常撑满 */
+
+	/* 字号倍率映射到官方 --amll-lp-font-size */
+	--amll-lp-font-size: calc(
+		max(max(5vh, 2.5vw), 12px) *
+		var(--amll-lp-font-scale, 1)
+	);
 }
 
 /* 歌词显示区域的宽度控制 */
 .amllWrapper {
-	padding: 0 calc((100% - (var(--amll-lp-width) * 100%)) / 2);
+	padding: 0 calc((100% - (var(--amll-wrapper-width) * 100%)) / 2);
+}
+
+/* 字体和背景行透明度映射到官方样式类名 */
+.amllWrapper :global(.FmKaba_lyricMainLine) {
+	font-family: var(--amll-lp-original-font, inherit);
+}
+
+.amllWrapper :global(.FmKaba_lyricSubLine) {
+	font-family: var(--amll-lp-translation-font, inherit);
+}
+
+.amllWrapper :global(.FmKaba_romanWord) {
+	font-family: var(--amll-lp-roman-font, inherit);
+}
+
+.amllWrapper :global(.FmKaba_rubyWord) {
+	font-family: var(--amll-lp-annotation-font, inherit);
+}
+
+.amllWrapper :global(.FmKaba_lyricBgLine) {
+	opacity: var(--amll-lp-bg-line-opacity, 0.4);
 }

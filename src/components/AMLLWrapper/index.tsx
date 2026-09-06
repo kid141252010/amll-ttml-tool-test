@@ -14,26 +14,10 @@ import { Card } from "@radix-ui/themes";
 import structuredClone from "@ungap/structured-clone";
 import classNames from "classnames";
 import { useAtomValue } from "jotai";
-import React, { memo, useEffect, useMemo, useRef } from "react";
+import type React from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { audioEngine } from "$/modules/audio/audio-engine";
 import { audioPlayingAtom, currentTimeAtom } from "$/modules/audio/states";
-import {
-	// hideObsceneWordsAtom,
-	alignPositionAtom,
-	annotationFontAtom,
-	bgLineOpacityAtom,
-	fontScaleAtom,
-	hideInvalidRomanizationAtom,
-	languageFontsAtom,
-	lyricWordFadeWidthAtom,
-	lyricWidthAtom,
-	originalFontAtom,
-	romanFontAtom,
-	showAnnotationLinesAtom,
-	showRomanLinesAtom,
-	showTranslationLinesAtom,
-	translationFontAtom,
-} from "$/modules/settings/states/preview";
 import {
 	amllCleanUnintentionalOverlapsAtom,
 	amllConvertExcessiveBackgroundLinesAtom,
@@ -42,6 +26,23 @@ import {
 	amllSyncMainAndBackgroundLinesAtom,
 	amllTryAdvanceStartTimeAtom,
 } from "$/modules/settings/states/amll";
+import {
+	// hideObsceneWordsAtom,
+	alignPositionAtom,
+	annotationFontAtom,
+	bgLineOpacityAtom,
+	fontScaleAtom,
+	hideInvalidRomanizationAtom,
+	languageFontsAtom,
+	lyricWidthAtom,
+	lyricWordFadeWidthAtom,
+	originalFontAtom,
+	romanFontAtom,
+	showAnnotationLinesAtom,
+	showRomanLinesAtom,
+	showTranslationLinesAtom,
+	translationFontAtom,
+} from "$/modules/settings/states/preview";
 import { isDarkThemeAtom, lyricLinesAtom } from "$/states/main.ts";
 import styles from "./index.module.css";
 
@@ -181,7 +182,7 @@ export const AMLLWrapper = memo(() => {
 		if (lyricPlayer) {
 			lyricPlayer.setLyricLines(lyricLines, currentTime * 1000);
 		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	useEffect(() => {
@@ -203,7 +204,8 @@ export const AMLLWrapper = memo(() => {
 					"--amll-lp-annotation-font": annotationFont || "inherit",
 					// 布局设置 CSS 变量
 					"--amll-lp-bg-line-opacity": bgLineOpacity / 100,
-					"--amll-lp-width": lyricWidth / 100,
+					"--amll-wrapper-width": lyricWidth / 100,
+					"--amll-lp-width": "100%",
 				} as React.CSSProperties
 			}
 		>
