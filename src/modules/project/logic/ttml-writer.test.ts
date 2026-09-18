@@ -565,3 +565,396 @@ describe("exportTTMLText - <p> timeline encompasses all spans", () => {
 		expect(p?.getAttribute("end")).toBe("00:16.500");
 	});
 });
+
+describe("exportTTMLText - leading x-bg placement", () => {
+	it("should prepend x-bg span before main words when x-bg starts earlier than main line", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 10000,
+				endTime: 15000,
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 10000,
+						endTime: 12000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+					{
+						id: "w2",
+						word: " world",
+						startTime: 12000,
+						endTime: 15000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 8000,
+				endTime: 9500,
+				words: [
+					{
+						id: "bg1",
+						word: "lead",
+						startTime: 8000,
+						endTime: 9500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+
+		expect(p).not.toBeNull();
+		const children = Array.from(p?.children ?? []);
+		expect(children.length).toBe(3); // [bgSpan, span(Hello), span( world)]
+
+		// 第一个子元素应为前置的 x-bg span
+		expect(children[0].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[0].textContent).toBe("(lead)");
+		expect(children[0].getAttribute("begin")).toBe("00:08.000");
+
+		// 后续子元素为主行音节
+		expect(children[1].textContent).toBe("Hello");
+		expect(children[2].textContent).toBe(" world");
+
+		// 时间轴依然正确囊括全部区间
+		expect(p?.getAttribute("begin")).toBe("00:08.000");
+		expect(p?.getAttribute("end")).toBe("00:15.000");
+	});
+
+	it("should append x-bg span after main words when x-bg starts later than main line", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 10000,
+				endTime: 15000,
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 10000,
+						endTime: 12000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+					{
+						id: "w2",
+						word: " world",
+						startTime: 12000,
+						endTime: 15000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 13000,
+				endTime: 16000,
+				words: [
+					{
+						id: "bg1",
+						word: "trail",
+						startTime: 13000,
+						endTime: 16000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+
+		const children = Array.from(p?.children ?? []);
+		expect(children.length).toBe(3);
+
+		// 主行音节在前
+		expect(children[0].textContent).toBe("Hello");
+		expect(children[1].textContent).toBe(" world");
+
+		// x-bg span 在后
+		expect(children[2].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[2].textContent).toBe("(trail)");
+	});
+
+	it("should append x-bg span after main words when x-bg starts at exactly the same time as main line", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 10000,
+				endTime: 15000,
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 10000,
+						endTime: 15000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 10000,
+				endTime: 13000,
+				words: [
+					{
+						id: "bg1",
+						word: "same",
+						startTime: 10000,
+						endTime: 13000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+
+		const children = Array.from(p?.children ?? []);
+		expect(children.length).toBe(2);
+		expect(children[0].textContent).toBe("Hello");
+		expect(children[1].getAttribute("ttm:role")).toBe("x-bg");
+	});
+
+	it("should handle mixed multiple background lines (leading and trailing)", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 10000,
+				endTime: 15000,
+				words: [
+					{
+						id: "w1",
+						word: "Main",
+						startTime: 10000,
+						endTime: 15000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 7000,
+				endTime: 9000,
+				words: [
+					{
+						id: "bg1",
+						word: "Intro-BG",
+						startTime: 7000,
+						endTime: 9000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 13000,
+				endTime: 17000,
+				words: [
+					{
+						id: "bg2",
+						word: "Outro-BG",
+						startTime: 13000,
+						endTime: 17000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+
+		const children = Array.from(p?.children ?? []);
+		expect(children.length).toBe(3);
+
+		// [0] 前置背景行: Intro-BG (7000 < 10000)
+		expect(children[0].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[0].textContent).toBe("(Intro-BG)");
+		expect(children[0].getAttribute("begin")).toBe("00:07.000");
+
+		// [1] 主行: Main (10000 - 15000)
+		expect(children[1].textContent).toBe("Main");
+
+		// [2] 后置背景行: Outro-BG (13000 >= 10000)
+		expect(children[2].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[2].textContent).toBe("(Outro-BG)");
+		expect(children[2].getAttribute("begin")).toBe("00:13.000");
+
+		// <p> 全区间囊括
+		expect(p?.getAttribute("begin")).toBe("00:07.000");
+		expect(p?.getAttribute("end")).toBe("00:17.000");
+	});
+
+	it("should prepend multiple background lines if all start earlier than main line", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 10000,
+				endTime: 15000,
+				words: [
+					{
+						id: "w1",
+						word: "Main",
+						startTime: 10000,
+						endTime: 15000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 6000,
+				endTime: 8000,
+				words: [
+					{
+						id: "bg1",
+						word: "BG1",
+						startTime: 6000,
+						endTime: 8000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 8000,
+				endTime: 9500,
+				words: [
+					{
+						id: "bg2",
+						word: "BG2",
+						startTime: 8000,
+						endTime: 9500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+
+		const children = Array.from(p?.children ?? []);
+		expect(children.length).toBe(3);
+
+		// 两条背景行都早于主行，均前置且保持原先后顺序
+		expect(children[0].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[0].textContent).toBe("(BG1)");
+
+		expect(children[1].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[1].textContent).toBe("(BG2)");
+
+		expect(children[2].textContent).toBe("Main");
+
+		expect(p?.getAttribute("begin")).toBe("00:06.000");
+		expect(p?.getAttribute("end")).toBe("00:15.000");
+	});
+
+	it("should prepend x-bg in static lyric mode when x-bg starts earlier than main line", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 10000,
+				endTime: 15000,
+				words: [
+					{
+						id: "w1",
+						word: "Static Main",
+						startTime: 10000,
+						endTime: 15000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 7000,
+				endTime: 9000,
+				words: [
+					{
+						id: "bg1",
+						word: "Static BG",
+						startTime: 7000,
+						endTime: 9000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+
+		const children = Array.from(p?.children ?? []);
+		expect(children.length).toBe(2);
+
+		// 前置背景行
+		expect(children[0].getAttribute("ttm:role")).toBe("x-bg");
+		expect(children[0].textContent).toBe("(Static BG)");
+		expect(children[1].textContent).toBe("Static Main");
+
+		expect(p?.getAttribute("begin")).toBe("00:07.000");
+		expect(p?.getAttribute("end")).toBe("00:15.000");
+	});
+});
