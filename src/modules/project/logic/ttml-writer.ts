@@ -24,7 +24,7 @@ import type {
 	TTMLTranslationWord,
 } from "../../../types/ttml.ts";
 import { log } from "../../../utils/logging.ts";
-import { msToTimestamp } from "../../../utils/timestamp.ts";
+import { msToTimestamp, parseTimespan } from "../../../utils/timestamp.ts";
 
 type LineMetadata = {
 	main: string;
@@ -377,11 +377,6 @@ export default function exportTTMLText(
 			// 跳过背景行，它们会被作为子元素嵌套在主行中
 			if (line.isBG) continue;
 			const lineP = doc.createElement("p");
-			const beginTime = line.startTime ?? 0;
-			const endTime = line.endTime;
-
-			lineP.setAttribute("begin", msToTimestamp(beginTime));
-			lineP.setAttribute("end", msToTimestamp(endTime));
 
 			// 优先使用 line.agent，如果没有则根据 isDuet 判断
 			const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
@@ -416,20 +411,14 @@ export default function exportTTMLText(
 			const bgWordsList: LyricWord[][] = [];
 
 			if (isDynamicLyric) {
-				let beginTime = Number.POSITIVE_INFINITY;
-				let endTime = 0;
 				for (const word of line.words) {
 					if (word.word.trim().length === 0 && !hasRuby(word)) {
 						lineP.appendChild(doc.createTextNode(word.word));
 					} else {
 						const span = createWordElement(word);
 						lineP.appendChild(span);
-						beginTime = Math.min(beginTime, word.startTime);
-						endTime = Math.max(endTime, word.endTime);
 					}
 				}
-				lineP.setAttribute("begin", msToTimestamp(line.startTime));
-				lineP.setAttribute("end", msToTimestamp(line.endTime));
 			} else {
 				const word = line.words[0];
 				if (word.word.trim().length === 0 && !hasRuby(word)) {
@@ -437,8 +426,6 @@ export default function exportTTMLText(
 				} else {
 					lineP.appendChild(createWordElement(word));
 				}
-				lineP.setAttribute("begin", msToTimestamp(word.startTime));
-				lineP.setAttribute("end", msToTimestamp(word.endTime));
 			}
 
 			// 处理所有连续的背景行（多背景行支持）
@@ -497,6 +484,10 @@ export default function exportTTMLText(
 							endTime = Math.max(endTime, word.endTime);
 						}
 					}
+					if (beginTime === Number.POSITIVE_INFINITY) {
+						beginTime = bgLine.startTime ?? 0;
+						endTime = bgLine.endTime ?? 0;
+					}
 					bgLineSpan.setAttribute("begin", msToTimestamp(beginTime));
 					bgLineSpan.setAttribute("end", msToTimestamp(endTime));
 				} else {
@@ -519,6 +510,58 @@ export default function exportTTMLText(
 
 				lineP.appendChild(bgLineSpan);
 			}
+
+			// 确保 <p> 的时间轴囊括主行自身以及所有子 span（包括主行音节 span、ruby span 以及 x-bg 背景行等）的时间轴
+			let minSpanBegin = Number.POSITIVE_INFINITY;
+			let maxSpanEnd = 0;
+			const timedSpans = lineP.querySelectorAll("span[begin][end]");
+			for (const span of Array.from(timedSpans)) {
+				const beginAttr = span.getAttribute("begin");
+				const endAttr = span.getAttribute("end");
+				if (beginAttr) {
+					try {
+						const t = parseTimespan(beginAttr);
+						if (!Number.isNaN(t)) {
+							minSpanBegin = Math.min(minSpanBegin, t);
+						}
+					} catch {}
+				}
+				if (endAttr) {
+					try {
+						const t = parseTimespan(endAttr);
+						if (!Number.isNaN(t)) {
+							maxSpanEnd = Math.max(maxSpanEnd, t);
+						}
+					} catch {}
+				}
+			}
+
+			let finalBeginTime = isDynamicLyric
+				? (line.startTime ?? 0)
+				: (line.words[0]?.startTime ?? line.startTime ?? 0);
+			let finalEndTime = isDynamicLyric
+				? (line.endTime ?? 0)
+				: (line.words[0]?.endTime ?? line.endTime ?? 0);
+
+			if (
+				lineIndex > 0 &&
+				finalBeginTime === 0 &&
+				minSpanBegin > 0 &&
+				minSpanBegin !== Number.POSITIVE_INFINITY
+			) {
+				finalBeginTime = minSpanBegin;
+			} else if (minSpanBegin !== Number.POSITIVE_INFINITY) {
+				finalBeginTime = Math.min(finalBeginTime, minSpanBegin);
+			}
+
+			if (finalEndTime === 0 && maxSpanEnd > 0) {
+				finalEndTime = maxSpanEnd;
+			} else {
+				finalEndTime = Math.max(finalEndTime, maxSpanEnd);
+			}
+
+			lineP.setAttribute("begin", msToTimestamp(finalBeginTime));
+			lineP.setAttribute("end", msToTimestamp(finalEndTime));
 
 			// 收集翻译数据：只输出有语言代码的翻译（translatedLyricByLang）
 			const translationLangs = new Set<string>([
@@ -660,6 +703,38 @@ export default function exportTTMLText(
 
 			paramDiv.appendChild(lineP);
 		}
+
+		// 确保 div 的时间轴也囊括其下所有 p 元素的时间轴
+		let divBegin = Number.POSITIVE_INFINITY;
+		let divEnd = 0;
+		for (const p of Array.from(paramDiv.querySelectorAll("p[begin][end]"))) {
+			const bAttr = p.getAttribute("begin");
+			const eAttr = p.getAttribute("end");
+			if (bAttr) {
+				try {
+					const b = parseTimespan(bAttr);
+					if (!Number.isNaN(b)) divBegin = Math.min(divBegin, b);
+				} catch {}
+			}
+			if (eAttr) {
+				try {
+					const e = parseTimespan(eAttr);
+					if (!Number.isNaN(e)) divEnd = Math.max(divEnd, e);
+				} catch {}
+			}
+		}
+
+		let finalDivBegin = beginTime;
+		let finalDivEnd = endTime;
+		if (divBegin !== Number.POSITIVE_INFINITY) {
+			finalDivBegin = Math.min(finalDivBegin, divBegin);
+		}
+		if (divEnd > 0) {
+			finalDivEnd = Math.max(finalDivEnd, divEnd);
+		}
+
+		paramDiv.setAttribute("begin", msToTimestamp(finalDivBegin));
+		paramDiv.setAttribute("end", msToTimestamp(finalDivEnd));
 
 		body.appendChild(paramDiv);
 	}
@@ -958,6 +1033,19 @@ export default function exportTTMLText(
 		// 将 iTunesMetadata 添加到 metadata 的最后
 		metadataEl.appendChild(iTunesMetadata);
 	}
+
+	// 确保 body 的 dur 至少等于最大的 div 结束时间
+	let maxBodyEnd = guessDuration;
+	for (const div of Array.from(body.querySelectorAll("div[end]"))) {
+		const eAttr = div.getAttribute("end");
+		if (eAttr) {
+			try {
+				const e = parseTimespan(eAttr);
+				if (!Number.isNaN(e)) maxBodyEnd = Math.max(maxBodyEnd, e);
+			} catch {}
+		}
+	}
+	body.setAttribute("dur", msToTimestamp(maxBodyEnd));
 
 	ttRoot.appendChild(body);
 	log("ttml document built", ttRoot);
