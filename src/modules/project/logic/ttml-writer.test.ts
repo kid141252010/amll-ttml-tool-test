@@ -623,10 +623,12 @@ describe("exportTTMLText - leading x-bg placement", () => {
 		const children = Array.from(p?.children ?? []);
 		expect(children.length).toBe(3); // [bgSpan, span(Hello), span( world)]
 
-		// 第一个子元素应为前置的 x-bg span
+		// 第一个子元素应为前置的 x-bg span，且不含冗余的 xmlns 与 xmlns:ttm 命名空间声明
 		expect(children[0].getAttribute("ttm:role")).toBe("x-bg");
 		expect(children[0].textContent).toBe("(lead)");
 		expect(children[0].getAttribute("begin")).toBe("00:08.000");
+		expect(children[0].hasAttribute("xmlns")).toBe(false);
+		expect(children[0].hasAttribute("xmlns:ttm")).toBe(false);
 
 		// 后续子元素为主行音节
 		expect(children[1].textContent).toBe("Hello");

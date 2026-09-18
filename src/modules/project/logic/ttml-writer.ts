@@ -458,11 +458,6 @@ export default function exportTTMLText(
 				bgWordsList.push(bgLine.words);
 
 				const bgLineSpan = doc.createElement("span");
-				bgLineSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-				bgLineSpan.setAttribute(
-					"xmlns:ttm",
-					"http://www.w3.org/ns/ttml#metadata",
-				);
 				bgLineSpan.setAttribute("ttm:role", "x-bg");
 
 				// 为 bg 行导出 agent 属性（如果有的话）
@@ -878,11 +873,6 @@ export default function exportTTMLText(
 					for (const bgText of effectiveBgList) {
 						if (bgText.trim().length === 0) continue;
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						bgSpan.appendChild(doc.createTextNode(bgText));
 						textEl.appendChild(bgSpan);
@@ -925,11 +915,6 @@ export default function exportTTMLText(
 
 					if (data.bgTrans.length > 0) {
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						const bgSpans: Element[] = [];
 						for (const word of data.bgWords) {
@@ -1021,11 +1006,6 @@ export default function exportTTMLText(
 					for (const bgText of effectiveBgList) {
 						if (bgText.trim().length === 0) continue;
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						bgSpan.appendChild(doc.createTextNode(bgText));
 						textEl.appendChild(bgSpan);
@@ -1067,11 +1047,6 @@ export default function exportTTMLText(
 
 					if (data.bgRoman.length > 0) {
 						const bgSpan = doc.createElement("span");
-						bgSpan.setAttribute("xmlns", "http://www.w3.org/ns/ttml");
-						bgSpan.setAttribute(
-							"xmlns:ttm",
-							"http://www.w3.org/ns/ttml#metadata",
-						);
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						const bgSpans: Element[] = [];
 						for (const word of data.bgWords) {
