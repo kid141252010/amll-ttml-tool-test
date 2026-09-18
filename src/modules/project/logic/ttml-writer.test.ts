@@ -85,6 +85,9 @@ describe("exportTTMLText - <p> timeline encompasses all spans", () => {
 		expect(bgSpan).not.toBeNull();
 		expect(bgSpan?.getAttribute("begin")).toBe("00:08.000");
 		expect(bgSpan?.getAttribute("end")).toBe("00:13.000");
+		expect(p?.firstElementChild).toBe(bgSpan);
+		expect(bgSpan?.hasAttribute("xmlns")).toBe(false);
+		expect(bgSpan?.hasAttribute("xmlns:ttm")).toBe(false);
 	});
 
 	it("should encompass x-bg span that ends later than main line", () => {
@@ -144,6 +147,9 @@ describe("exportTTMLText - <p> timeline encompasses all spans", () => {
 		expect(p?.getAttribute("begin")).toBe("00:10.000");
 		// end should encompass x-bg 18000ms (00:18.000)
 		expect(p?.getAttribute("end")).toBe("00:18.000");
+
+		const bgSpan = p?.querySelector('span[ttm\\:role="x-bg"]');
+		expect(p?.lastElementChild).toBe(bgSpan);
 	});
 
 	it("should encompass x-bg span that both starts earlier and ends later", () => {
