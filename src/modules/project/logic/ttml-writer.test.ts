@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
+
+import * as fs from "node:fs";
 import { describe, expect, it } from "vitest";
-import exportTTMLText from "./ttml-writer.ts";
+import type { LyricLine, TTMLLyric } from "../../../types/ttml.ts";
 import { parseLyric } from "./ttml-parser.ts";
-import type { TTMLLyric, LyricLine } from "../../../types/ttml.ts";
+import exportTTMLText from "./ttml-writer.ts";
 
 function createMockLyric(lines: Partial<LyricLine>[]): TTMLLyric {
 	return {
@@ -1015,7 +1017,10 @@ describe("exportTTMLText - special spans space isolation (experimental)", () => 
 		const xmlExplicitFalse = exportTTMLText(ttmlLyric, {
 			separateSpecialSpansWithSpace: false,
 		});
-		const docFalse = parser.parseFromString(xmlExplicitFalse, "application/xml");
+		const docFalse = parser.parseFromString(
+			xmlExplicitFalse,
+			"application/xml",
+		);
 		const pFalse = docFalse.querySelector("p");
 		const bgSpanFalse = pFalse?.querySelector('span[ttm\\:role="x-bg"]');
 		expect(bgSpanFalse?.previousSibling?.nodeType).toBe(Node.ELEMENT_NODE);
@@ -1419,15 +1424,82 @@ describe("exportTTMLText - special spans space isolation (experimental)", () => 
 		expect(mainLine.isBG).toBe(false);
 		expect(bgLine.isBG).toBe(true);
 
-		// 验证单词内容正确恢复
-		const mainWords = mainLine.words.map((w) => w.word).filter((w) => w.trim().length > 0);
-		expect(mainWords).toEqual(["Hello", "world"]);
+		// 验证单词内容正确恢复（不产生任何多余的空单词节点）
+		expect(mainLine.words.map((w) => w.word)).toEqual(["Hello", "world"]);
+		expect(mainLine.words.length).toBe(2);
 
-		const bgWords = bgLine.words.map((w) => w.word).filter((w) => w.trim().length > 0);
+		const bgWords = bgLine.words.map((w) => w.word);
 		expect(bgWords).toEqual(["Background"]);
 
 		// 验证翻译数据无损解析
 		expect(mainLine.translatedLyricByLang?.en?.data).toBe("Hello world trans");
 		expect(bgLine.translatedLyricByLang?.en?.data).toBe("Background trans");
+	});
+
+	it("should ignore pre-bg isolation space on import without adding extra empty word to main line, while preserving normal inter-word spaces", () => {
+		const ttml = `
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:itunes="http://music.apple.com/lyric-ttml-internal">
+  <body>
+    <div>
+      <p begin="01:00.000" end="01:05.000">
+        <span ttm:role="x-bg" begin="01:00.000" end="01:02.000"><span begin="01:00.000" end="01:02.000">(BG)</span></span> <span begin="01:02.500" end="01:03.500">Hello</span> <span begin="01:03.500" end="01:04.500">world</span>
+      </p>
+    </div>
+  </body>
+</tt>`;
+		const parsed = parseLyric(ttml);
+		expect(parsed.lyricLines.length).toBe(2);
+		const mainLine = parsed.lyricLines[0];
+		const bgLine = parsed.lyricLines[1];
+
+		// 背景行正确解析（首尾小括号会被 parser 标准化剔除）
+		expect(bgLine.isBG).toBe(true);
+		expect(bgLine.words.map((w) => w.word)).toEqual(["BG"]);
+
+		// 主行开头的隔离空格被跳过，词间普通空格完整保留
+		expect(mainLine.isBG).toBe(false);
+		expect(mainLine.words.map((w) => w.word)).toEqual(["Hello", " ", "world"]);
+		expect(mainLine.words.length).toBe(3);
+	});
+
+	it("should parse and round-trip JOLIN蔡依林 - 电话皇后 with pre-bg and normal spaces cleanly", () => {
+		const filePath = "F:\\ttml\\蔡依林\\Play\\JOLIN蔡依林 - 电话皇后.ttml";
+		if (!fs.existsSync(filePath)) return;
+		const raw = fs.readFileSync(filePath, "utf8");
+		const parsed = parseLyric(raw);
+
+		// 验证 12 个前置背景词均成功提取
+		const bgLines = parsed.lyricLines.filter((l) => l.isBG);
+		expect(bgLines.length).toBe(12);
+
+		// 开启空格隔离导出
+		const exported = exportTTMLText(parsed, {
+			separateSpecialSpansWithSpace: true,
+		});
+
+		// 再次导入
+		const reimported = parseLyric(exported);
+
+		// 检验 L12 前置背景词的主行：爱 上 我 吧（不得包含多余的开头空格节点）
+		const l12Main = reimported.lyricLines.find(
+			(l) => l.itunesKey === "L12" && !l.isBG,
+		);
+		expect(l12Main?.words.map((w) => w.word)).toEqual(["爱", "上", "我", "吧"]);
+
+		// 检验 L24 普通词间空格：One, two, three 前任算一下（词间空格不得丢失）
+		const l24Main = reimported.lyricLines.find((l) => l.itunesKey === "L24");
+		expect(l24Main?.words.map((w) => w.word)).toEqual([
+			"One,",
+			" ",
+			"two,",
+			" ",
+			"three",
+			" ",
+			"前",
+			"任",
+			"算",
+			"一",
+			"下",
+		]);
 	});
 });

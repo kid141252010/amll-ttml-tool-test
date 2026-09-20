@@ -29,9 +29,9 @@ import type {
 	TTMLTranslationWord,
 	TTMLVocalTag,
 } from "../../../types/ttml.ts";
-import { distributeRomanizationByCharCount } from "../../segmentation/utils/Transliteration/distributor.ts";
 import { log } from "../../../utils/logging.ts";
 import { parseTimespan } from "../../../utils/timestamp.ts";
+import { distributeRomanizationByCharCount } from "../../segmentation/utils/Transliteration/distributor.ts";
 
 /** 预设的 song-part 列表 */
 const PREDEFINED_SONG_PARTS = new Set([
@@ -95,6 +95,27 @@ function getAttr(el: Element, target: string): string | null {
 		}
 	}
 	return null;
+}
+
+function getAdjacentElement(
+	node: Node,
+	direction: "prev" | "next",
+): Element | null {
+	let curr = direction === "prev" ? node.previousSibling : node.nextSibling;
+	while (curr) {
+		if (curr.nodeType === Node.ELEMENT_NODE) {
+			return curr as Element;
+		}
+		curr = direction === "prev" ? curr.previousSibling : curr.nextSibling;
+	}
+	return null;
+}
+
+function isSpecialSpan(el: Element | null): boolean {
+	if (!el) return false;
+	if (localName(el).toLowerCase() !== "span") return false;
+	const role = getAttr(el, "role") ?? el.getAttribute("ttm:role");
+	return role === "x-bg" || role === "x-translation" || role === "x-roman";
 }
 
 function parseSpan(spanEl: Element): SpanNode {
@@ -416,7 +437,12 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			}
 		}
 
-		if (main.length > 0 || bg.length > 0 || bgByKey.size > 0 || bgList.length > 0) {
+		if (
+			main.length > 0 ||
+			bg.length > 0 ||
+			bgByKey.size > 0 ||
+			bgList.length > 0
+		) {
 			return { main, bg, bgByKey, bgList };
 		}
 
@@ -543,7 +569,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			.trim();
 
 		const lineData =
-			lineRomanMain.length > 0 || lineRomanBg.length > 0 || lineRomanBgList.length > 0
+			lineRomanMain.length > 0 ||
+			lineRomanBg.length > 0 ||
+			lineRomanBgList.length > 0
 				? { main: lineRomanMain, bg: lineRomanBg, bgList: lineRomanBgList }
 				: null;
 
@@ -937,9 +965,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		const romanWordData = effectiveKey
 			? itunesWordRomanizations.get(effectiveKey)
 			: undefined;
-		const sourceRomanList = isBG
-			? romanWordData?.bg
-			: romanWordData?.main;
+		const sourceRomanList = isBG ? romanWordData?.bg : romanWordData?.main;
 		const availableRomanWords = sourceRomanList ? [...sourceRomanList] : [];
 
 		if (effectiveKey) {
@@ -954,7 +980,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					line.translatedLyric = bgList[bgIndex];
 				} else if (bgByKey && bgByKey.size > 0) {
 					const values = Array.from(bgByKey.values());
-					line.translatedLyric = values[bgIndex] ?? timedTrans?.bg ?? lineTrans?.bg ?? "";
+					line.translatedLyric =
+						values[bgIndex] ?? timedTrans?.bg ?? lineTrans?.bg ?? "";
 				} else {
 					line.translatedLyric = timedTrans?.bg ?? lineTrans?.bg ?? "";
 				}
@@ -982,7 +1009,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 			for (const [lang, translations] of itunesTranslationsByLang.entries()) {
 				const timedTranslations = itunesTimedTranslationsByLang.get(lang);
 				const langTrans =
-					timedTranslations?.get(effectiveKey) ?? translations.get(effectiveKey);
+					timedTranslations?.get(effectiveKey) ??
+					translations.get(effectiveKey);
 				if (!langTrans) continue;
 				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
 				const isAutoFilled = lang === "und";
@@ -1038,7 +1066,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				line.romanLyricByLang = romanLyricByLang;
 			}
 
-			const wordRomanizationByLang: Record<string, TTMLLangData<TTMLRomanWord[]>> = {};
+			const wordRomanizationByLang: Record<
+				string,
+				TTMLLangData<TTMLRomanWord[]>
+			> = {};
 			for (const [
 				lang,
 				romanizations,
@@ -1062,6 +1093,20 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		for (const wordNode of lineEl.childNodes) {
 			if (wordNode.nodeType === Node.TEXT_NODE) {
 				const word = wordNode.textContent ?? "";
+				if (word.trim().length === 0) {
+					const prevEl = getAdjacentElement(wordNode, "prev");
+					const nextEl = getAdjacentElement(wordNode, "next");
+					// 仅当该空白节点夹在两个普通歌词 span 之间时，才作为普通词间空格保留；
+					// 若紧邻特殊 span（隔离空格）或位于行首/行尾（XML 换行缩进），均予以跳过。
+					if (
+						!prevEl ||
+						!nextEl ||
+						isSpecialSpan(prevEl) ||
+						isSpecialSpan(nextEl)
+					) {
+						continue;
+					}
+				}
 				line.words.push({
 					id: uid(),
 					word: word,
@@ -1092,8 +1137,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					} else if (role === "x-translation") {
 						// 读取 xml:lang 属性，如果没有则使用默认翻译语言代码
 						const transLangAttr =
-							wordEl.getAttribute("xml:lang") ??
-							wordEl.getAttribute("lang");
+							wordEl.getAttribute("xml:lang") ?? wordEl.getAttribute("lang");
 						const transLang = transLangAttr ?? DEFAULT_TRANSLATION_LANG;
 						// 标记是否为自动填充（没有 xml:lang 属性）
 						const isAutoFilled = !transLangAttr;
@@ -1141,7 +1185,10 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 
 		// 处理逐字翻译：只处理被标记为逐字翻译的语言
 		if (effectiveKey) {
-			const wordTranslationByLang: Record<string, TTMLLangData<TTMLTranslationWord[]>> = {};
+			const wordTranslationByLang: Record<
+				string,
+				TTMLLangData<TTMLTranslationWord[]>
+			> = {};
 			// 只遍历被标记为逐字翻译的语言
 			for (const lang of wordByWordLangs) {
 				// 标记是否为自动填充的语言代码（und 表示没有 xml:lang 属性）
