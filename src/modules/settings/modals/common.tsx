@@ -12,8 +12,10 @@ import {
 	Timer24Regular,
 	TopSpeed24Regular,
 	Color24Regular,
+	Beaker24Regular,
 } from "@fluentui/react-icons";
 import {
+	Badge,
 	Box,
 	Button,
 	Card,
@@ -34,7 +36,7 @@ import { playbackRateAtom, volumeAtom } from "$/modules/audio/states";
 import { readAudioCache } from "$/hooks/useFileOpener";
 import {
 	accentColorAtom,
-	AccentColor,
+	type AccentColor,
 	autosaveEnabledAtom,
 	autosaveIntervalAtom,
 	autosaveLimitAtom,
@@ -44,6 +46,7 @@ import {
 	smartFirstWordAtom,
 	smartLastWordAtom,
 	syncJudgeModeAtom,
+	separateSpecialSpansWithSpaceAtom,
 } from "$/modules/settings/states";
 import {
 	metaSuggestionManagerDialogAtom,
@@ -74,6 +77,8 @@ export const SettingsCommonTab = () => {
 	const [autosaveInterval, setAutosaveInterval] = useAtom(autosaveIntervalAtom);
 	const [autosaveLimit, setAutosaveLimit] = useAtom(autosaveLimitAtom);
 	const [accentColor, setAccentColor] = useAtom(accentColorAtom);
+	const [separateSpecialSpansWithSpace, setSeparateSpecialSpansWithSpace] =
+		useAtom(separateSpecialSpansWithSpaceAtom);
 
 	// 处理主题色切换，同时重新加载音频（非阻塞）
 	const handleAccentColorChange = useCallback(
@@ -794,6 +799,46 @@ export const SettingsCommonTab = () => {
 							</Flex>
 						</Box>
 					</Flex>
+				</Card>
+			</Flex>
+
+			<Flex direction="column" gap="2">
+				<Heading size="4">
+					{t("settings.group.experimental", "实验性功能")}
+				</Heading>
+				<Card>
+					<Text as="label">
+						<Flex gap="3" align="center">
+							<Beaker24Regular />
+							<Box flexGrow="1">
+								<Flex gap="2" align="center" justify="between">
+									<Flex direction="column" gap="1">
+										<Flex gap="2" align="center">
+											<Text>
+												{t(
+													"settings.common.separateSpecialSpansWithSpace",
+													"保存特殊 span 时以空格隔离",
+												)}
+											</Text>
+											<Badge size="1" color="amber" variant="soft">
+												{t("common.experimental", "实验性")}
+											</Badge>
+										</Flex>
+										<Text size="1" color="gray">
+											{t(
+												"settings.common.separateSpecialSpansWithSpaceDesc",
+												"在保存或导出 TTML 时，在特殊 span（如背景词 x-bg）前后以及背景翻译/音译之间添加空格隔离，提高在 Apple Music 等环境下的兼容性与可读性。",
+											)}
+										</Text>
+									</Flex>
+									<Switch
+										checked={separateSpecialSpansWithSpace}
+										onCheckedChange={setSeparateSpecialSpansWithSpace}
+									/>
+								</Flex>
+							</Box>
+						</Flex>
+					</Text>
 				</Card>
 			</Flex>
 		</Flex>

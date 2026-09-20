@@ -592,7 +592,8 @@
 		"remove": "移除",
 		"clickToSet": "点击设置",
 		"selectAll": "全选",
-		"logout": "登出"
+		"logout": "登出",
+		"experimental": "实验性"
 	},
 	"lyricEditor": {
 		"locate": "定位"
@@ -917,5 +918,14 @@
 		"consoleExample": "控制台输入示例",
 		"confirmStatement": "确认语句",
 		"completed": "已完成"
+	},
+	"settings": {
+		"group": {
+			"experimental": "实验性功能"
+		},
+		"common": {
+			"separateSpecialSpansWithSpace": "保存特殊 span 时以空格隔离",
+			"separateSpecialSpansWithSpaceDesc": "在保存或导出 TTML 时，在特殊 span（如背景词 x-bg）前后以及背景翻译/音译之间添加空格隔离，提高在 Apple Music 等环境下的兼容性与可读性。"
+		}
 	}
 }

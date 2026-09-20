@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import exportTTMLText from "./ttml-writer.ts";
+import { parseLyric } from "./ttml-parser.ts";
 import type { TTMLLyric, LyricLine } from "../../../types/ttml.ts";
 
 function createMockLyric(lines: Partial<LyricLine>[]): TTMLLyric {
@@ -962,5 +963,471 @@ describe("exportTTMLText - leading x-bg placement", () => {
 
 		expect(p?.getAttribute("begin")).toBe("00:07.000");
 		expect(p?.getAttribute("end")).toBe("00:15.000");
+	});
+});
+
+describe("exportTTMLText - special spans space isolation (experimental)", () => {
+	it("should not insert space separator by default or when option is false", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 3000,
+				words: [
+					{
+						id: "w1",
+						word: "Main",
+						startTime: 1000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 2000,
+				endTime: 4000,
+				words: [
+					{
+						id: "bg1",
+						word: "Bg",
+						startTime: 2000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xmlDefault = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const docDefault = parser.parseFromString(xmlDefault, "application/xml");
+		const pDefault = docDefault.querySelector("p");
+		const bgSpanDefault = pDefault?.querySelector('span[ttm\\:role="x-bg"]');
+		// 默认情况下，bgSpan 的前一个 sibling 应该是主 span，而不是空格文本节点
+		expect(bgSpanDefault?.previousSibling?.nodeType).toBe(Node.ELEMENT_NODE);
+
+		const xmlExplicitFalse = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: false,
+		});
+		const docFalse = parser.parseFromString(xmlExplicitFalse, "application/xml");
+		const pFalse = docFalse.querySelector("p");
+		const bgSpanFalse = pFalse?.querySelector('span[ttm\\:role="x-bg"]');
+		expect(bgSpanFalse?.previousSibling?.nodeType).toBe(Node.ELEMENT_NODE);
+	});
+
+	it("should isolate post-bg span with space when enabled", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 3000,
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 2000,
+				endTime: 4000,
+				words: [
+					{
+						id: "bg1",
+						word: "World",
+						startTime: 2000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: true,
+		});
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+		const bgSpan = p?.querySelector('span[ttm\\:role="x-bg"]');
+
+		expect(bgSpan).not.toBeNull();
+		const prev = bgSpan?.previousSibling;
+		expect(prev?.nodeType).toBe(Node.TEXT_NODE);
+		expect(prev?.textContent).toBe(" ");
+	});
+
+	it("should isolate pre-bg span with space when enabled", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 5000,
+				endTime: 8000,
+				words: [
+					{
+						id: "w1",
+						word: "Main",
+						startTime: 5000,
+						endTime: 8000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 2000,
+				endTime: 4000,
+				words: [
+					{
+						id: "bg1",
+						word: "Intro",
+						startTime: 2000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: true,
+		});
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+		const bgSpan = p?.querySelector('span[ttm\\:role="x-bg"]');
+
+		expect(bgSpan).not.toBeNull();
+		// 前置背景行后面应该是空格文本节点
+		const next = bgSpan?.nextSibling;
+		expect(next?.nodeType).toBe(Node.TEXT_NODE);
+		expect(next?.textContent).toBe(" ");
+	});
+
+	it("should isolate multiple consecutive bg spans with spaces", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 3000,
+				words: [
+					{
+						id: "w1",
+						word: "Main",
+						startTime: 1000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 2000,
+				endTime: 3500,
+				words: [
+					{
+						id: "bg1",
+						word: "Bg1",
+						startTime: 2000,
+						endTime: 3500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 2500,
+				endTime: 4000,
+				words: [
+					{
+						id: "bg2",
+						word: "Bg2",
+						startTime: 2500,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: true,
+		});
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+		const bgSpans = p?.querySelectorAll('span[ttm\\:role="x-bg"]');
+
+		expect(bgSpans?.length).toBe(2);
+		const bg1 = bgSpans?.[0];
+		const bg2 = bgSpans?.[1];
+
+		// 主行与 bg1 之间有空格
+		expect(bg1?.previousSibling?.nodeType).toBe(Node.TEXT_NODE);
+		expect(bg1?.previousSibling?.textContent).toBe(" ");
+
+		// bg1 与 bg2 之间有空格
+		expect(bg2?.previousSibling?.nodeType).toBe(Node.TEXT_NODE);
+		expect(bg2?.previousSibling?.textContent).toBe(" ");
+	});
+
+	it("should not insert duplicate space if main line already ends with whitespace", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 3000,
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+					{
+						id: "w2",
+						word: " ",
+						startTime: 0,
+						endTime: 0,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 2000,
+				endTime: 4000,
+				words: [
+					{
+						id: "bg1",
+						word: "World",
+						startTime: 2000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: true,
+		});
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const p = doc.querySelector("p");
+		const bgSpan = p?.querySelector('span[ttm\\:role="x-bg"]');
+
+		// 前面已有空格，不应连续插入两个独立的空格节点或双空格
+		const prev = bgSpan?.previousSibling;
+		expect(prev?.nodeType).toBe(Node.TEXT_NODE);
+		expect(prev?.textContent).toBe(" ");
+		// prev 的上一个兄弟节点应为元素节点（而非第二个空格节点）
+		expect(prev?.previousSibling?.nodeType).toBe(Node.ELEMENT_NODE);
+	});
+
+	it("should isolate bg translations and transliterations with space when enabled", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 3000,
+				words: [
+					{
+						id: "w1",
+						word: "主歌词",
+						startTime: 1000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					en: { data: "Main Trans" },
+				},
+				romanLyricByLang: {
+					en: { data: "main roman" },
+				},
+			},
+			{
+				isBG: true,
+				startTime: 2000,
+				endTime: 4000,
+				words: [
+					{
+						id: "bg1",
+						word: "背景词",
+						startTime: 2000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					en: { data: "Bg Trans" },
+				},
+				romanLyricByLang: {
+					en: { data: "bg roman" },
+				},
+			},
+		]);
+
+		// 1. 禁用时：主翻译与背景翻译之间无空格
+		const xmlDisabled = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: false,
+		});
+		const parser = new DOMParser();
+		const docDisabled = parser.parseFromString(xmlDisabled, "application/xml");
+		const transTextDisabled = docDisabled.querySelector(
+			"translations translation text",
+		);
+		const transBgDisabled = transTextDisabled?.querySelector(
+			'span[ttm\\:role="x-bg"]',
+		);
+		expect(transBgDisabled?.previousSibling?.textContent).toBe("Main Trans");
+
+		// 2. 启用时：主翻译与背景翻译之间以空格隔开
+		const xmlEnabled = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: true,
+		});
+		const docEnabled = parser.parseFromString(xmlEnabled, "application/xml");
+
+		// 检查翻译 <text>
+		const transText = docEnabled.querySelector("translations translation text");
+		expect(transText).not.toBeNull();
+		const transBgSpan = transText?.querySelector('span[ttm\\:role="x-bg"]');
+		expect(transBgSpan).not.toBeNull();
+		expect(transBgSpan?.previousSibling?.nodeType).toBe(Node.TEXT_NODE);
+		expect(transBgSpan?.previousSibling?.textContent?.endsWith(" ")).toBe(true);
+
+		// 检查音译 <text>
+		const romanText = docEnabled.querySelector(
+			"transliterations transliteration text",
+		);
+		expect(romanText).not.toBeNull();
+		const romanBgSpan = romanText?.querySelector('span[ttm\\:role="x-bg"]');
+		expect(romanBgSpan).not.toBeNull();
+		expect(romanBgSpan?.previousSibling?.nodeType).toBe(Node.TEXT_NODE);
+		expect(romanBgSpan?.previousSibling?.textContent?.endsWith(" ")).toBe(true);
+	});
+
+	it("should parse back cleanly with parseLyric (round-trip test)", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 5000,
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+					{
+						id: "w2",
+						word: "world",
+						startTime: 2500,
+						endTime: 5000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					en: { data: "Hello world trans" },
+				},
+			},
+			{
+				isBG: true,
+				startTime: 3000,
+				endTime: 6000,
+				words: [
+					{
+						id: "bg1",
+						word: "Background",
+						startTime: 3000,
+						endTime: 6000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					en: { data: "Background trans" },
+				},
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric, {
+			separateSpecialSpansWithSpace: true,
+		});
+
+		// 用 parseLyric 重新解析导出的 xml 字符串
+		const parsed = parseLyric(xml);
+
+		// 验证行数：应为 1 个主行 + 1 个背景行 = 2 行
+		expect(parsed.lyricLines.length).toBe(2);
+
+		const mainLine = parsed.lyricLines[0];
+		const bgLine = parsed.lyricLines[1];
+
+		expect(mainLine.isBG).toBe(false);
+		expect(bgLine.isBG).toBe(true);
+
+		// 验证单词内容正确恢复
+		const mainWords = mainLine.words.map((w) => w.word).filter((w) => w.trim().length > 0);
+		expect(mainWords).toEqual(["Hello", "world"]);
+
+		const bgWords = bgLine.words.map((w) => w.word).filter((w) => w.trim().length > 0);
+		expect(bgWords).toEqual(["Background"]);
+
+		// 验证翻译数据无损解析
+		expect(mainLine.translatedLyricByLang?.en?.data).toBe("Hello world trans");
+		expect(bgLine.translatedLyricByLang?.en?.data).toBe("Background trans");
 	});
 });
