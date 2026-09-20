@@ -413,19 +413,6 @@ export default function exportTTMLText(
 			if (line.isBG) continue;
 			const lineP = doc.createElement("p");
 
-			// 优先使用 line.agent，如果没有则根据 isDuet 判断
-			const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
-			lineP.setAttribute("ttm:agent", agentId);
-			const normalizedVocal = normalizeVocalValue(line.vocal);
-			if (normalizedVocal.length > 0) {
-				lineP.setAttribute("amll:vocal", normalizedVocal);
-			}
-
-			// 写入 RTL 标记
-			if (line.isRtl) {
-				lineP.setAttribute("amll:rtl", "true");
-			}
-
 			// 分配或复用 itunesKey（仅主行使用 L 编号，背景行不设 itunesKey）
 			let itunesKey: string;
 			if (line.itunesKey?.match(/^L\d+$/)) {
@@ -439,7 +426,6 @@ export default function exportTTMLText(
 				itunesKey = `L${i}`;
 				i++;
 			}
-			lineP.setAttribute("itunes:key", itunesKey);
 
 			const mainWords = line.words;
 			const bgLines: LyricLine[] = [];
@@ -666,8 +652,25 @@ export default function exportTTMLText(
 				finalEndTime = Math.max(finalEndTime, maxSpanEnd);
 			}
 
+			// 统一按标准声明顺序写入 lineP 的属性：begin, end, ttm:agent, amll:vocal, amll:rtl, itunes:key
 			lineP.setAttribute("begin", msToTimestamp(finalBeginTime));
 			lineP.setAttribute("end", msToTimestamp(finalEndTime));
+
+			// 优先使用 line.agent，如果没有则根据 isDuet 判断
+			const agentId = line.agent ?? (line.isDuet ? "v2" : "v1");
+			lineP.setAttribute("ttm:agent", agentId);
+
+			const normalizedVocal = normalizeVocalValue(line.vocal);
+			if (normalizedVocal.length > 0) {
+				lineP.setAttribute("amll:vocal", normalizedVocal);
+			}
+
+			// 写入 RTL 标记
+			if (line.isRtl) {
+				lineP.setAttribute("amll:rtl", "true");
+			}
+
+			lineP.setAttribute("itunes:key", itunesKey);
 
 			// 收集翻译数据：只输出有语言代码的翻译（translatedLyricByLang）
 			const translationLangs = new Set<string>([

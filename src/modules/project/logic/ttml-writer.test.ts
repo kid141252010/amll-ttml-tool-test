@@ -1501,5 +1501,13 @@ describe("exportTTMLText - special spans space isolation (experimental)", () => 
 			"一",
 			"下",
 		]);
+
+		// 检验 <p> 元素的属性声明顺序：必须是 begin, end 在最前，随后是 ttm:agent 和 itunes:key
+		const pMatch = exported.match(/<p\s+([^>]+)>/);
+		expect(pMatch).not.toBeNull();
+		const pTagOpening = pMatch![0];
+		expect(pTagOpening).toMatch(
+			/^<p\s+begin="[^"]*"\s+end="[^"]*"\s+ttm:agent="[^"]*"\s+itunes:key="[^"]*"/,
+		);
 	});
 });
