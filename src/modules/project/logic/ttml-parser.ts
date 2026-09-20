@@ -299,7 +299,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		for (const node of Array.from(textEl.childNodes)) {
 			if (node.nodeType === Node.ELEMENT_NODE) {
 				const el = node as Element;
-				if (el.getAttribute("ttm:role") === "x-bg") {
+				if ((getAttr(el, "role") ?? el.getAttribute("ttm:role")) === "x-bg") {
 					// 背景行：解析内部的 span
 					const nestedSpans = el.querySelectorAll("span[begin][end]");
 					if (nestedSpans.length > 0) {
@@ -380,7 +380,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				main += node.textContent ?? "";
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const el = node as Element;
-				if (el.getAttribute("ttm:role") === "x-bg") {
+				if ((getAttr(el, "role") ?? el.getAttribute("ttm:role")) === "x-bg") {
 					// 检查是否有 for 属性（兼容历史旧格式）
 					const forKey = el.getAttribute("for");
 					const bgText = el.textContent ?? "";
@@ -457,7 +457,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				lineRomanMain += node.textContent ?? "";
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const el = node as Element;
-				if (el.getAttribute("ttm:role") === "x-bg") {
+				if ((getAttr(el, "role") ?? el.getAttribute("ttm:role")) === "x-bg") {
 					const nestedSpans = el.querySelectorAll("span[begin][end]");
 					if (nestedSpans.length > 0) {
 						isWordByWord = true;
@@ -763,9 +763,18 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	}
 
 	const vocalTagMap = new Map<string, string>();
-	const vocalContainers = ttmlDoc.querySelectorAll(
-		"metadata > amll\\:vocals, metadata > vocals, amll\\:vocals, vocals",
-	);
+	let vocalContainers: Element[] = [];
+	try {
+		vocalContainers = Array.from(
+			ttmlDoc.querySelectorAll(
+				"metadata > amll\\:vocals, metadata > vocals, amll\\:vocals, vocals",
+			),
+		);
+	} catch {
+		vocalContainers = Array.from(ttmlDoc.querySelectorAll("*")).filter(
+			(el) => localName(el) === "vocals",
+		);
+	}
 	for (const container of vocalContainers) {
 		for (const vocal of container.querySelectorAll("vocal")) {
 			const key = vocal.getAttribute("key");
@@ -1065,9 +1074,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				});
 			} else if (wordNode.nodeType === Node.ELEMENT_NODE) {
 				const wordEl = wordNode as Element;
-				const role = wordEl.getAttribute("ttm:role");
+				const role = getAttr(wordEl, "role") ?? wordEl.getAttribute("ttm:role");
 
-				if (wordEl.nodeName === "span" && role) {
+				if (localName(wordEl).toLowerCase() === "span" && role) {
 					if (role === "x-bg") {
 						parseLineElement(
 							wordEl,

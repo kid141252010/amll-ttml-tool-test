@@ -185,3 +185,9 @@ export const accentColorAtom = atomWithStorage<AccentColor>(
 	"accentColor",
 	"green",
 );
+
+// 保存特殊 span（如 x-bg）时以空格隔离（实验性）
+export const separateSpecialSpansWithSpaceAtom = atomWithStorage(
+	"separateSpecialSpansWithSpace",
+	false,
+);

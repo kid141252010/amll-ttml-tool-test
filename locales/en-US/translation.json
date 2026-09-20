@@ -570,7 +570,8 @@
 		"remove": "Remove",
 		"clickToSet": "Click to set ",
 		"selectAll": "Select all",
-		"logout": "Log out"
+		"logout": "Log out",
+		"experimental": "Experimental"
 	},
 	"lyricEditor": {
 		"locate": "Locate"
@@ -889,5 +890,14 @@
 		"consoleExample": "Console input example",
 		"confirmStatement": "confirmation statement",
 		"completed": "Completed"
+	},
+	"settings": {
+		"group": {
+			"experimental": "Experimental"
+		},
+		"common": {
+			"separateSpecialSpansWithSpace": "Isolate special spans with spaces on save",
+			"separateSpecialSpansWithSpaceDesc": "When saving or exporting TTML, insert space separators before/after special spans (e.g. background x-bg) and between main/bg translations and transliterations."
+		}
 	}
 }

@@ -25,6 +25,8 @@ import type {
 } from "../../../types/ttml.ts";
 import { log } from "../../../utils/logging.ts";
 import { msToTimestamp, parseTimespan } from "../../../utils/timestamp.ts";
+import { separateSpecialSpansWithSpaceAtom } from "../../../modules/settings/states/index.ts";
+import { globalStore } from "../../../states/store.ts";
 
 type LineMetadata = {
 	main: string;
@@ -33,6 +35,16 @@ type LineMetadata = {
 	// 多背景行翻译列表（按顺序）
 	bgList?: string[];
 };
+
+function endsWithSpace(node: Node | null): boolean {
+	if (!node) return false;
+	return /\s$/.test(node.textContent ?? "");
+}
+
+function startsWithSpace(node: Node | null): boolean {
+	if (!node) return false;
+	return /^\s/.test(node.textContent ?? "");
+}
 
 /**
  * 辅助函数：从 TTMLLangData 或旧格式的字符串/数组中提取数据
@@ -61,10 +73,33 @@ function getLangData<T>(
 	return { data: value as T, isAutoFilled: false };
 }
 
+export interface ExportTTMLOptions {
+	pretty?: boolean;
+	separateSpecialSpansWithSpace?: boolean;
+}
+
 export default function exportTTMLText(
 	ttmlLyric: TTMLLyric,
-	pretty = false,
+	prettyOrOptions: boolean | ExportTTMLOptions = false,
 ): string {
+	const pretty =
+		typeof prettyOrOptions === "boolean"
+			? prettyOrOptions
+			: (prettyOrOptions?.pretty ?? false);
+	let separateSpecialSpansWithSpace =
+		typeof prettyOrOptions === "object"
+			? prettyOrOptions.separateSpecialSpansWithSpace
+			: undefined;
+
+	if (separateSpecialSpansWithSpace === undefined) {
+		try {
+			separateSpecialSpansWithSpace = globalStore.get(
+				separateSpecialSpansWithSpaceAtom,
+			);
+		} catch {
+			separateSpecialSpansWithSpace = false;
+		}
+	}
 	const params: LyricLine[][] = [];
 	const lyric = ttmlLyric.lyricLines;
 
@@ -537,13 +572,48 @@ export default function exportTTMLText(
 			}
 
 			// 按顺序挂载：前置背景行 -> 主行内容 -> 后置背景行
-			for (const preSpan of preBgSpans) {
+			for (let i = 0; i < preBgSpans.length; i++) {
+				const preSpan = preBgSpans[i];
+				if (
+					separateSpecialSpansWithSpace &&
+					i > 0 &&
+					lineP.lastChild &&
+					!endsWithSpace(lineP.lastChild) &&
+					!startsWithSpace(preSpan)
+				) {
+					lineP.appendChild(doc.createTextNode(" "));
+				}
 				lineP.appendChild(preSpan);
 			}
+
+			const hasNonEmptyMain = mainNodes.some(
+				(n) => (n.textContent ?? "").trim().length > 0,
+			);
+			if (
+				separateSpecialSpansWithSpace &&
+				preBgSpans.length > 0 &&
+				hasNonEmptyMain &&
+				lineP.lastChild &&
+				!endsWithSpace(lineP.lastChild) &&
+				!startsWithSpace(mainNodes[0])
+			) {
+				lineP.appendChild(doc.createTextNode(" "));
+			}
+
 			for (const node of mainNodes) {
 				lineP.appendChild(node);
 			}
-			for (const postSpan of postBgSpans) {
+
+			for (let j = 0; j < postBgSpans.length; j++) {
+				const postSpan = postBgSpans[j];
+				if (
+					separateSpecialSpansWithSpace &&
+					lineP.lastChild &&
+					!endsWithSpace(lineP.lastChild) &&
+					!startsWithSpace(postSpan)
+				) {
+					lineP.appendChild(doc.createTextNode(" "));
+				}
 				lineP.appendChild(postSpan);
 			}
 
@@ -872,6 +942,14 @@ export default function exportTTMLText(
 								: [];
 					for (const bgText of effectiveBgList) {
 						if (bgText.trim().length === 0) continue;
+						if (
+							separateSpecialSpansWithSpace &&
+							textEl.lastChild &&
+							!endsWithSpace(textEl.lastChild) &&
+							!/^\s/.test(bgText)
+						) {
+							textEl.appendChild(doc.createTextNode(" "));
+						}
 						const bgSpan = doc.createElement("span");
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						bgSpan.appendChild(doc.createTextNode(bgText));
@@ -946,6 +1024,14 @@ export default function exportTTMLText(
 							if (last.firstChild) {
 								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
 							}
+							if (
+								separateSpecialSpansWithSpace &&
+								textEl.lastChild &&
+								!endsWithSpace(textEl.lastChild) &&
+								!startsWithSpace(bgSpan)
+							) {
+								textEl.appendChild(doc.createTextNode(" "));
+							}
 							textEl.appendChild(bgSpan);
 						}
 					}
@@ -1005,6 +1091,14 @@ export default function exportTTMLText(
 								: [];
 					for (const bgText of effectiveBgList) {
 						if (bgText.trim().length === 0) continue;
+						if (
+							separateSpecialSpansWithSpace &&
+							textEl.lastChild &&
+							!endsWithSpace(textEl.lastChild) &&
+							!/^\s/.test(bgText)
+						) {
+							textEl.appendChild(doc.createTextNode(" "));
+						}
 						const bgSpan = doc.createElement("span");
 						bgSpan.setAttribute("ttm:role", "x-bg");
 						bgSpan.appendChild(doc.createTextNode(bgText));
@@ -1077,6 +1171,14 @@ export default function exportTTMLText(
 							}
 							if (last.firstChild) {
 								last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+							}
+							if (
+								separateSpecialSpansWithSpace &&
+								textEl.lastChild &&
+								!endsWithSpace(textEl.lastChild) &&
+								!startsWithSpace(bgSpan)
+							) {
+								textEl.appendChild(doc.createTextNode(" "));
 							}
 							textEl.appendChild(bgSpan);
 						}
