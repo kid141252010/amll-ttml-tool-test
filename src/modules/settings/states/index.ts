@@ -190,4 +190,6 @@ export const accentColorAtom = atomWithStorage<AccentColor>(
 export const separateSpecialSpansWithSpaceAtom = atomWithStorage(
 	"separateSpecialSpansWithSpace",
 	false,
+	undefined,
+	{ getOnInit: true },
 );

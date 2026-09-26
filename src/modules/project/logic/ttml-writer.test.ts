@@ -1510,4 +1510,63 @@ describe("exportTTMLText - special spans space isolation (experimental)", () => 
 			/^<p\s+begin="[^"]*"\s+end="[^"]*"\s+ttm:agent="[^"]*"\s+itunes:key="[^"]*"/,
 		);
 	});
+
+	it("should parse, export with space isolation, and round-trip Hebe田馥甄 - 01 大船 cleanly", () => {
+		const filePath = "F:\\ttml\\Hebe田馥甄\\要去什么地方\\01 大船.ttml";
+		if (!fs.existsSync(filePath)) return;
+		const raw = fs.readFileSync(filePath, "utf8");
+		const parsed = parseLyric(raw);
+
+		// 验证解析：L13 主行包含词间空格
+		const l13Main = parsed.lyricLines.find(
+			(l) => l.itunesKey === "L13" && !l.isBG,
+		);
+		expect(l13Main).toBeDefined();
+		expect(l13Main?.words.map((w) => w.word)).toEqual([
+			"换",
+			"来",
+			"了",
+			" ",
+			"换",
+			"来",
+			"了",
+			" ",
+			"换",
+			"来",
+			"了",
+			" ",
+			"换",
+			"来",
+			"了",
+		]);
+
+		// 显式开启空格隔离导出
+		const exportedWithSpace = exportTTMLText(parsed, {
+			separateSpecialSpansWithSpace: true,
+		});
+		expect(exportedWithSpace).toContain('了</span> <span ttm:role="x-bg"');
+
+		// 显式关闭空格隔离导出
+		const exportedWithoutSpace = exportTTMLText(parsed, {
+			separateSpecialSpansWithSpace: false,
+		});
+		expect(exportedWithoutSpace).toContain('了</span><span ttm:role="x-bg"');
+
+		// 模拟用户在客户端通过 localStorage 持久化设置的场景（无参调用）
+		if (typeof window !== "undefined" && window.localStorage) {
+			window.localStorage.setItem("separateSpecialSpansWithSpace", "true");
+			const exportedFromStorage = exportTTMLText(parsed);
+			expect(exportedFromStorage).toContain('了</span> <span ttm:role="x-bg"');
+			window.localStorage.removeItem("separateSpecialSpansWithSpace");
+		}
+
+		// 往返导入验证：隔离空格在导入时被安全跳过，词间空格完整保留
+		const reimported = parseLyric(exportedWithSpace);
+		const reimportedL13 = reimported.lyricLines.find(
+			(l) => l.itunesKey === "L13" && !l.isBG,
+		);
+		expect(reimportedL13?.words.map((w) => w.word)).toEqual(
+			l13Main?.words.map((w) => w.word),
+		);
+	});
 });
