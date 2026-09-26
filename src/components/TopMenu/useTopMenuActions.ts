@@ -1,30 +1,34 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom, withImmer } from "jotai-immer";
-import ToJyutping from "to-jyutping";
-import { pinyin } from "pinyin-pro";
 import { romanize } from "koroman";
+import { pinyin } from "pinyin-pro";
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
+import ToJyutping from "to-jyutping";
 import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
+import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import {
+	segmentLyricLines,
+	segmentWord,
+} from "$/modules/segmentation/utils/segmentation";
 import {
 	distributeRomanizationByCharCount,
 	distributeRomanizationBySpace,
 } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
-import {
-	segmentLyricLines,
-	segmentWord,
-} from "$/modules/segmentation/utils/segmentation";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
+import { separateSpecialSpansWithSpaceAtom } from "$/modules/settings/states/index.ts";
+import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
 	advancedSegmentationDialogAtom,
+	agentManagerDialogAtom,
 	confirmDialogAtom,
 	distributeRomanizationDialogAtom,
+	duplicateSongIdDialogAtom,
 	historyRestoreDialogAtom,
 	latencyTestDialogAtom,
 	metadataEditorDialogAtom,
@@ -33,10 +37,7 @@ import {
 	submitToAMLLDBDialogAtom,
 	timeShiftDialogAtom,
 	vocalTagsEditorDialogAtom,
-	duplicateSongIdDialogAtom,
-	agentManagerDialogAtom,
 } from "$/states/dialogs.ts";
-import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
 import {
 	keyDeleteSelectionAtom,
 	keyNewFileAtom,
@@ -60,11 +61,7 @@ import {
 	undoableLyricLinesAtom,
 	undoLyricLinesAtom,
 } from "$/states/main.ts";
-import {
-	type LyricWord,
-	type LyricWordBase,
-	newLyricWord,
-} from "$/types/ttml";
+import { type LyricWord, type LyricWordBase, newLyricWord } from "$/types/ttml";
 import { error, log } from "$/utils/logging.ts";
 
 export const useTopMenuActions = () => {
@@ -132,6 +129,9 @@ export const useTopMenuActions = () => {
 	const saveFileKey = useAtomValue(keySaveFileAtom);
 	const undoKey = useAtomValue(keyUndoAtom);
 	const redoKey = useAtomValue(keyRedoAtom);
+	const separateSpecialSpansWithSpace = useAtomValue(
+		separateSpecialSpansWithSpaceAtom,
+	);
 	const selectAllLinesKey = useAtomValue(keySelectAllAtom);
 	const selectInvertedLinesKey = useAtomValue(keySelectInvertedAtom);
 	const selectWordsOfMatchedSelectionKey = useAtomValue(
@@ -239,7 +239,9 @@ export const useTopMenuActions = () => {
 					existingIds,
 					onConfirm: () => {
 						// 用户确认后执行保存
-						const ttmlText = exportTTMLText(lyric);
+						const ttmlText = exportTTMLText(lyric, {
+							separateSpecialSpansWithSpace,
+						});
 						const b = new Blob([ttmlText], { type: "text/plain" });
 						saveFile(b, saveFileName).catch(error);
 					},
@@ -247,13 +249,20 @@ export const useTopMenuActions = () => {
 				return;
 			}
 
-			const ttmlText = exportTTMLText(lyric);
+			const ttmlText = exportTTMLText(lyric, {
+				separateSpecialSpansWithSpace,
+			});
 			const b = new Blob([ttmlText], { type: "text/plain" });
 			saveFile(b, saveFileName).catch(error);
 		} catch (e) {
 			error("Failed to save TTML file", e);
 		}
-	}, [saveFileName, store, setDuplicateSongIdDialog]);
+	}, [
+		saveFileName,
+		store,
+		setDuplicateSongIdDialog,
+		separateSpecialSpansWithSpace,
+	]);
 
 	const onOpenHistoryRestore = useCallback(() => {
 		setHistoryRestoreDialog(true);
@@ -271,19 +280,23 @@ export const useTopMenuActions = () => {
 					existingIds,
 					onConfirm: async () => {
 						// 用户确认后执行保存到剪切板
-						const ttml = exportTTMLText(lyric);
+						const ttml = exportTTMLText(lyric, {
+							separateSpecialSpansWithSpace,
+						});
 						await navigator.clipboard.writeText(ttml);
 					},
 				});
 				return;
 			}
 
-			const ttml = exportTTMLText(lyric);
+			const ttml = exportTTMLText(lyric, {
+				separateSpecialSpansWithSpace,
+			});
 			await navigator.clipboard.writeText(ttml);
 		} catch (e) {
 			error("Failed to save TTML file into clipboard", e);
 		}
-	}, [store, setDuplicateSongIdDialog]);
+	}, [store, setDuplicateSongIdDialog, separateSpecialSpansWithSpace]);
 
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);
@@ -573,7 +586,8 @@ export const useTopMenuActions = () => {
 							// 找到与当前行音译匹配的语言
 							Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
 								// 兼容旧数据：如果 value 是字符串，则直接使用
-								const data = typeof value === "string" ? value : value?.data ?? "";
+								const data =
+									typeof value === "string" ? value : (value?.data ?? "");
 								if (data === fullRoman) {
 									targetLang = key;
 									delete line.romanLyricByLang?.[key];
@@ -581,13 +595,16 @@ export const useTopMenuActions = () => {
 							});
 						}
 						// 将逐字音译保存到对应语言，如果没有匹配的语言则使用默认语言代码
-						const getDefaultRomanizationLang = (lyricLang: string | undefined): string => {
+						const getDefaultRomanizationLang = (
+							lyricLang: string | undefined,
+						): string => {
 							if (!lyricLang) return "unknown";
 							if (lyricLang.startsWith("zh-Hant")) return "zh-Latn-jyutping";
 							if (lyricLang.startsWith("zh-Hans")) return "zh-Latn-pinyin";
 							return `${lyricLang}-Latn`;
 						};
-						const finalTargetLang = targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
+						const finalTargetLang =
+							targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
 						const isAutoFilled = targetLang === undefined;
 						line.wordRomanizationByLang ??= {};
 						line.wordRomanizationByLang[finalTargetLang] = {
@@ -605,7 +622,8 @@ export const useTopMenuActions = () => {
 						if (remainingLangs.length > 0) {
 							const value = line.romanLyricByLang?.[remainingLangs[0]];
 							// 兼容旧数据：如果 value 是字符串，则直接使用
-							line.romanLyric = typeof value === "string" ? value : value?.data ?? "";
+							line.romanLyric =
+								typeof value === "string" ? value : (value?.data ?? "");
 						} else {
 							line.romanLyric = "";
 						}
@@ -642,7 +660,8 @@ export const useTopMenuActions = () => {
 							// 找到与当前行音译匹配的语言
 							Object.entries(line.romanLyricByLang).forEach(([key, value]) => {
 								// 兼容旧数据：如果 value 是字符串，则直接使用
-								const data = typeof value === "string" ? value : value?.data ?? "";
+								const data =
+									typeof value === "string" ? value : (value?.data ?? "");
 								if (data === fullRoman) {
 									targetLang = key;
 									delete line.romanLyricByLang?.[key];
@@ -650,13 +669,16 @@ export const useTopMenuActions = () => {
 							});
 						}
 						// 将逐字音译保存到对应语言，如果没有匹配的语言则使用默认语言代码
-						const getDefaultRomanizationLang = (lyricLang: string | undefined): string => {
+						const getDefaultRomanizationLang = (
+							lyricLang: string | undefined,
+						): string => {
 							if (!lyricLang) return "unknown";
 							if (lyricLang.startsWith("zh-Hant")) return "zh-Latn-jyutping";
 							if (lyricLang.startsWith("zh-Hans")) return "zh-Latn-pinyin";
 							return `${lyricLang}-Latn`;
 						};
-						const finalTargetLang = targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
+						const finalTargetLang =
+							targetLang ?? getDefaultRomanizationLang(draft.lyricLang);
 						const isAutoFilled = targetLang === undefined;
 						line.wordRomanizationByLang ??= {};
 						line.wordRomanizationByLang[finalTargetLang] = {
@@ -674,7 +696,8 @@ export const useTopMenuActions = () => {
 						if (remainingLangs.length > 0) {
 							const value = line.romanLyricByLang?.[remainingLangs[0]];
 							// 兼容旧数据：如果 value 是字符串，则直接使用
-							line.romanLyric = typeof value === "string" ? value : value?.data ?? "";
+							line.romanLyric =
+								typeof value === "string" ? value : (value?.data ?? "");
 						} else {
 							line.romanLyric = "";
 						}

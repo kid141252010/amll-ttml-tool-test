@@ -15,6 +15,8 @@
  * 但是可能会有信息会丢失
  */
 
+import { separateSpecialSpansWithSpaceAtom } from "../../../modules/settings/states/index.ts";
+import { globalStore } from "../../../states/store.ts";
 import type {
 	LyricLine,
 	LyricWord,
@@ -25,8 +27,6 @@ import type {
 } from "../../../types/ttml.ts";
 import { log } from "../../../utils/logging.ts";
 import { msToTimestamp, parseTimespan } from "../../../utils/timestamp.ts";
-import { separateSpecialSpansWithSpaceAtom } from "../../../modules/settings/states/index.ts";
-import { globalStore } from "../../../states/store.ts";
 
 type LineMetadata = {
 	main: string;
@@ -97,6 +97,25 @@ export default function exportTTMLText(
 				separateSpecialSpansWithSpaceAtom,
 			);
 		} catch {
+			// ignore
+		}
+		if (
+			!separateSpecialSpansWithSpace &&
+			typeof window !== "undefined" &&
+			window.localStorage
+		) {
+			try {
+				const item = window.localStorage.getItem(
+					"separateSpecialSpansWithSpace",
+				);
+				if (item !== null) {
+					separateSpecialSpansWithSpace = JSON.parse(item);
+				}
+			} catch {
+				// ignore
+			}
+		}
+		if (separateSpecialSpansWithSpace === undefined) {
 			separateSpecialSpansWithSpace = false;
 		}
 	}
