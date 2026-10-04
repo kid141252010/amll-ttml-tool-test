@@ -217,7 +217,10 @@ const SubLineEdit = memo(
 		const selectedTranslationLang = useAtomValue(selectedTranslationLangAtom);
 		const selectedRomanizationLang = useAtomValue(selectedRomanizationLangAtom);
 
-		const disabled = type === "translatedLyric" ? !selectedTranslationLang : !selectedRomanizationLang;
+		const disabled =
+			type === "translatedLyric"
+				? !selectedTranslationLang
+				: !selectedRomanizationLang;
 
 		// 当禁用时，退出编辑模式
 		useEffect(() => {
@@ -251,7 +254,8 @@ const SubLineEdit = memo(
 							}
 							const matched = Object.entries(byLang).find(([, value]) => {
 								// 兼容旧数据：如果 value 是字符串，则直接使用
-								const data = typeof value === "string" ? value : value?.data ?? "";
+								const data =
+									typeof value === "string" ? value : (value?.data ?? "");
 								const nextValue = data.trim().length > 0 ? data : "";
 								return nextValue === previousValue && data.trim().length > 0;
 							})?.[0];
@@ -413,7 +417,7 @@ export const LyricLineView: FC<{
 		if (isBG && !currentKey) return;
 		if (!isBG && currentKey?.startsWith("L")) return;
 
-		// 分配新的 key - 在回调内部计算，确保基于最新状态
+		// 分配新的 key - 在回调内部计算，按当前行顺序分配与显示行号一致的 L 编号
 		editLyricLines((state) => {
 			const targetLine = state.lyricLines.find((l) => l.id === line.id);
 			if (!targetLine) return;
@@ -421,16 +425,17 @@ export const LyricLineView: FC<{
 			if (isBG) {
 				// 转为背景行：移除 itunesKey
 				delete targetLine.itunesKey;
-			} else {
-				// 转为主行：分配 L 编号
-				let maxL = -1;
-				for (const l of state.lyricLines) {
-					if (l.itunesKey?.startsWith("L")) {
-						const num = Number.parseInt(l.itunesKey.slice(1));
-						if (!Number.isNaN(num) && num > maxL) maxL = num;
-					}
+			}
+
+			// 按当前行顺序重新分配 L 编号，确保与显示行号一致
+			let currentNumber = 0;
+			for (const l of state.lyricLines) {
+				if (!l.isBG) {
+					currentNumber++;
+					l.itunesKey = `L${currentNumber}`;
+				} else {
+					delete l.itunesKey;
 				}
-				targetLine.itunesKey = `L${maxL + 1}`;
 			}
 		});
 	}, [line.isBG, line.id, line.itunesKey, editLyricLines]);
@@ -528,7 +533,9 @@ export const LyricLineView: FC<{
 	const showWordRomanizationInput = useAtomValue(showWordRomanizationInputAtom);
 	const showTranslation = useAtomValue(showLineTranslationAtom);
 	const showRomanization = useAtomValue(showLineRomanizationAtom);
-	const selectedWordRomanizationLang = useAtomValue(selectedWordRomanizationLangAtom);
+	const selectedWordRomanizationLang = useAtomValue(
+		selectedWordRomanizationLangAtom,
+	);
 	const editingRomanWordIndexAtom = useMemo(
 		() => atom<number | null>(null),
 		[],
@@ -812,6 +819,15 @@ export const LyricLineView: FC<{
 									...targetLines,
 									...filteredLines.slice(targetIndex + indexDelta),
 								];
+								let currentNumber = 0;
+								for (const l of state.lyricLines) {
+									if (!l.isBG) {
+										currentNumber++;
+										l.itunesKey = `L${currentNumber}`;
+									} else {
+										delete l.itunesKey;
+									}
+								}
 							});
 						}}
 						onDragLeave={(evt) => {
@@ -960,15 +976,15 @@ export const LyricLineView: FC<{
 														lineIndex={lineIndex}
 													/>
 													{toolMode === ToolMode.Edit &&
-												showWordRomanizationInput &&
-												selectedWordRomanizationLang && (
-													<RomanWordView
-														wordAtom={wordAtom}
-														wordIndex={wi}
-														editingIndexAtom={editingRomanWordIndexAtom}
-														suggestedRoman={suggestedRomans[wi]}
-													/>
-												)}
+														showWordRomanizationInput &&
+														selectedWordRomanizationLang && (
+															<RomanWordView
+																wordAtom={wordAtom}
+																wordIndex={wi}
+																editingIndexAtom={editingRomanWordIndexAtom}
+																suggestedRoman={suggestedRomans[wi]}
+															/>
+														)}
 												</Flex>
 											</Fragment>
 										);
