@@ -1480,15 +1480,15 @@ describe("exportTTMLText - special spans space isolation (experimental)", () => 
 		// 再次导入
 		const reimported = parseLyric(exported);
 
-		// 检验 L12 前置背景词的主行：爱 上 我 吧（不得包含多余的开头空格节点）
-		const l12Main = reimported.lyricLines.find(
-			(l) => l.itunesKey === "L12" && !l.isBG,
+		// 检验 L13 前置背景词的主行（原文件L12，与显示行号一致导出为L13）：爱 上 我 吧（不得包含多余的开头空格节点）
+		const l13Main = reimported.lyricLines.find(
+			(l) => l.itunesKey === "L13" && !l.isBG,
 		);
-		expect(l12Main?.words.map((w) => w.word)).toEqual(["爱", "上", "我", "吧"]);
+		expect(l13Main?.words.map((w) => w.word)).toEqual(["爱", "上", "我", "吧"]);
 
-		// 检验 L24 普通词间空格：One, two, three 前任算一下（词间空格不得丢失）
-		const l24Main = reimported.lyricLines.find((l) => l.itunesKey === "L24");
-		expect(l24Main?.words.map((w) => w.word)).toEqual([
+		// 检验 L25 普通词间空格（原文件L24，与显示行号一致导出为L25）：One, two, three 前任算一下（词间空格不得丢失）
+		const l25Main = reimported.lyricLines.find((l) => l.itunesKey === "L25");
+		expect(l25Main?.words.map((w) => w.word)).toEqual([
 			"One,",
 			" ",
 			"two,",
@@ -1568,5 +1568,205 @@ describe("exportTTMLText - special spans space isolation (experimental)", () => 
 		expect(reimportedL13?.words.map((w) => w.word)).toEqual(
 			l13Main?.words.map((w) => w.word),
 		);
+	});
+});
+
+describe("exportTTMLText - itunes:key Lx markers consistent with display line numbers", () => {
+	it("should assign itunes:key sequentially starting from L1 matching display row numbers", () => {
+		const lines: Partial<LyricLine>[] = [];
+		for (let i = 0; i < 42; i++) {
+			lines.push({
+				startTime: i * 1000,
+				endTime: (i + 1) * 1000,
+				words: [
+					{
+						id: `w-${i}`,
+						word: `Word${i + 1}`,
+						startTime: i * 1000,
+						endTime: (i + 1) * 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			});
+		}
+
+		const ttmlLyric = createMockLyric(lines);
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const pElements = Array.from(doc.querySelectorAll("p"));
+
+		expect(pElements.length).toBe(42);
+		for (let i = 0; i < 42; i++) {
+			expect(pElements[i].getAttribute("itunes:key")).toBe(`L${i + 1}`);
+		}
+	});
+
+	it("should renumber Lx sequentially matching display when a line is inserted into the middle (not become last L43)", () => {
+		const lines: Partial<LyricLine>[] = [];
+		for (let i = 0; i < 42; i++) {
+			lines.push({
+				startTime: i * 1000,
+				endTime: (i + 1) * 1000,
+				itunesKey: `L${i + 1}`,
+				translatedLyricByLang: {
+					zh: {
+						data: `翻译${i + 1}`,
+						isAutoFilled: false,
+					},
+				},
+				words: [
+					{
+						id: `w-${i}`,
+						word: `Word${i + 1}`,
+						startTime: i * 1000,
+						endTime: (i + 1) * 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			});
+		}
+
+		// 模拟用户在第 10 行（index 10）插入新行，原本如果取 maxL + 1 会变成 L43
+		const newLine: Partial<LyricLine> = {
+			startTime: 10500,
+			endTime: 11000,
+			itunesKey: "L43", // 模拟之前错误地被赋予了最后的编号
+			translatedLyricByLang: {
+				zh: {
+					data: "新插入行的翻译",
+					isAutoFilled: false,
+				},
+			},
+			words: [
+				{
+					id: "w-new",
+					word: "NewWord",
+					startTime: 10500,
+					endTime: 11000,
+					obscene: false,
+					emptyBeat: 0,
+					romanWord: "",
+					rubyPhraseStart: false,
+				},
+			],
+		};
+
+		// 插入到第 10 个位置
+		lines.splice(10, 0, newLine);
+
+		const ttmlLyric = createMockLyric(lines);
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const pElements = Array.from(doc.querySelectorAll("p"));
+
+		expect(pElements.length).toBe(43);
+
+		// 验证所有 p 元素的 itunes:key 与显示顺序一致：L1 到 L43
+		for (let i = 0; i < 43; i++) {
+			expect(pElements[i].getAttribute("itunes:key")).toBe(`L${i + 1}`);
+		}
+
+		// 第 10 项（显示第 11 行）应该是新插入的行，其 itunes:key 应为 L11 而不是 L43
+		expect(pElements[10].getAttribute("itunes:key")).toBe("L11");
+		expect(pElements[10].textContent?.trim()).toBe("NewWord");
+
+		// 最后一行（显示第 43 行）应为 L43，而不是原来的 L42
+		expect(pElements[42].getAttribute("itunes:key")).toBe("L43");
+		expect(pElements[42].textContent?.trim()).toBe("Word42");
+
+		// 验证翻译元数据中引用的 key 也保持一致
+		const transL11 = doc.querySelector('text[for="L11"]');
+		expect(transL11?.textContent?.trim()).toBe("新插入行的翻译");
+
+		const transL43 = doc.querySelector('text[for="L43"]');
+		expect(transL43?.textContent?.trim()).toBe("翻译42");
+	});
+
+	it("should correctly handle background lines without skipping main line Lx numbers", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 2000,
+				words: [
+					{
+						id: "w1",
+						word: "Main1",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				isBG: true,
+				startTime: 1500,
+				endTime: 2000,
+				words: [
+					{
+						id: "bg1",
+						word: "BG1",
+						startTime: 1500,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				startTime: 3000,
+				endTime: 4000,
+				words: [
+					{
+						id: "w2",
+						word: "Main2",
+						startTime: 3000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				startTime: 5000,
+				endTime: 6000,
+				words: [
+					{
+						id: "w3",
+						word: "Main3",
+						startTime: 5000,
+						endTime: 6000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const pElements = Array.from(doc.querySelectorAll("p"));
+
+		expect(pElements.length).toBe(3);
+		expect(pElements[0].getAttribute("itunes:key")).toBe("L1");
+		expect(pElements[1].getAttribute("itunes:key")).toBe("L2");
+		expect(pElements[2].getAttribute("itunes:key")).toBe("L3");
 	});
 });

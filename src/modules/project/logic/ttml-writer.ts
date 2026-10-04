@@ -372,8 +372,8 @@ export default function exportTTMLText(
 
 	head.appendChild(metadataEl);
 
-	// L 从 0 开始 (L0, L1, L2...)
-	let i = 0;
+	// 主行计数器，从 1 开始与 UI 显示行号保持一致 (L1, L2, L3...)
+	let mainLineCounter = 1;
 
 	const translationByLangMap = new Map<string, Map<string, LineMetadata>>();
 	const wordTranslationByLangMap = new Map<
@@ -432,19 +432,10 @@ export default function exportTTMLText(
 			if (line.isBG) continue;
 			const lineP = doc.createElement("p");
 
-			// 分配或复用 itunesKey（仅主行使用 L 编号，背景行不设 itunesKey）
-			let itunesKey: string;
-			if (line.itunesKey?.match(/^L\d+$/)) {
-				// 复用现有的 L 编号
-				itunesKey = line.itunesKey;
-				// 更新计数器
-				const keyNum = Number.parseInt(itunesKey.slice(1));
-				if (keyNum >= i) i = keyNum + 1;
-			} else {
-				// 分配新的 L 编号
-				itunesKey = `L${i}`;
-				i++;
-			}
+			// 与 UI 显示行号一致分配 itunesKey（仅主行使用 L 编号，背景行不设 itunesKey，从 L1 开始）
+			const itunesKey = `L${mainLineCounter}`;
+			mainLineCounter++;
+			line.itunesKey = itunesKey;
 
 			const mainWords = line.words;
 			const bgLines: LyricLine[] = [];
