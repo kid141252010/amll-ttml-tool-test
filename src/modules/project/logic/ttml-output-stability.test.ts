@@ -185,3 +185,40 @@ describe("TTML export output stability (byte-identical for defect-free input)", 
 		).toBe(EXPECTED_SINGLE_BG_SEPARATED);
 	});
 });
+
+// 内嵌 x-translation（无 xml:lang）/ x-roman：解析为自动填充（isAutoFilled）的猜测语言。
+// 维护者决定：规范要求 <translation> / <transliteration> 必须带 xml:lang，
+// 因此导出时把猜测语言写出（翻译 und→zh-Hans，音译 und→默认音译语言 ja-Latn）。
+const INLINE_AUTO_LANG_TTML = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:amll="http://www.example.com/ns/amll" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xml:lang="ja" itunes:timing="Word"><head><metadata><ttm:agent type="person" xml:id="v1"/></metadata></head><body dur="00:03.000"><div begin="00:01.000" end="00:03.000"><p begin="00:01.000" end="00:02.000" ttm:agent="v1" itunes:key="L1"><span begin="00:01.000" end="00:01.500">今日</span><span begin="00:01.500" end="00:02.000">は</span><span ttm:role="x-translation">Hello</span><span ttm:role="x-roman">kyou wa</span></p><p begin="00:02.000" end="00:03.000" ttm:agent="v1" itunes:key="L2"><span begin="00:02.000" end="00:02.500">お休</span><span begin="00:02.500" end="00:03.000">み</span><span ttm:role="x-roman">oyasumi</span></p></div></body></tt>`;
+
+const EXPECTED_INLINE_AUTO_LANG =
+	'<tt xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:amll="http://www.example.com/ns/amll" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xml:lang="ja" itunes:timing="Word"><head><metadata><ttm:agent type="person" xml:id="v1"></ttm:agent><itunesmetadata xmlns="http://music.apple.com/lyric-ttml-internal"><translations><translation xml:lang="zh-Hans" type="subtitle"><text for="L1">Hello</text></translation></translations><transliterations><transliteration xml:lang="ja-Latn"><text for="L1">kyou wa</text><text for="L2">oyasumi</text></transliteration></transliterations></itunesmetadata></metadata></head><body dur="00:03.000"><div begin="00:01.000" end="00:03.000"><p begin="00:01.000" end="00:02.000" ttm:agent="v1" itunes:key="L1"><span begin="00:01.000" end="00:01.500">今日</span><span begin="00:01.500" end="00:02.000">は</span></p><p begin="00:02.000" end="00:03.000" ttm:agent="v1" itunes:key="L2"><span begin="00:02.000" end="00:02.500">お休</span><span begin="00:02.500" end="00:03.000">み</span></p></div></body></tt>';
+
+describe("TTML export output stability - auto-filled (guessed) languages", () => {
+	it("inline x-translation / x-roman export with the guessed language written out", () => {
+		expect(
+			exportTTMLText(parseLyric(INLINE_AUTO_LANG_TTML), {
+				separateSpecialSpansWithSpace: false,
+			}),
+		).toBe(EXPECTED_INLINE_AUTO_LANG);
+	});
+
+	it("auto-filled data stabilizes after one roundtrip (re-read as named languages)", () => {
+		const first = exportTTMLText(parseLyric(INLINE_AUTO_LANG_TTML), {
+			separateSpecialSpansWithSpace: false,
+		});
+		const reparsed = parseLyric(first);
+		expect(reparsed.lyricLines[0].romanLyricByLang?.["ja-Latn"]?.data).toBe(
+			"kyou wa",
+		);
+		expect(
+			reparsed.lyricLines[0].translatedLyricByLang?.["zh-Hans"]?.data,
+		).toBe("Hello");
+		// 一次往返后输出稳定
+		expect(
+			exportTTMLText(reparsed, {
+				separateSpecialSpansWithSpace: false,
+			}),
+		).toBe(first);
+	});
+});

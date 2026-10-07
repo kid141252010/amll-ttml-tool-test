@@ -1,0 +1,27 @@
+# Phase 1A 进度
+
+- N6: writer 不再向入参写 `line.itunesKey`（唯一的入参写操作），itunesKey 仅作为局部变量使用。
+- 3.3: parser 在 `parseFromString` 后用 `getElementsByTagName("parsererror")` 检测（兼容 Chrome/Firefox 命名空间），存在时抛出含 "XML 格式错误" 的 Error；测试断言收紧为 `toThrow(/XML/)`。
+- 1.2: writer 不再全局 `map.delete(lang)`，改为 `removeLineEntry` 只删除当前行（itunesKey）在该语言下的逐行条目；语言下无条目时才移除该语言。
+- 1.1 + N2: writer 新增 `getLineLangView`：行无任何 `*ByLang` 时回退 `translatedLyric`/`romanLyric`/`word.romanWord` 作为 `und`；`und`（及 UI 回退值 `unknown`）输出为不带 `xml:lang` 的 translation/transliteration；romanWord 回退生成的 und 逐字音译不覆盖同行逐行音译。parser：无 xml:lang 的音译始终保留（第一个为 `und`，其后为 `und-x-untagged2`…，互不覆盖）；无 xml:lang 的翻译在文件存在具名翻译时同样处理，否则仍为默认 zh-Hans（兼容旧行为）。
+- 1.1 + N2（评审修订）：`isAutoFilled`（猜测/默认语言码）恢复旧行为——不写 `xml:lang`（含内嵌 x-roman 的文件输出与修复前逐字节一致，已加快照）；回读为 `und`/`und-x-untaggedN` 后仍不带 xml:lang 导出，一次往返后稳定。元素按语言缓存，同一行多个自动填充语言与真实 und 各自输出独立的无 xml:lang 元素，互不覆盖（新增用例）。
+- N1 + 1.3: parser 在 `parseLineElement` 开头记录插入位置，结束时 `splice` 插入主行，产出 `[main, bg1, bg2]`。writer 预分组为 `{ main, bgs }` 单元：背景行归属前一个主行（可跨空行/songPart 的 div 边界，保持行序）；开头无主行的背景行归属下一个主行；整份歌词无主行时生成空主行容器 `<p>`。背景行不再影响 div 划分，不再 `continue` 丢弃。
+- 3.6b: writer 去掉 `bgLines.length === 1` 限制，逐字数据结构改为 `{ mainWords, mainItems, bgs[] }`，由通用 `appendWordLevelContent` 为每个背景行输出一个 x-bg span；逐行/逐字均以空 `<span ttm:role="x-bg"/>` 为中间缺失的背景行占位（末尾缺失不输出），保证 bgIndex 对齐。parser 逐字数据按 x-bg span 分组（`bg: T[][]`），按 bgIndex 存到各自背景行；逐行 bgList 保留空占位。新增用例覆盖「中间背景行无数据」场景。
+- N3: writer 新增 `matchWordItems`：逐字数据全部为 0/0，或行内非空白单词存在相同时间时，改为按非空白单词顺序一一对应；其余情况仍按时间精确匹配（输出不变）。romanWord 回退数据对每个非空白单词各生成一项（无音译为空文本），保证顺序对齐。
+- N4: writer 在 ruby 容器 span 上写出单词自身 begin/end（位于 tts:ruby 之后）；parser 原本即优先读取容器时间，无需改动。
+- N5: writer 新增 `getLineModeWord`：非逐字模式取行内首个非空白（或带 ruby）单词，无则退回 words[0]，用于主行/背景行内容与 begin/end；背景行无单词时不输出内容并使用行时间（不再访问 undefined.word）。每行仅一个单词或首词即歌词时输出不变；Line 模式下的空白单词不输出（解析器本就丢弃行首/尾空白）。
+- 3.6a: parser 将 iTunes `<songwriters>` 合并进已有 songwriter entry（去重）而非追加第二条；writer 合并所有 songwriter entry（第一条原样保留，后续 entry 仅追加未出现的名字），单 entry 输出不变。（happy-dom 无法匹配 amll:meta，parser 合并路径仅能在真实浏览器验证；测试覆盖 writer 侧。）
+- 3.6c: 未实现（保持 it.fails）。空行导出为 `<p>` 会改变含空行文件的 div 结构与 itunes:key 编号，且无法确认 AMLL 播放器对空 `<p>` 的渲染，属维护者格式决策。
+- 3.6c（维护者决定）：保持现有行为——空行仅作为 div 分隔符，导出时不保留；连续/首尾空行合并。两个 it.fails 改为 "[3.6c accepted]" 常规用例固定该行为；不处理 L 编号与 UI 行号在空行后不一致的问题。
+- N5（评审修订）：非逐字模式改为 `createLineModeNodes` 拼接整行所有单词：连续普通单词合并为一个 span（begin/end 取非空白单词范围，单单词行即该词自身时间，输出与旧逻辑逐字节一致），带 ruby 的单词仍输出 ruby 结构，首尾空白单词作为 span 外文本节点；背景行括号加在首/尾单词元素上。`<p>` 时间改用 `getLineModeRange`。新增多单词（含首尾空白）用例。注：Line 模式按定义每行至多一个非空白单词，拼接实际只会额外输出空白单词。
+- N4（维护者按规范决定，取代前述 N4 修复）：撤销 ruby 容器 begin/end，输出恢复为阶段 1A 之前；N4 用例改为 "[N4 spec]" 固定规范行为（单词时间 = 注音时间范围，规范：仅 tts:ruby="text" 携带时间，base 不得含时间戳）。parser 未改。
+- B（维护者按规范决定）：规范要求 `<translation>` 必须带 `xml:lang`，因此 writer 总是写出语言码。
+  - `isAutoFilled` 的猜测语言码照常写出；`und`/`unknown`/空语言码映射到默认语言（翻译 → `zh-Hans`，音译 → `getDefaultRomanLang(lyricLang)`，中文为 `zh-Latn-pinyin`，其它为 `{lang}-Latn`）。
+  - `und-x-untaggedN` 机制删除：parser 中无 `xml:lang` 的元素统一读回为 `und`（翻译在文件无具名翻译时仍为 `zh-Hans`）。
+  - 映射后与同语言已有数据冲突时：保留已有数据，不覆盖、不静默丢弃，记入 `collectExportIssues`。
+  - 输出变化：含内嵌 `x-translation`/`x-roman` 的文件导出时不再省略 `xml:lang`（预计 `isAutoFilled` 快照与 `[1.1]`/`[N2]` 用例已更新为新行为，一次往返后稳定）。
+- C（维护者按规范决定）：新增导出前检查 `collectExportIssues(lyric)`（纯函数，返回 `ExportIssue[]`，不做界面操作），检查两类问题：
+  - `word-roman-without-lang`：某行有 `word.romanWord` 但没有 `wordRomanizationByLang`，导出会按默认音译语言写出。
+  - `lang-conflict`：`und`/`unknown` 映射到默认语言后与该语言下已有数据冲突，冲突项不会被写出。
+  - 接入导出入口：`useTopMenuActions.ts` 的保存文件 / 复制到剪贴板（问题存在时弹确认框，可选择仍然导出）、`submit-to-amll.ts` 的提交（必须阻止，弹错误通知 + 对话框，不提供"仍然提交"）。
+  - 新增 8 个单元测试覆盖 `collectExportIssues`。

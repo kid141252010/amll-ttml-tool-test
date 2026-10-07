@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { LyricLine, TTMLLyric } from "../../../types/ttml.ts";
 import { parseLyric } from "./ttml-parser.ts";
-import exportTTMLText from "./ttml-writer.ts";
+import exportTTMLText, { collectExportIssues } from "./ttml-writer.ts";
 
 function createMockLyric(lines: Partial<LyricLine>[]): TTMLLyric {
 	return {
@@ -1768,5 +1768,216 @@ describe("exportTTMLText - itunes:key Lx markers consistent with display line nu
 		expect(pElements[0].getAttribute("itunes:key")).toBe("L1");
 		expect(pElements[1].getAttribute("itunes:key")).toBe("L2");
 		expect(pElements[2].getAttribute("itunes:key")).toBe("L3");
+	});
+});
+
+describe("collectExportIssues", () => {
+	it("should report word romanization without language code", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "你好",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "ni hao",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(1);
+		expect(issues[0].type).toBe("word-roman-without-lang");
+		expect(issues[0].lineIndex).toBe(0);
+	});
+
+	it("should not report issues when word romanization has language code", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "你好",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "ni hao",
+						rubyPhraseStart: false,
+					},
+				],
+				wordRomanizationByLang: {
+					"zh-Latn-pinyin": {
+						data: [{ startTime: 0, endTime: 1000, text: "ni hao" }],
+					},
+				},
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(0);
+	});
+
+	it("should report language conflict when und and default language coexist", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					und: { data: "未指定语言的翻译" },
+					"zh-Hans": { data: "简体中文翻译" },
+				},
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(1);
+		expect(issues[0].type).toBe("lang-conflict");
+		expect(issues[0].lineIndex).toBe(0);
+		expect(issues[0].lang).toBe("zh-Hans");
+	});
+
+	it("should not report conflict when only und exists", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					und: { data: "未指定语言的翻译" },
+				},
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(0);
+	});
+
+	it("should report empty lyrics with no issues", () => {
+		const ttmlLyric = createMockLyric([]);
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(0);
+	});
+
+	it("should report multiple issues across lines", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "你好",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "ni hao",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				words: [
+					{
+						id: "w2",
+						word: "世界",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "shi jie",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(2);
+		expect(issues[0].lineIndex).toBe(0);
+		expect(issues[1].lineIndex).toBe(1);
+	});
+
+	it("should report conflict for word translation when und and default coexist", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				wordTranslationByLang: {
+					und: {
+						data: [{ startTime: 0, endTime: 1000, text: "未指定" }],
+					},
+					"zh-Hans": {
+						data: [{ startTime: 0, endTime: 1000, text: "简体" }],
+					},
+				},
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(1);
+		expect(issues[0].type).toBe("lang-conflict");
+		expect(issues[0].lang).toBe("zh-Hans");
+	});
+
+	it("should report conflict for romanization when unknown and default coexist", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "こんにちは",
+						startTime: 0,
+						endTime: 1000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				romanLyricByLang: {
+					unknown: { data: "konnichiwa" },
+					"zh-Latn-pinyin": { data: "ni hao" },
+				},
+			},
+		]);
+
+		const issues = collectExportIssues(ttmlLyric);
+		expect(issues.length).toBe(1);
+		expect(issues[0].type).toBe("lang-conflict");
+		expect(issues[0].lang).toBe("zh-Latn-pinyin");
 	});
 });

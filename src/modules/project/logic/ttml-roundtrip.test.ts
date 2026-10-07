@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { LyricLine, LyricWord, TTMLLyric } from "../../../types/ttml.ts";
 import { parseLyric } from "./ttml-parser.ts";
-import exportTTMLText from "./ttml-writer.ts";
+import exportTTMLText, { collectExportIssues } from "./ttml-writer.ts";
 
 beforeAll(() => {
 	// parser/writer 在 DEV 下会打印整个 DOM，静默以保持输出可读
@@ -123,25 +123,52 @@ describe("TTML roundtrip - fixtures (parse -> export -> parse)", () => {
 		expectRoundtrip(loadFixture("songwriters.ttml"));
 	});
 
-	it.fails("[N1] roundtrip multi-bg.ttml (main line + 2 BG lines)", () => {
+	it("[N1] roundtrip multi-bg.ttml (main line + 2 BG lines)", () => {
 		expectRoundtrip(loadFixture("multi-bg.ttml"));
 	});
 
-	it.fails("[N4] roundtrip ruby.ttml", () => {
-		expectRoundtrip(loadFixture("ruby.ttml"));
+	// AMLL TTML DB 格式规范 Ruby 标注：仅 tts:ruby="text" 携带时间，base 不得含时间戳。
+	// 因此 writer 不在 ruby 容器上写时间（维持阶段 1A 之前的输出），回读后单词时间为其注音时间范围。
+	it("[N4 spec] roundtrip ruby.ttml keeps the four-layer structure without container timing", () => {
+		const { first, exported, second } = roundtrip(loadFixture("ruby.ttml"));
+		expect(exported).toContain(
+			'<span tts:ruby="container"><span tts:ruby="base">漢字</span><span tts:ruby="textContainer"><span tts:ruby="text" begin="00:01.200" end="00:01.500">かん</span><span tts:ruby="text" begin="00:01.500" end="00:01.800">じ</span></span></span>',
+		);
+		const [w1, w2] = second.lyricLines[0].words;
+		expect(w1.word).toBe("漢字");
+		expect(w1.ruby).toEqual(first.lyricLines[0].words[0].ruby);
+		expect(w2).toMatchObject({ word: "です", startTime: 2000, endTime: 3000 });
 	});
 
-	it.fails("[1.1] roundtrip untagged-translation.ttml (und transliteration skipped on export)", () => {
-		expectRoundtrip(loadFixture("untagged-translation.ttml"));
+	// 维护者决定：无 xml:lang 的翻译/音译映射到默认语言后写出（规范要求必须带 xml:lang）
+	it("[1.1] roundtrip untagged-translation.ttml (und mapped to default langs)", () => {
+		const { exported } = roundtrip(loadFixture("untagged-translation.ttml"));
+		expect(exported).toContain(
+			'<translation xml:lang="zh-Hans" type="subtitle">',
+		);
+		expect(exported).toContain('<transliteration xml:lang="ja-Latn">');
+		expect(exported).toContain("Untagged trans");
+		expect(exported).toContain("untagged roman");
+		expectRoundtrip(exported);
 	});
 
-	it.fails("[3.6c] roundtrip empty-lines.ttml", () => {
-		expectRoundtrip(loadFixture("empty-lines.ttml"));
+	// 维护者决定（3.6c）：空行不在导出中保留，仅作为 div 分隔符；以下用例固定该已接受行为。
+	it("[3.6c accepted] empty-lines.ttml: empty <p> is read as an empty line but dropped on export", () => {
+		const { first, exported, second } = roundtrip(
+			loadFixture("empty-lines.ttml"),
+		);
+		const texts = (l: TTMLLyric) =>
+			l.lyricLines.map((x) => x.words.map((y) => y.word).join(""));
+		expect(texts(first)).toEqual(["One two", "", "Three four"]);
+		expect(texts(second)).toEqual(["One two", "Three four"]);
+		// 空行作为 div 分隔符：两个 div，各含一个 <p>
+		expect(exported.match(/<div /g) ?? []).toHaveLength(2);
+		expect(exported.match(/<p /g) ?? []).toHaveLength(2);
 	});
 });
 
 describe("TTML known defects (phase 0 safety net)", () => {
-	it.fails("[1.1] translatedLyric/romanLyric/romanWord without *ByLang must survive export", () => {
+	it("[1.1] translatedLyric/romanLyric/romanWord without *ByLang must survive export", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("Hello", 1000, 1500), w(" ", 0, 0), w("world", 1500, 2000)],
@@ -158,7 +185,7 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(l.words.map((x) => x.romanWord)).toEqual(["he", "", "wo"]);
 	});
 
-	it.fails("[1.2] per-word translation on one line must not erase per-line translations of other lines", () => {
+	it("[1.2] per-word translation on one line must not erase per-line translations of other lines", () => {
 		// 只有当逐行翻译所在行位于逐字翻译行「之前」时才会被 map.delete 清掉
 		const lyric = lyricOf([
 			line({
@@ -182,7 +209,7 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(translationText(parsed.lyricLines[0], "en")).toContain("Line");
 	});
 
-	it.fails("[1.3] BG line that is first in a div (after an empty line) must not be dropped", () => {
+	it("[1.3] BG line that is first in a div (after an empty line) must not be dropped", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("Main", 1000, 1500), w(" ", 0, 0), w("one", 1500, 2000)],
@@ -205,7 +232,7 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		).toBe(true);
 	});
 
-	it.fails("[1.3] BG line carrying its own songPart (starts a new div) must not be dropped", () => {
+	it("[1.3] BG line carrying its own songPart (starts a new div) must not be dropped", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("Main", 1000, 1500), w(" ", 0, 0), w("one", 1500, 2000)],
@@ -223,12 +250,12 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(xml).toContain("Orphan");
 	});
 
-	it.fails("[N1] parser keeps main line before its 2+ BG lines ([main, bg1, bg2])", () => {
+	it("[N1] parser keeps main line before its 2+ BG lines ([main, bg1, bg2])", () => {
 		const parsed = parseLyric(loadFixture("multi-bg.ttml"));
 		expect(parsed.lyricLines.map((l) => l.isBG)).toEqual([false, true, true]);
 	});
 
-	it.fails("[N2] isAutoFilled transliteration (written without xml:lang) must survive re-import alongside a tagged one", () => {
+	it("[N2] isAutoFilled transliteration (written without xml:lang) must survive re-import alongside a tagged one", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("Hello", 1000, 1500), w(" ", 0, 0), w("world", 1500, 2000)],
@@ -247,7 +274,49 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(values).toContain("auto roman");
 	});
 
-	it.fails("[3.6b] per-word translation of every BG line is exported when a main line has 2+ BG lines", () => {
+	// 维护者决定：und/unknown 映射到默认语言后写出 xml:lang。
+	// 若该语言已被真实数据占用，保留真实数据、丢弃映射项，并由 collectExportIssues 报出冲突。
+	it("[N2] several auto-filled languages on one line keep distinct languages; conflicting untagged entry is reported", () => {
+		const lyric = lyricOf([
+			line({
+				words: [w("Hello", 1000, 1500), w(" ", 0, 0), w("world", 1500, 2000)],
+				romanLyricByLang: {
+					"ja-Latn": { data: "auto ja", isAutoFilled: true },
+					"zh-Latn-pinyin": { data: "auto zh", isAutoFilled: true },
+					und: { data: "real und", isAutoFilled: true },
+					"ko-Latn": { data: "tagged ko", isAutoFilled: false },
+				},
+			}),
+		]);
+		const { xml, parsed } = exportAndReparse(lyric);
+		// 每个语言块都带 xml:lang（规范要求）
+		expect(xml).toContain('xml:lang="ja-Latn"');
+		expect(xml).toContain('xml:lang="zh-Latn-pinyin"');
+		expect(xml).toContain('xml:lang="ko-Latn"');
+		// und 映射到默认音译语言 zh-Latn-pinyin，与已有的自动填充项内容不同 → 冲突被报出
+		const issues = collectExportIssues(lyric);
+		const conflict = issues.find((x) => x.type === "lang-conflict");
+		expect(conflict?.lang).toBe("zh-Latn-pinyin");
+		expect(conflict?.lineNumber).toBe(1);
+		// 保留已有数据，不静默丢弃也不覆盖
+		const values = Object.values(
+			parsed.lyricLines[0].romanLyricByLang ?? {},
+		).map((v) => v.data);
+		expect(values).toEqual(
+			expect.arrayContaining(["auto ja", "auto zh", "tagged ko"]),
+		);
+		// 一次往返后稳定
+		const again = exportTTMLText(parsed, {
+			separateSpecialSpansWithSpace: false,
+		});
+		expect(
+			exportTTMLText(parseLyric(again), {
+				separateSpecialSpansWithSpace: false,
+			}),
+		).toBe(again);
+	});
+
+	it("[3.6b] per-word translation of every BG line is exported when a main line has 2+ BG lines", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("Main", 1000, 1500), w(" ", 0, 0), w("line", 1500, 2000)],
@@ -282,22 +351,78 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(xml).toContain("TransB");
 	});
 
-	it.fails("[3.6c] empty lines survive export/re-import", () => {
+	it("[3.6b] per-line / per-word data of each BG line is restored onto that BG line (with a gap)", () => {
 		const lyric = lyricOf([
+			line({
+				words: [w("Main", 1000, 1500), w(" ", 0, 0), w("line", 1500, 2000)],
+			}),
+			line({
+				isBG: true,
+				words: [w("bgA", 2000, 2500), w(" ", 0, 0), w("x", 2500, 3000)],
+			}),
+			line({
+				isBG: true,
+				words: [w("bgB", 3000, 3500), w(" ", 0, 0), w("y", 3500, 4000)],
+				translatedLyricByLang: { en: { data: "Line B", isAutoFilled: false } },
+				wordRomanizationByLang: {
+					"ja-Latn": {
+						data: [
+							{
+								startTime: 3000,
+								endTime: 3500,
+								text: "rb",
+								hasSpaceAfter: true,
+							},
+							{
+								startTime: 3500,
+								endTime: 4000,
+								text: "ry",
+								hasSpaceAfter: false,
+							},
+						],
+						isAutoFilled: false,
+					},
+				},
+			}),
+		]);
+		const { parsed } = exportAndReparse(lyric);
+		const [main, bgA, bgB] = parsed.lyricLines;
+		expect(parsed.lyricLines.map((l) => l.isBG)).toEqual([false, true, true]);
+		expect(main.translatedLyricByLang?.en?.data ?? "").toBe("");
+		expect(bgA.translatedLyricByLang?.en?.data ?? "").toBe("");
+		expect(bgB.translatedLyricByLang?.en?.data).toBe("Line B");
+		expect(bgA.wordRomanizationByLang?.["ja-Latn"]).toBeUndefined();
+		expect(
+			bgB.wordRomanizationByLang?.["ja-Latn"]?.data.map((x) => x.text),
+		).toEqual(["rb", "ry"]);
+		expect(bgB.words.map((x) => x.romanWord)).toEqual(["rb", "", "ry"]);
+	});
+
+	it("[3.6c accepted] empty line -> div break; consecutive / leading / trailing empty lines collapse", () => {
+		const lyric = lyricOf([
+			line({ words: [] }),
 			line({
 				words: [w("One", 1000, 1500), w(" ", 0, 0), w("two", 1500, 2000)],
 			}),
 			line({ words: [], startTime: 2000, endTime: 3000 }),
+			line({ words: [], startTime: 2000, endTime: 3000 }),
 			line({
 				words: [w("Three", 3000, 3500), w(" ", 0, 0), w("four", 3500, 4000)],
 			}),
+			line({ words: [] }),
 		]);
-		const { parsed } = exportAndReparse(lyric);
-		expect(parsed.lyricLines).toHaveLength(3);
-		expect(parsed.lyricLines[1].words.filter((x) => x.word.trim())).toEqual([]);
+		const { xml, parsed } = exportAndReparse(lyric);
+		const divs = xml.match(/<div [^>]*>.*?<\/div>/g) ?? [];
+		expect(divs).toHaveLength(2);
+		expect(divs[0]).toContain("One");
+		expect(divs[1]).toContain("Three");
+		expect(xml.match(/<p /g) ?? []).toHaveLength(2);
+		expect(
+			parsed.lyricLines.map((x) => x.words.map((y) => y.word).join("")),
+		).toEqual(["One two", "Three four"]);
 	});
 
-	it.fails("[N3] words all at 0/0 time must not all match the first per-word translation", () => {
+	it("[N3] words all at 0/0 time must not all match the first per-word translation", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("aa", 0, 0), w(" ", 0, 0), w("bb", 0, 0)],
@@ -316,14 +441,15 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(xml.match(/>XX</g) ?? []).toHaveLength(1);
 	});
 
-	it.fails("[N4] ruby word keeps its own begin/end", () => {
+	// AMLL TTML DB 格式规范 Ruby 标注：仅 tts:ruby="text" 携带时间，base 不得含时间戳。
+	it("[N4 spec] ruby word time equals the range of its ruby text times", () => {
 		const { second } = roundtrip(loadFixture("ruby.ttml"));
 		const word = second.lyricLines[0].words[0];
 		expect(word.word).toBe("漢字");
-		expect([word.startTime, word.endTime]).toEqual([1000, 2000]);
+		expect([word.startTime, word.endTime]).toEqual([1200, 1800]);
 	});
 
-	it.fails("[N5] non-word-by-word export emits all words of a line, not only words[0]", () => {
+	it("[N5] non-word-by-word export emits all words of a line, not only words[0]", () => {
 		// 每行至多 1 个非空白词 -> 非逐字（Line）模式
 		const lyric = lyricOf([
 			line({ words: [w(" ", 0, 0), w("Hello", 1000, 2000)] }),
@@ -336,7 +462,47 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		);
 	});
 
-	it.fails("[N6] exportTTMLText does not mutate its (deep-frozen) input", () => {
+	it("[N5] non-word-by-word export concatenates all words of a line (whitespace words included)", () => {
+		// Line 模式下每行至多一个非空白单词，因此「多个单词」即首尾带空白单词
+		const lyric = lyricOf([
+			line({ words: [w("Main", 500, 900)] }),
+			line({
+				isBG: true,
+				words: [w(" ", 0, 0), w("bg", 900, 1000), w(" ", 0, 0)],
+			}),
+			line({ words: [w(" ", 0, 0), w("Hello", 1000, 2000), w(" ", 0, 0)] }),
+			line({ words: [w("Second", 2000, 3000)] }),
+		]);
+		const { xml, parsed } = exportAndReparse(lyric);
+		expect(xml).toContain(
+			'<span ttm:role="x-bg" begin="00:00.900" end="00:01.000"> <span begin="00:00.900" end="00:01.000">(bg)</span> </span>',
+		);
+		expect(xml).toContain(
+			'itunes:key="L2"> <span begin="00:01.000" end="00:02.000">Hello</span> </p>',
+		);
+		// 单单词行与旧输出一致
+		expect(xml).toContain(
+			'itunes:key="L3"><span begin="00:02.000" end="00:03.000">Second</span></p>',
+		);
+		expect(
+			parsed.lyricLines.map((l) => l.words.map((x) => x.word).join("")),
+		).toEqual(["Main", "bg", "Hello", "Second"]);
+	});
+
+	it("[N5] non-word-by-word export does not crash on BG lines without words", () => {
+		const lyric = lyricOf([
+			line({ words: [w("Hello", 1000, 2000)] }),
+			line({ isBG: true, words: [] }),
+			line({ isBG: true, words: [w(" ", 0, 0)] }),
+			line({ words: [w("Second", 2000, 3000)] }),
+		]);
+		const { parsed } = exportAndReparse(lyric);
+		expect(
+			parsed.lyricLines.filter((l) => !l.isBG).map((l) => l.words[0]?.word),
+		).toEqual(["Hello", "Second"]);
+	});
+
+	it("[N6] exportTTMLText does not mutate its (deep-frozen) input", () => {
 		const lyric = lyricOf([
 			line({
 				words: [w("Hello", 1000, 1500), w(" ", 0, 0), w("world", 1500, 2000)],
@@ -350,13 +516,13 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		expect(lyric).toEqual(snapshot);
 	});
 
-	it.fails("[3.3] parseLyric throws a clear error on malformed XML", () => {
+	it("[3.3] parseLyric throws a clear error on malformed XML", () => {
 		expect(() =>
 			parseLyric('<tt xmlns="http://www.w3.org/ns/ttml"><body><div></tt>'),
-		).toThrow();
+		).toThrow(/XML/);
 	});
 
-	it.fails("[3.6a] amll:meta songwriter and iTunes songwriters both survive roundtrip", () => {
+	it("[3.6a] amll:meta songwriter and iTunes songwriters both survive roundtrip", () => {
 		// 浏览器中 parser 对两种来源各产出一条 songwriter entry（ttml-parser.ts L830 push 而非合并）；
 		// happy-dom 下 querySelectorAll("meta") 匹配不到 amll:meta，因此这里直接构造该内存形态。
 		const lyric = lyricOf(
