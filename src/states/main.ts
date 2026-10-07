@@ -9,7 +9,7 @@
  * https://github.com/Steve-xmh/amll-ttml-tool/blob/main/LICENSE
  */
 
-import { atom } from "jotai";
+import { atom, type Setter } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { REDO, RESET, UNDO, withHistory } from "jotai-history";
 import { uid } from "uid";
@@ -37,14 +37,20 @@ export const isDarkThemeAtom = atom((get) => {
 });
 export const autoDarkModeAtom = atom(true);
 
-// 歌词行编辑上下文
-export const lyricLinesAtom = atom({
+/**
+ * @description 创建一个空白的歌词项目数据
+ */
+export const createEmptyLyric = (): TTMLLyric => ({
 	lyricLines: [],
 	metadata: [],
 	vocalTags: [],
+	agents: [],
 	lyricLang: "zh-Hans",
 	autoLang: true,
-} as TTMLLyric);
+});
+
+// 歌词行编辑上下文
+export const lyricLinesAtom = atom<TTMLLyric>(createEmptyLyric());
 
 /**
  * @description 当前项目的唯一标识符
@@ -106,17 +112,7 @@ export const editingWordStateAtom = atom({
 });
 export const newLyricLinesAtom = atom(
 	null,
-	(
-		_get,
-		set,
-		newState: TTMLLyric = {
-			lyricLines: [],
-			metadata: [],
-			vocalTags: [],
-			lyricLang: "zh-Hans",
-			autoLang: true,
-		},
-	) => {
+	(_get, set, newState: TTMLLyric = createEmptyLyric()) => {
 		set(lyricLinesAtom, newState);
 		set(undoableLyricLinesAtom, RESET);
 		set(selectedLinesAtom, new Set());
@@ -131,7 +127,43 @@ export const selectedTranslationLangAtom = atom<string>("");
 export const selectedRomanizationLangAtom = atom<string>("");
 export const selectedWordRomanizationLangAtom = atom<string>("");
 
-export const saveFileNameAtom = atom("lyric.ttml");
+export const DEFAULT_SAVE_FILE_NAME = "lyric.ttml";
+
+export const saveFileNameAtom = atom(DEFAULT_SAVE_FILE_NAME);
+
+export interface LoadLyricOptions {
+	/** 加载后使用的保存文件名 */
+	fileName: string;
+	/** 项目 ID，不传入则生成新的随机 ID */
+	projectId?: string;
+}
+
+/**
+ * @description 将歌词加载进编辑器，作为一个新的编辑会话：
+ * 设置歌词、重置撤销历史与选区、设置项目 ID 与保存文件名。
+ *
+ * 所有「加载」入口（打开文件、新建、纯文本导入、LRCLIB 导入、历史恢复）都应使用此函数。
+ * @param set jotai 的 `set` 或 `store.set`
+ */
+export const loadLyricIntoEditor = (
+	set: Setter,
+	lyric: TTMLLyric,
+	{ fileName, projectId }: LoadLyricOptions,
+) => {
+	set(projectIdAtom, projectId ?? uid());
+	set(newLyricLinesAtom, lyric);
+	set(saveFileNameAtom, fileName);
+};
+
+/**
+ * @description {@link loadLyricIntoEditor} 的 atom 形式，便于在组件中通过 `useSetAtom` 使用
+ */
+export const loadLyricIntoEditorAtom = atom(
+	null,
+	(_get, set, lyric: TTMLLyric, options: LoadLyricOptions) => {
+		loadLyricIntoEditor(set, lyric, options);
+	},
+);
 
 export const showUnselectedLinesAtom = atomWithStorage(
 	"showUnselectedLines",

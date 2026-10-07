@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-shell";
-import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
+import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom, withImmer } from "jotai-immer";
 import { romanize } from "koroman";
 import { pinyin } from "pinyin-pro";
@@ -7,7 +7,6 @@ import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import ToJyutping from "to-jyutping";
-import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
 import exportTTMLText from "$/modules/project/logic/ttml-writer";
@@ -50,10 +49,11 @@ import {
 	keyUndoAtom,
 } from "$/states/keybindings.ts";
 import {
+	createEmptyLyric,
+	DEFAULT_SAVE_FILE_NAME,
 	isDirtyAtom,
+	loadLyricIntoEditorAtom,
 	lyricLinesAtom,
-	newLyricLinesAtom,
-	projectIdAtom,
 	redoLyricLinesAtom,
 	saveFileNameAtom,
 	selectedLinesAtom,
@@ -66,8 +66,8 @@ import { error, log } from "$/utils/logging.ts";
 
 export const useTopMenuActions = () => {
 	const { t } = useTranslation();
-	const [saveFileName, setSaveFileName] = useAtom(saveFileNameAtom);
-	const newLyricLine = useSetAtom(newLyricLinesAtom);
+	const saveFileName = useAtomValue(saveFileNameAtom);
+	const loadLyricIntoEditor = useSetAtom(loadLyricIntoEditorAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 
 	// 缓存 kuroshiro 实例
@@ -119,7 +119,6 @@ export const useTopMenuActions = () => {
 	);
 	const setTimeShiftDialog = useSetAtom(timeShiftDialogAtom);
 	const { openFile } = useFileOpener();
-	const setProjectId = useSetAtom(projectIdAtom);
 	const setDistributeRomanizationDialog = useSetAtom(
 		distributeRomanizationDialogAtom,
 	);
@@ -170,9 +169,9 @@ export const useTopMenuActions = () => {
 
 	const onNewFile = useCallback(() => {
 		const action = () => {
-			newLyricLine();
-			setProjectId(uid());
-			setSaveFileName("lyric.ttml");
+			loadLyricIntoEditor(createEmptyLyric(), {
+				fileName: DEFAULT_SAVE_FILE_NAME,
+			});
 		};
 
 		if (isDirty) {
@@ -188,14 +187,7 @@ export const useTopMenuActions = () => {
 		} else {
 			action();
 		}
-	}, [
-		isDirty,
-		newLyricLine,
-		setConfirmDialog,
-		t,
-		setProjectId,
-		setSaveFileName,
-	]);
+	}, [isDirty, loadLyricIntoEditor, setConfirmDialog, t]);
 
 	const onOpenFile = useCallback(() => {
 		const inputEl = document.createElement("input");

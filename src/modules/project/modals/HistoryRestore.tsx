@@ -30,7 +30,9 @@ import {
 	type ProjectVersion,
 } from "$/modules/project/autosave/autosave";
 import { confirmDialogAtom, historyRestoreDialogAtom } from "$/states/dialogs";
-import { newLyricLinesAtom, projectIdAtom } from "$/states/main";
+import { getSuggestedTtmlFileName } from "$/modules/project/logic/metadata-filename";
+import { DEFAULT_SAVE_FILE_NAME, loadLyricIntoEditorAtom } from "$/states/main";
+import type { TTMLLyric } from "$/types/ttml";
 import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
 
@@ -42,8 +44,7 @@ export const HistoryRestoreDialog = () => {
 	);
 	const [versions, setVersions] = useState<ProjectVersion[]>([]);
 
-	const setNewLyrics = useSetAtom(newLyricLinesAtom);
-	const setProjectId = useSetAtom(projectIdAtom);
+	const loadLyricIntoEditor = useSetAtom(loadLyricIntoEditorAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const { t } = useTranslation();
 	const setPushNotification = useSetAtom(pushNotificationAtom);
@@ -64,6 +65,15 @@ export const HistoryRestoreDialog = () => {
 			});
 		}
 	}, [t, setPushNotification]);
+
+	const restoreLyric = (projectId: string, lyric: TTMLLyric) => {
+		loadLyricIntoEditor(lyric, {
+			projectId,
+			fileName:
+				getSuggestedTtmlFileName(lyric.metadata)?.fileName ??
+				DEFAULT_SAVE_FILE_NAME,
+		});
+	};
 
 	const loadVersions = useCallback(async (projectId: string) => {
 		try {
@@ -100,8 +110,7 @@ export const HistoryRestoreDialog = () => {
 			onConfirm: async () => {
 				const latestLyric = await getProjectLatestState(project.id);
 				if (latestLyric) {
-					setProjectId(project.id);
-					setNewLyrics(latestLyric);
+					restoreLyric(project.id, latestLyric);
 					setIsOpen(false);
 					setPushNotification({
 						title: t("common.success", "恢复成功"),
@@ -128,8 +137,7 @@ export const HistoryRestoreDialog = () => {
 				"此操作将覆盖当前编辑器中的所有内容，确定要恢复此快照吗？",
 			),
 			onConfirm: () => {
-				setProjectId(version.projectId);
-				setNewLyrics(version.data);
+				restoreLyric(version.projectId, version.data);
 				setIsOpen(false);
 				setPushNotification({
 					title: t("common.success", "恢复成功"),

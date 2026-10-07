@@ -24,9 +24,7 @@ import { pushNotificationAtom } from "$/states/notifications";
 import {
 	fileUpdateSessionAtom,
 	isDirtyAtom,
-	newLyricLinesAtom,
-	projectIdAtom,
-	saveFileNameAtom,
+	loadLyricIntoEditorAtom,
 } from "$/states/main.ts";
 import type { TTMLLyric } from "$/types/ttml";
 import { log, error as logError } from "$/utils/logging.ts";
@@ -102,9 +100,7 @@ const writeAudioCache = async (file: File) => {
 };
 
 export const useFileOpener = () => {
-	const setNewLyricLines = useSetAtom(newLyricLinesAtom);
-	const setProjectId = useSetAtom(projectIdAtom);
-	const setSaveFileName = useSetAtom(saveFileNameAtom);
+	const loadLyricIntoEditor = useSetAtom(loadLyricIntoEditorAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const fileUpdateSession = useAtomValue(fileUpdateSessionAtom);
@@ -118,6 +114,7 @@ export const useFileOpener = () => {
 					...line,
 					words: line.words.map((word) => ({
 						...word,
+						romanWord: word.romanWord ?? "",
 						id: uid(),
 						obscene: false,
 						emptyBeat: 0,
@@ -127,6 +124,8 @@ export const useFileOpener = () => {
 					id: uid(),
 				})),
 				metadata: [],
+				vocalTags: [],
+				agents: [],
 				lyricLang: "zh-Hans",
 				autoLang: true,
 			};
@@ -190,12 +189,13 @@ export const useFileOpener = () => {
 					logError("解析项目数据时失败", e);
 				}
 
-				setProjectId(resolvedProjectId);
-				setNewLyricLines(lyricData);
 				const suggestedFile = getSuggestedTtmlFileName(lyricData.metadata);
 				const nextFileName =
 					ext === "ttml" ? file.name : (suggestedFile?.fileName ?? file.name);
-				setSaveFileName(nextFileName);
+				loadLyricIntoEditor(lyricData, {
+					projectId: resolvedProjectId,
+					fileName: nextFileName,
+				});
 			} catch (e) {
 				logError(`Failed to open file: ${file.name}`, e);
 				setPushNotification({
@@ -205,14 +205,7 @@ export const useFileOpener = () => {
 				});
 			}
 		},
-		[
-			setNewLyricLines,
-			setProjectId,
-			setSaveFileName,
-			normalizeLyricLines,
-			t,
-			setPushNotification,
-		],
+		[loadLyricIntoEditor, normalizeLyricLines, t, setPushNotification],
 	);
 
 	const openFile = useCallback(
