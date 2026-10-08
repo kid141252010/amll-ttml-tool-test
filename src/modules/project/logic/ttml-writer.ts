@@ -411,7 +411,9 @@ export default function exportTTMLText(
 	);
 
 	for (const param of params) {
-		const paramDiv = doc.createElement("div");
+		const paramDiv = doc.createElementNS
+			? doc.createElementNS(null, "div")
+			: doc.createElement("div");
 		const beginTime = param[0]?.startTime ?? 0;
 		const endTime = param[param.length - 1]?.endTime ?? 0;
 
