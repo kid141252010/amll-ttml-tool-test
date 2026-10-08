@@ -48,7 +48,7 @@ export interface TTMLLyric {
 	 */
 	autoLang?: boolean;
 	/**
-	 * @description 存储文件中出现的但不在预设列表中的自定义 song-part 值
+	 * @description 存储文件中出现的但不在预设列表中的自定义 songPart 值
 	 */
 	customSongParts?: string[];
 }
@@ -142,7 +142,7 @@ export interface LyricLine extends AMLLLyricLine {
 	wordRomanizationByLang?: Record<string, TTMLLangData<TTMLRomanWord[]>>;
 	wordTranslationByLang?: Record<string, TTMLLangData<TTMLTranslationWord[]>>;
 	/**
-	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:song-part 属性）
+	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:songPart 属性）
 	 */
 	songPart?: string;
 	/**

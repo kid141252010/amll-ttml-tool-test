@@ -423,7 +423,11 @@ export default function exportTTMLText(
 			(line) => line.songPart && line.songPart.trim().length > 0 && !line.isBG,
 		);
 		if (firstLineWithSongPart?.songPart) {
-			paramDiv.setAttribute("itunes:song-part", firstLineWithSongPart.songPart);
+			paramDiv.setAttributeNS(
+				"http://music.apple.com/lyric-ttml-internal",
+				"itunes:songPart",
+				firstLineWithSongPart.songPart,
+			);
 		}
 
 		for (let lineIndex = 0; lineIndex < param.length; lineIndex++) {

@@ -1825,5 +1825,55 @@ describe("exportTTMLText - itunes:key Lx markers consistent with display line nu
 		const xml = exportTTMLText(ttmlLyric);
 		expect(xml).toContain('itunes:key="L1"');
 	});
+
+	it("should export songPart as camelCase itunes:songPart attribute on div element", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				startTime: 1000,
+				endTime: 2000,
+				songPart: "Verse",
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+			{
+				startTime: 2000,
+				endTime: 3000,
+				songPart: "Chorus",
+				words: [
+					{
+						id: "w2",
+						word: "World",
+						startTime: 2000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		expect(xml).toContain('itunes:songPart="Verse"');
+		expect(xml).toContain('itunes:songPart="Chorus"');
+		expect(xml).not.toContain('itunes:song-part');
+
+		// 往返解析验证
+		const parsed = parseLyric(xml);
+		expect(parsed.lyricLines[0]?.songPart).toBe("Verse");
+		expect(parsed.lyricLines[1]?.songPart).toBe("Chorus");
+	});
 });
+
 

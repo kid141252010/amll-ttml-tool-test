@@ -823,7 +823,7 @@ function EditModeField({
 // 	);
 // }
 
-// 内置的预设 song-part 列表
+// 内置的预设 songPart 列表
 const BUILTIN_SONG_PART_OPTIONS = [
 	{ value: "Verse", label: "Verse" },
 	{ value: "Chorus", label: "Chorus" },
@@ -930,7 +930,7 @@ const SongPartField: FC = () => {
 		handleSongPartChange,
 	]);
 
-	// 处理将自定义 song-part 转换为预设值（添加到预设列表）
+	// 处理将自定义 songPart 转换为预设值（添加到预设列表）
 	const handleConvertToPreset = useCallback(
 		(customValue: string) => {
 			// 添加到自定义预设列表
@@ -955,7 +955,7 @@ const SongPartField: FC = () => {
 		currentSongPart === undefined ? NONE_VALUE : currentSongPart;
 	const songPartLabelId = useId();
 
-	// 获取文件中解析出的自定义 song-part 列表
+	// 获取文件中解析出的自定义 songPart 列表
 	const customSongParts = lyricLines.customSongParts || [];
 
 	// 处理删除预设
