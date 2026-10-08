@@ -435,7 +435,6 @@ export default function exportTTMLText(
 			// 与 UI 显示行号一致分配 itunesKey（仅主行使用 L 编号，背景行不设 itunesKey，从 L1 开始）
 			const itunesKey = `L${mainLineCounter}`;
 			mainLineCounter++;
-			line.itunesKey = itunesKey;
 
 			const mainWords = line.words;
 			const bgLines: LyricLine[] = [];

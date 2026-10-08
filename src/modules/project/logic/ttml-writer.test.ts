@@ -1769,4 +1769,61 @@ describe("exportTTMLText - itunes:key Lx markers consistent with display line nu
 		expect(pElements[1].getAttribute("itunes:key")).toBe("L2");
 		expect(pElements[2].getAttribute("itunes:key")).toBe("L3");
 	});
+
+	it("should safely export frozen/read-only lyrics without throwing TypeError (e.g. from Immer store)", () => {
+		function deepFreeze<T>(obj: T): T {
+			if (obj === null || typeof obj !== "object") return obj;
+			Object.freeze(obj);
+			for (const key of Object.keys(obj)) {
+				const val = (obj as Record<string, unknown>)[key];
+				if (typeof val === "object" && val !== null && !Object.isFrozen(val)) {
+					deepFreeze(val);
+				}
+			}
+			return obj;
+		}
+
+		const ttmlLyric = deepFreeze(
+			createMockLyric([
+				{
+					startTime: 1000,
+					endTime: 2000,
+					words: [
+						{
+							id: "w1",
+							word: "FrozenWord",
+							startTime: 1000,
+							endTime: 2000,
+							obscene: false,
+							emptyBeat: 0,
+							romanWord: "",
+							rubyPhraseStart: false,
+						},
+					],
+				},
+				{
+					isBG: true,
+					startTime: 1200,
+					endTime: 1800,
+					words: [
+						{
+							id: "bg1",
+							word: "BgFrozen",
+							startTime: 1200,
+							endTime: 1800,
+							obscene: false,
+							emptyBeat: 0,
+							romanWord: "",
+							rubyPhraseStart: false,
+						},
+					],
+				},
+			]),
+		);
+
+		expect(() => exportTTMLText(ttmlLyric)).not.toThrow();
+		const xml = exportTTMLText(ttmlLyric);
+		expect(xml).toContain('itunes:key="L1"');
+	});
 });
+
