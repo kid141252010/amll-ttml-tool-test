@@ -547,3 +547,161 @@ describe("TTML known defects (phase 0 safety net)", () => {
 		);
 	});
 });
+
+describe("TTML fix items 3, 4, 5", () => {
+	// Item 3: msToTimestamp 对非有限数（undefined / NaN）归零，不产生 NaN:000NaN
+	it("[item3] undefined word time is coerced to 0 instead of emitting NaN:000NaN", () => {
+		const bad = w("B", 0, 0);
+		// biome-ignore lint/suspicious/noExplicitAny: 模拟未初始化时间
+		(bad as any).startTime = undefined;
+		// biome-ignore lint/suspicious/noExplicitAny: 模拟未初始化时间
+		(bad as any).endTime = undefined;
+		const lyric = lyricOf([
+			line({
+				words: [w("A", 1000, 2000), bad],
+				startTime: 1000,
+				endTime: 3000,
+			}),
+		]);
+		const { xml } = exportAndReparse(lyric);
+		expect(xml).not.toContain("NaN");
+		expect(xml).toContain('begin="00:00.000"');
+	});
+
+	it("[item3] collectExportIssues reports invalid-time for undefined word time", () => {
+		const bad = w("B", 0, 0);
+		// biome-ignore lint/suspicious/noExplicitAny: 模拟未初始化时间
+		(bad as any).startTime = undefined;
+		// biome-ignore lint/suspicious/noExplicitAny: 模拟未初始化时间
+		(bad as any).endTime = undefined;
+		const lyric = lyricOf([
+			line({
+				words: [w("A", 1000, 2000), bad],
+				startTime: 1000,
+				endTime: 3000,
+			}),
+		]);
+		const issues = collectExportIssues(lyric);
+		const inv = issues.find((x) => x.type === "invalid-time");
+		expect(inv).toBeDefined();
+		expect(inv?.lineNumber).toBe(1);
+		expect(inv?.message).toContain("第 1 行");
+	});
+
+	it("[item3] itunes:timing is None (not Word) when all words have 0/0 time (all-zero lines must not falsely trigger Word)", () => {
+		const lyric = lyricOf([line({ words: [w("A", 0, 0), w("B", 0, 0)] })]);
+		const { xml } = exportAndReparse(lyric);
+		expect(xml).toContain('itunes:timing="None"');
+	});
+
+	// Item 4: 同一 (lang, Lx) 在 transliteration 块内只能出现一个 <text for>
+	it("[item4] explicit wordRomanizationByLang replaces romanLyricByLang for same lang/key, no duplicate <text for>", () => {
+		const lyric = lyricOf([
+			line({
+				words: [w("Hello", 1000, 1500), w(" ", 0, 0), w("world", 1500, 2000)],
+				startTime: 1000,
+				endTime: 2000,
+				romanLyricByLang: { "ja-Latn": { data: "line roman" } },
+				wordRomanizationByLang: {
+					"ja-Latn": {
+						data: [
+							{ startTime: 1000, endTime: 1500, text: "he" },
+							{ startTime: 1500, endTime: 2000, text: "wo" },
+						],
+					},
+				},
+			}),
+		]);
+		const { xml } = exportAndReparse(lyric);
+		// 仅允许一个 <text for="L1">
+		const matches = [...xml.matchAll(/<text for="L1"/g)];
+		expect(matches).toHaveLength(1);
+		// 写出逐字内容（word-level 优先）
+		expect(xml).toContain("he");
+		expect(xml).toContain("wo");
+		// 不写出逐行 roman（已被逐字替代）
+		expect(xml).not.toContain("line roman");
+	});
+
+	it("[item4] word.romanWord fallback coexists with romanLyric (not deduplicated)", () => {
+		// word.romanWord 回退（fromWords=true）不覆盖同语言的 romanLyric
+		const lyric = lyricOf([
+			line({
+				words: [w("Hello", 1000, 1500), w(" ", 0, 0), w("world", 1500, 2000)],
+				startTime: 1000,
+				endTime: 2000,
+				translatedLyric: "Plain trans",
+				romanLyric: "plain roman",
+			}),
+		]);
+		lyric.lyricLines[0].words[0].romanWord = "he";
+		lyric.lyricLines[0].words[2].romanWord = "wo";
+		const { parsed } = exportAndReparse(lyric);
+		const l = parsed.lyricLines[0];
+		expect(l.romanLyric).toBe("plain roman");
+		expect(l.words.map((x) => x.romanWord)).toEqual(["he", "", "wo"]);
+	});
+
+	// Item 5: BG 括号恰好一对，已有括号不变成双层
+	it("[item5] BG dynamic mode: text with parens is not double-wrapped ((oh → (oh)", () => {
+		const lyric = lyricOf([
+			line({
+				words: [w("Main", 1000, 1500), w(" ", 0, 0), w("line", 1500, 2000)],
+				startTime: 1000,
+				endTime: 2000,
+			}),
+			line({
+				isBG: true,
+				words: [w("(oh", 2000, 2500), w(" ", 0, 0), w("yeah)", 2500, 3000)],
+				startTime: 2000,
+				endTime: 3000,
+			}),
+		]);
+		const { xml } = exportAndReparse(lyric);
+		expect(xml).not.toContain("((oh");
+		expect(xml).not.toContain("yeah))");
+		expect(xml).toContain("(oh");
+		expect(xml).toContain("yeah)");
+	});
+
+	it("[item5] BG line mode: text with parens is not double-wrapped", () => {
+		// 每行至多1个非空白词 → Line 模式
+		const lyric = lyricOf([
+			line({ words: [w("Main", 500, 900)], startTime: 500, endTime: 900 }),
+			line({
+				isBG: true,
+				words: [w("(oh yeah)", 900, 1200)],
+				startTime: 900,
+				endTime: 1200,
+			}),
+			line({
+				words: [w("Second", 1200, 2000)],
+				startTime: 1200,
+				endTime: 2000,
+			}),
+		]);
+		const { xml } = exportAndReparse(lyric);
+		expect(xml).not.toContain("((oh yeah)");
+		expect(xml).not.toContain("(oh yeah))");
+		expect(xml).toContain("(oh yeah)");
+	});
+
+	it("[item5] BG dynamic mode: text without parens gets exactly one pair added", () => {
+		const lyric = lyricOf([
+			line({
+				words: [w("Main", 1000, 1500), w(" ", 0, 0), w("line", 1500, 2000)],
+				startTime: 1000,
+				endTime: 2000,
+			}),
+			line({
+				isBG: true,
+				words: [w("oh", 2000, 2500), w(" ", 0, 0), w("yeah", 2500, 3000)],
+				startTime: 2000,
+				endTime: 3000,
+			}),
+		]);
+		const { xml } = exportAndReparse(lyric);
+		expect(xml).toContain("(oh");
+		expect(xml).toContain("yeah)");
+	});
+});

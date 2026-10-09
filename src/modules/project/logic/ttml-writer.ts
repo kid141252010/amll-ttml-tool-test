@@ -293,7 +293,7 @@ function isSameLangData(a: unknown, b: unknown): boolean {
 }
 
 export interface ExportIssue {
-	type: "word-roman-without-lang" | "lang-conflict";
+	type: "word-roman-without-lang" | "lang-conflict" | "invalid-time";
 	lineIndex: number;
 	/** 受影响的界面显示行号（从 1 开始，与编辑器一致） */
 	lineNumber: number;
@@ -302,10 +302,37 @@ export interface ExportIssue {
 }
 
 /**
+ * 判断一个时间值是否不可用于导出：不是有限数字（undefined / null / NaN / Infinity）
+ * 或是负数。这类值会被 msToTimestamp 归零写出，须向用户报出。
+ */
+function isUnusableTime(t: number | null | undefined): boolean {
+	return typeof t !== "number" || !Number.isFinite(t) || t < 0;
+}
+
+/**
+ * 判断一行（含其 words 的 startTime / endTime 以及 ruby 的时间）是否存在不可用的时间。
+ */
+function lineHasUnusableTime(line: LyricLine): boolean {
+	if (isUnusableTime(line.startTime) || isUnusableTime(line.endTime))
+		return true;
+	for (const word of line.words) {
+		if (isUnusableTime(word.startTime) || isUnusableTime(word.endTime))
+			return true;
+		for (const ruby of word.ruby ?? []) {
+			if (isUnusableTime(ruby.startTime) || isUnusableTime(ruby.endTime))
+				return true;
+		}
+	}
+	return false;
+}
+
+/**
  * 检查导出前可能存在的问题：
  * 1. 逐字音译数据没有语言码（word.romanWord 存在但 wordRomanizationByLang 为空），
  *    导出时会按默认语言写出，建议用户先明确指定语言；
- * 2. und/unknown 映射到默认语言后与该语言下的已有数据冲突（冲突项不会被写出）。
+ * 2. und/unknown 映射到默认语言后与该语言下的已有数据冲突（冲突项不会被写出）；
+ * 3. 行或单词的时间缺失 / 非法（undefined、NaN、负数等），导出时会按 0 写出，
+ *    提交到 AMLL 数据库路径将被阻断。
  *
  * 注意：本函数不做任何界面操作，仅返回问题列表，由调用方决定如何提示。
  */
@@ -350,6 +377,16 @@ export function collectExportIssues(ttmlLyric: TTMLLyric): ExportIssue[] {
 				lineNumber,
 				lang: defaultRomanLang,
 				message: `第 ${lineNumber} 行存在未指定语言的逐字音译，导出时将按默认语言 ${defaultRomanLang} 写出`,
+			});
+		}
+
+		// 时间缺失 / 非法：msToTimestamp 会写成 00:00.000，需提示用户修复
+		if (lineHasUnusableTime(line)) {
+			issues.push({
+				type: "invalid-time",
+				lineIndex: i,
+				lineNumber,
+				message: `第 ${lineNumber} 行的行或单词时间缺失或非法（仅支持非负数字），导出时已按 0 处理，请修复后再提交`,
 			});
 		}
 	}
@@ -625,6 +662,22 @@ export default function exportTTMLText(
 		}
 		if (last && suffix) {
 			last.nodeValue = `${last.nodeValue ?? ""}${suffix}`;
+		}
+	}
+
+	/**
+	 * 剥掉文本节点上现有的括号前缀/后缀（半角或全角），避免重复包裹。
+	 * 仅操作元素的第一个 / 最后一个文本节点，不影响整体结构。
+	 * 规范 spec:603：背景人声文本必须恰好被一对半角括号包裹。
+	 */
+	function stripBgParens(el: Element) {
+		const first = findFirstTextNode(el);
+		if (first) {
+			first.nodeValue = (first.nodeValue ?? "").replace(/^[（(]+/, "");
+		}
+		const last = findLastTextNode(el);
+		if (last) {
+			last.nodeValue = (last.nodeValue ?? "").replace(/[)）]+$/, "");
 		}
 	}
 
@@ -1024,6 +1077,10 @@ export default function exportTTMLText(
 						} else {
 							const span = createWordElement(word);
 
+							if (wordIndex === firstWordIndex || wordIndex === lastWordIndex) {
+								// 先剥掉文本中已有的括号，再统一补一对，避免双层括号（spec:603）
+								stripBgParens(span);
+							}
 							const prefix = wordIndex === firstWordIndex ? "(" : "";
 							const suffix = wordIndex === lastWordIndex ? ")" : "";
 							addWrapperToElement(span, prefix, suffix);
@@ -1058,6 +1115,9 @@ export default function exportTTMLText(
 							addWrapperToElement(bgLineSpan, "(", ")");
 						} else {
 							// 与逐字模式一致：括号加在首/尾单词元素上，首尾空白留在 span 外
+							// 先剥掉已有括号再统一补，避免双层括号（spec:603）
+							stripBgParens(elements[0]);
+							stripBgParens(elements[elements.length - 1]);
 							addWrapperToElement(elements[0], "(", "");
 							addWrapperToElement(elements[elements.length - 1], "", ")");
 							for (const node of nodes) bgLineSpan.appendChild(node);
@@ -1304,7 +1364,9 @@ export default function exportTTMLText(
 				if (mainRoman.length === 0 && bgRoman.every((r) => r.length === 0))
 					continue;
 				// 逐字音译优先：仅删除「本行」相同语言的逐行音译，其他行不受影响
-				// （由 word.romanWord 回退生成的 und 逐字音译与 romanLyric 并存，不覆盖）
+				// 当逐字音译来自 word.romanWord 回退（fromWords=true）时，不删除同语言的逐行
+				// romanLyric，以保留已有的 romanLyric 数据；当两者来自明确的 ByLang 数据时，
+				// 逐字优先，删除逐行条目，保证同一 (lang, Lx) 只输出一个 <text>（spec:266）。
 				const fromWords =
 					(mainView.wordRomanFromWords || !mainView.wordRoman[lang]) &&
 					bgViews.every((bg) => bg.wordRomanFromWords || !bg.wordRoman[lang]);

@@ -1,0 +1,20 @@
+fix(ttml): 修复规范审计发现的 3 项确定不合规问题
+
+**Item 3: NaN/undefined 时间**
+- msToTimestamp: 无效输入(undefined/NaN/Infinity/负数)按 0 处理
+- collectExportIssues: 新增 invalid-time 检测，列出受影响行号
+- 保存/复制时弹确认框提示用户修复，提交 AMLL 时阻止
+
+**Item 4: 同一(语言,行号)重复 <text for>**
+- 逐字数据优先：存在时删除同语言同行的逐行条目
+- word.romanWord 回退路径(fromWords=true)保留逐行数据共存
+- 保证每个(lang, Lx)只输出一个 <text>（符合 spec:266）
+
+**Item 5: 背景行双括号 ((oh → (oh**
+- stripBgParens: 添加前先剥掉文本已有的半角/全角括号
+- 动态模式与 Line 模式均修复
+- 符合 spec:603（背景文本恰好一对半角括号）
+
+**测试**: 新增 8 个用例覆盖三项修复，全部通过（76 tests）
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
