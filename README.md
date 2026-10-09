@@ -25,10 +25,6 @@
 > [!WARNING]
 > 本工具不建议移动手机或小尺寸电子设备使用，操作会非常繁琐！
 
-你可以通过访问 [`https://amll-ttml-tool.stevexmh.net/`](https://amll-ttml-tool.stevexmh.net/)来使用本工具的在线版本。
-
-也可以使用 Github Action 构建的 Tauri 桌面版本，具体见 [Github Action 构建 Tauri 桌面版本](https://github.com/Steve-xmh/amll-ttml-tool/actions/workflows/build-desktop.yaml)。
-
 ## 编辑器功能
 
 - 基本输入、编辑、打轴功能

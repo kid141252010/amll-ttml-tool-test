@@ -33,7 +33,7 @@ import { log } from "../../../utils/logging.ts";
 import { parseTimespan } from "../../../utils/timestamp.ts";
 import { distributeRomanizationByCharCount } from "../../segmentation/utils/Transliteration/distributor.ts";
 
-/** 预设的 song-part 列表 */
+/** 预设的 songPart 列表 */
 const PREDEFINED_SONG_PARTS = new Set([
 	"Verse",
 	"Chorus",
@@ -1290,22 +1290,22 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		lyricLines.splice(insertIndex, 0, line);
 	}
 
-	// 用于存储文件中出现的自定义 song-part 值（不在预设列表中的）
+	// 用于存储文件中出现的自定义 songPart 值（不在预设列表中的）
 	const customSongParts = new Set<string>();
 
 	// L 计数器，用于为没有 itunes:key 的主歌词行分配编号
 	// L 从 0 开始 (L0, L1, L2...)
 	let lCounter = 0;
 
-	// 先遍历所有 div，解析 song-part 属性，然后处理其中的 p 标签
+	// 先遍历所有 div，解析 songPart 属性，然后处理其中的 p 标签
 	const divElements = ttmlDoc.querySelectorAll("body div[begin][end]");
 	if (divElements.length > 0) {
 		// 存在 div 结构，按 div 分组解析
 		for (const divEl of divElements) {
-			// 获取 div 的 song-part 属性（支持 itunes:song-part、itunes:songPart、songPart 和 song-part）
+			// 获取 div 的 songPart 属性（支持 itunes:songPart、itunes:song-part、songPart 和 song-part）
 			const songPart =
-				divEl.getAttribute("itunes:song-part") ??
 				divEl.getAttribute("itunes:songPart") ??
+				divEl.getAttribute("itunes:song-part") ??
 				divEl.getAttribute("songPart") ??
 				divEl.getAttribute("song-part") ??
 				null;
