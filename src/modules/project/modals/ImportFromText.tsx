@@ -16,7 +16,11 @@ import {
 	confirmDialogAtom,
 	importFromTextDialogAtom,
 } from "$/states/dialogs.ts";
-import { isDirtyAtom, lyricLinesAtom } from "$/states/main.ts";
+import {
+	DEFAULT_SAVE_FILE_NAME,
+	isDirtyAtom,
+	loadLyricIntoEditor,
+} from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import { type LyricLine, newLyricLine, newLyricWord } from "$/types/ttml";
 import { error as logError } from "$/utils/logging.ts";
@@ -267,12 +271,18 @@ export const ImportFromText = () => {
 				}
 			}
 
-			store.set(lyricLinesAtom, {
-				lyricLines: result,
-				metadata: [],
-				lyricLang: "zh-Hans",
-				autoLang: true,
-			});
+			loadLyricIntoEditor(
+				store.set,
+				{
+					lyricLines: result,
+					metadata: [],
+					vocalTags: [],
+					agents: [],
+					lyricLang: "zh-Hans",
+					autoLang: true,
+				},
+				{ fileName: DEFAULT_SAVE_FILE_NAME },
+			);
 		},
 		[store],
 	);

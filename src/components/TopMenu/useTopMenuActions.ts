@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-shell";
-import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
+import { useAtomValue, useSetAtom, useStore } from "jotai";
 import { useSetImmerAtom, withImmer } from "jotai-immer";
 import { romanize } from "koroman";
 import { pinyin } from "pinyin-pro";
@@ -7,10 +7,11 @@ import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import saveFile from "save-file";
 import ToJyutping from "to-jyutping";
-import { uid } from "uid";
 import { useFileOpener } from "$/hooks/useFileOpener.ts";
 import { applyGeneratedRuby } from "$/modules/lyric-editor/utils/ruby-generator";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import exportTTMLText, {
+	collectExportIssues,
+} from "$/modules/project/logic/ttml-writer";
 import {
 	segmentLyricLines,
 	segmentWord,
@@ -50,10 +51,11 @@ import {
 	keyUndoAtom,
 } from "$/states/keybindings.ts";
 import {
+	createEmptyLyric,
+	DEFAULT_SAVE_FILE_NAME,
 	isDirtyAtom,
+	loadLyricIntoEditorAtom,
 	lyricLinesAtom,
-	newLyricLinesAtom,
-	projectIdAtom,
 	redoLyricLinesAtom,
 	saveFileNameAtom,
 	selectedLinesAtom,
@@ -66,8 +68,8 @@ import { error, log } from "$/utils/logging.ts";
 
 export const useTopMenuActions = () => {
 	const { t } = useTranslation();
-	const [saveFileName, setSaveFileName] = useAtom(saveFileNameAtom);
-	const newLyricLine = useSetAtom(newLyricLinesAtom);
+	const saveFileName = useAtomValue(saveFileNameAtom);
+	const loadLyricIntoEditor = useSetAtom(loadLyricIntoEditorAtom);
 	const editLyricLines = useSetImmerAtom(lyricLinesAtom);
 
 	// 缓存 kuroshiro 实例
@@ -119,7 +121,6 @@ export const useTopMenuActions = () => {
 	);
 	const setTimeShiftDialog = useSetAtom(timeShiftDialogAtom);
 	const { openFile } = useFileOpener();
-	const setProjectId = useSetAtom(projectIdAtom);
 	const setDistributeRomanizationDialog = useSetAtom(
 		distributeRomanizationDialogAtom,
 	);
@@ -170,9 +171,9 @@ export const useTopMenuActions = () => {
 
 	const onNewFile = useCallback(() => {
 		const action = () => {
-			newLyricLine();
-			setProjectId(uid());
-			setSaveFileName("lyric.ttml");
+			loadLyricIntoEditor(createEmptyLyric(), {
+				fileName: DEFAULT_SAVE_FILE_NAME,
+			});
 		};
 
 		if (isDirty) {
@@ -188,14 +189,7 @@ export const useTopMenuActions = () => {
 		} else {
 			action();
 		}
-	}, [
-		isDirty,
-		newLyricLine,
-		setConfirmDialog,
-		t,
-		setProjectId,
-		setSaveFileName,
-	]);
+	}, [isDirty, loadLyricIntoEditor, setConfirmDialog, t]);
 
 	const onOpenFile = useCallback(() => {
 		const inputEl = document.createElement("input");
@@ -231,6 +225,18 @@ export const useTopMenuActions = () => {
 		try {
 			const lyric = store.get(lyricLinesAtom);
 
+			// 检查导出问题
+			const issues = collectExportIssues(lyric);
+			const hasIssues = issues.length > 0;
+
+			const performSave = () => {
+				const ttmlText = exportTTMLText(lyric, {
+					separateSpecialSpansWithSpace,
+				});
+				const b = new Blob([ttmlText], { type: "text/plain" });
+				saveFile(b, saveFileName).catch(error);
+			};
+
 			// 检查歌曲 ID 是否已存在
 			const { exists, existingIds } = await checkSongIdsExist(lyric.metadata);
 			if (exists) {
@@ -239,21 +245,38 @@ export const useTopMenuActions = () => {
 					existingIds,
 					onConfirm: () => {
 						// 用户确认后执行保存
-						const ttmlText = exportTTMLText(lyric, {
-							separateSpecialSpansWithSpace,
-						});
-						const b = new Blob([ttmlText], { type: "text/plain" });
-						saveFile(b, saveFileName).catch(error);
+						if (hasIssues) {
+							// 还有导出问题，需要再次确认
+							const issueMessages = issues
+								.map((issue) => issue.message)
+								.join("\n");
+							setConfirmDialog({
+								open: true,
+								title: t("confirmDialog.exportIssues.title", "导出前警告"),
+								description: `${t("confirmDialog.exportIssues.description", "检测到以下问题：")}\n\n${issueMessages}\n\n${t("confirmDialog.exportIssues.confirm", "是否仍要导出？")}`,
+								onConfirm: performSave,
+							});
+						} else {
+							performSave();
+						}
 					},
 				});
 				return;
 			}
 
-			const ttmlText = exportTTMLText(lyric, {
-				separateSpecialSpansWithSpace,
-			});
-			const b = new Blob([ttmlText], { type: "text/plain" });
-			saveFile(b, saveFileName).catch(error);
+			// 如果有导出问题，显示确认对话框
+			if (hasIssues) {
+				const issueMessages = issues.map((issue) => issue.message).join("\n");
+				setConfirmDialog({
+					open: true,
+					title: t("confirmDialog.exportIssues.title", "导出前警告"),
+					description: `${t("confirmDialog.exportIssues.description", "检测到以下问题：")}\n\n${issueMessages}\n\n${t("confirmDialog.exportIssues.confirm", "是否仍要导出？")}`,
+					onConfirm: performSave,
+				});
+				return;
+			}
+
+			performSave();
 		} catch (e) {
 			error("Failed to save TTML file", e);
 		}
@@ -261,7 +284,9 @@ export const useTopMenuActions = () => {
 		saveFileName,
 		store,
 		setDuplicateSongIdDialog,
+		setConfirmDialog,
 		separateSpecialSpansWithSpace,
+		t,
 	]);
 
 	const onOpenHistoryRestore = useCallback(() => {
@@ -272,6 +297,17 @@ export const useTopMenuActions = () => {
 		try {
 			const lyric = store.get(lyricLinesAtom);
 
+			// 检查导出问题
+			const issues = collectExportIssues(lyric);
+			const hasIssues = issues.length > 0;
+
+			const performCopy = async () => {
+				const ttml = exportTTMLText(lyric, {
+					separateSpecialSpansWithSpace,
+				});
+				await navigator.clipboard.writeText(ttml);
+			};
+
 			// 检查歌曲 ID 是否已存在
 			const { exists, existingIds } = await checkSongIdsExist(lyric.metadata);
 			if (exists) {
@@ -280,23 +316,48 @@ export const useTopMenuActions = () => {
 					existingIds,
 					onConfirm: async () => {
 						// 用户确认后执行保存到剪切板
-						const ttml = exportTTMLText(lyric, {
-							separateSpecialSpansWithSpace,
-						});
-						await navigator.clipboard.writeText(ttml);
+						if (hasIssues) {
+							// 还有导出问题，需要再次确认
+							const issueMessages = issues
+								.map((issue) => issue.message)
+								.join("\n");
+							setConfirmDialog({
+								open: true,
+								title: t("confirmDialog.exportIssues.title", "导出前警告"),
+								description: `${t("confirmDialog.exportIssues.description", "检测到以下问题：")}\n\n${issueMessages}\n\n${t("confirmDialog.exportIssues.confirm", "是否仍要导出？")}`,
+								onConfirm: performCopy,
+							});
+						} else {
+							await performCopy();
+						}
 					},
 				});
 				return;
 			}
 
-			const ttml = exportTTMLText(lyric, {
-				separateSpecialSpansWithSpace,
-			});
-			await navigator.clipboard.writeText(ttml);
+			// 如果有导出问题，显示确认对话框
+			if (hasIssues) {
+				const issueMessages = issues.map((issue) => issue.message).join("\n");
+				setConfirmDialog({
+					open: true,
+					title: t("confirmDialog.exportIssues.title", "导出前警告"),
+					description: `${t("confirmDialog.exportIssues.description", "检测到以下问题：")}\n\n${issueMessages}\n\n${t("confirmDialog.exportIssues.confirm", "是否仍要导出？")}`,
+					onConfirm: performCopy,
+				});
+				return;
+			}
+
+			await performCopy();
 		} catch (e) {
 			error("Failed to save TTML file into clipboard", e);
 		}
-	}, [store, setDuplicateSongIdDialog, separateSpecialSpansWithSpace]);
+	}, [
+		store,
+		setDuplicateSongIdDialog,
+		setConfirmDialog,
+		separateSpecialSpansWithSpace,
+		t,
+	]);
 
 	const onSubmitToAMLLDB = useCallback(() => {
 		store.set(submitToAMLLDBDialogAtom, true);

@@ -1,7 +1,9 @@
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import exportTTMLText from "$/modules/project/logic/ttml-writer";
+import exportTTMLText, {
+	collectExportIssues,
+} from "$/modules/project/logic/ttml-writer";
 import {
 	githubPatAtom,
 	hideSubmitAMLLDBWarningAtom,
@@ -293,6 +295,32 @@ export const useSubmitToAMLLDBDialog = () => {
 					),
 					level: "error",
 					source: "SubmitToAMLL",
+				});
+				return;
+			}
+
+			// 检查导出问题 - 如果有问题，必须阻止提交
+			const exportIssues = collectExportIssues(lyric);
+			if (exportIssues.length > 0) {
+				const issueMessages = exportIssues
+					.map((issue) => issue.message)
+					.join("\n");
+				setPushNotification({
+					title: t(
+						"submitToAMLLDB.error.exportIssues",
+						"提交失败：检测到导出问题",
+					),
+					description: issueMessages,
+					level: "error",
+					source: "SubmitToAMLL",
+				});
+				setConfirmDialog({
+					open: true,
+					title: t(
+						"submitToAMLLDB.error.exportIssues",
+						"提交失败：检测到导出问题",
+					),
+					description: `${t("submitToAMLLDB.error.exportIssuesDescription", "在提交到 AMLL 数据库前，必须解决以下问题：")}\n\n${issueMessages}\n\n${t("submitToAMLLDB.error.exportIssuesHint", "请修复这些问题后再重试。")}`,
 				});
 				return;
 			}

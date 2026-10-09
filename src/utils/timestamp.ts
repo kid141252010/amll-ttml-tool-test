@@ -24,17 +24,19 @@ export function parseTimespan(timeSpan: string): number {
 }
 
 export function msToTimestamp(
-	timeMS: number,
+	timeMS: number | null | undefined,
 	options: { ms?: boolean } = {},
 ): string {
-	let t = timeMS;
-	if (t === Number.POSITIVE_INFINITY) {
+	if (timeMS === Number.POSITIVE_INFINITY) {
 		return "99:99.999";
 	}
 
-	if (t < 0 || Number.isNaN(t)) {
-		t = 0;
-	}
+	// 非数字、非有限数（undefined / null / NaN / ±Infinity）以及负值一律按 0 处理，
+	// 否则会算出 NaN:000NaN 这类含字母的非法时间串（规范要求时间只含数字与半角冒号）。
+	let t =
+		typeof timeMS === "number" && Number.isFinite(timeMS) && timeMS >= 0
+			? timeMS
+			: 0;
 
 	t = Math.round(t);
 

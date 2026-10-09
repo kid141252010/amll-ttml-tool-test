@@ -30,19 +30,13 @@ import classNames from "classnames";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { uid } from "uid";
 import { segmentLyricLines } from "$/modules/segmentation/utils/segmentation";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import {
 	confirmDialogAtom,
 	importFromLRCLIBDialogAtom,
 } from "$/states/dialogs.ts";
-import {
-	isDirtyAtom,
-	lyricLinesAtom,
-	projectIdAtom,
-	saveFileNameAtom,
-} from "$/states/main.ts";
+import { isDirtyAtom, loadLyricIntoEditorAtom } from "$/states/main.ts";
 import { pushNotificationAtom } from "$/states/notifications";
 import { error as logError } from "$/utils/logging";
 import { LrcLibApi } from "../api/client";
@@ -61,9 +55,7 @@ export const ImportFromLRCLIB = () => {
 	const { t } = useTranslation();
 
 	const [isOpen, setIsOpen] = useAtom(importFromLRCLIBDialogAtom);
-	const setLyricLines = useSetAtom(lyricLinesAtom);
-	const setProjectId = useSetAtom(projectIdAtom);
-	const setSaveFileName = useSetAtom(saveFileNameAtom);
+	const loadLyricIntoEditor = useSetAtom(loadLyricIntoEditorAtom);
 	const isDirty = useAtomValue(isDirtyAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const setPushNotification = useSetAtom(pushNotificationAtom);
@@ -131,13 +123,11 @@ export const ImportFromLRCLIB = () => {
 					};
 				}
 
-				setLyricLines(ttmlData);
-				setProjectId(uid());
 				const safeFilename = `${track.artistName} - ${track.name}.ttml`.replace(
 					/[\\/:*?"<>|]/g,
 					"_",
 				);
-				setSaveFileName(safeFilename);
+				loadLyricIntoEditor(ttmlData, { fileName: safeFilename });
 
 				setIsOpen(false);
 				setPreviewTrack(null);
@@ -154,9 +144,7 @@ export const ImportFromLRCLIB = () => {
 			}
 		},
 		[
-			setLyricLines,
-			setProjectId,
-			setSaveFileName,
+			loadLyricIntoEditor,
 			setIsOpen,
 			t,
 			autoSegment,
