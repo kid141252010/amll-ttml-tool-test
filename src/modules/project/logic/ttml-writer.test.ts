@@ -2126,3 +2126,222 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 	});
 });
 
+describe("exportTTMLText - translation x-bg bracket handling", () => {
+	it("should wrap subtitle translation x-bg text in parentheses", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "你好" },
+				},
+			},
+			{
+				isBG: true,
+				words: [
+					{
+						id: "bg1",
+						word: "World",
+						startTime: 1500,
+						endTime: 2500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "世界" },
+				},
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const translationEl = doc.querySelector(
+			'iTunesMetadata translations translation[type="subtitle"]',
+		);
+		expect(translationEl).not.toBeNull();
+		const textEl = translationEl?.querySelector("text");
+		expect(textEl).not.toBeNull();
+		const bgSpan = textEl?.querySelector('span[ttm\\:role="x-bg"]');
+		expect(bgSpan).not.toBeNull();
+		expect(bgSpan?.textContent).toBe("(世界)");
+	});
+
+	it("should strip existing half-width and full-width brackets before wrapping to avoid double parentheses", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "你好" },
+				},
+			},
+			{
+				isBG: true,
+				words: [
+					{
+						id: "bg1",
+						word: "World",
+						startTime: 1500,
+						endTime: 2500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "(半角括号和声)" },
+				},
+			},
+			{
+				words: [
+					{
+						id: "w2",
+						word: "Test",
+						startTime: 3000,
+						endTime: 4000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "测试" },
+				},
+			},
+			{
+				isBG: true,
+				words: [
+					{
+						id: "bg2",
+						word: "Voice",
+						startTime: 3500,
+						endTime: 4500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "（全角括号和声）" },
+				},
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const textEls = doc.querySelectorAll(
+			'iTunesMetadata translations translation[type="subtitle"] text',
+		);
+		expect(textEls.length).toBe(2);
+
+		const bgSpan1 = textEls[0].querySelector('span[ttm\\:role="x-bg"]');
+		expect(bgSpan1?.textContent).toBe("(半角括号和声)");
+
+		const bgSpan2 = textEls[1].querySelector('span[ttm\\:role="x-bg"]');
+		expect(bgSpan2?.textContent).toBe("(全角括号和声)");
+	});
+
+	it("should support multiple background lines and round-trip through parseLyric", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Main",
+						startTime: 1000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "主行" },
+				},
+			},
+			{
+				isBG: true,
+				words: [
+					{
+						id: "bg1",
+						word: "BG1",
+						startTime: 1500,
+						endTime: 2500,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "背景一" },
+				},
+			},
+			{
+				isBG: true,
+				words: [
+					{
+						id: "bg2",
+						word: "BG2",
+						startTime: 2000,
+						endTime: 3000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "背景二" },
+				},
+			},
+		]);
+
+		const xml = exportTTMLText(ttmlLyric);
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(xml, "application/xml");
+		const bgSpans = doc.querySelectorAll(
+			'iTunesMetadata translations translation[type="subtitle"] text span[ttm\\:role="x-bg"]',
+		);
+		expect(bgSpans.length).toBe(2);
+		expect(bgSpans[0].textContent).toBe("(背景一)");
+		expect(bgSpans[1].textContent).toBe("(背景二)");
+
+		// 验证往返解析 parseLyric 能正确恢复无括号的背景翻译
+		const parsed = parseLyric(xml);
+		expect(parsed.lyricLines.length).toBe(3);
+		expect(parsed.lyricLines[1].translatedLyricByLang?.["zh-Hans"]?.data).toBe("背景一");
+		expect(parsed.lyricLines[2].translatedLyricByLang?.["zh-Hans"]?.data).toBe("背景二");
+	});
+});
+
+

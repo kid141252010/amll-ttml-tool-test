@@ -427,8 +427,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					bg += bgText;
 					const trimmed = bgText
 						.trim()
-						.replace(/^[（(]/, "")
-						.replace(/[)）]$/, "")
+						.replace(/^[（(]+/, "")
+						.replace(/[)）]+$/, "")
 						.trim();
 					// 空 x-bg span 为占位，同样占一个序号（与 bgIndex 对齐）
 					bgList.push(trimmed);
@@ -439,8 +439,8 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		main = main.trim();
 		bg = bg
 			.trim()
-			.replace(/^[（(]/, "")
-			.replace(/[)）]$/, "")
+			.replace(/^[（(]+/, "")
+			.replace(/[)）]+$/, "")
 			.trim();
 
 		// 如果没有背景行，尝试从主行文本中解析括号格式："主行翻译 (背景行翻译)"

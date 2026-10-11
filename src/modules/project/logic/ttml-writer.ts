@@ -804,10 +804,10 @@ export default function exportTTMLText(
 			const first = bgSpans[0];
 			const last = bgSpans[bgSpans.length - 1];
 			if (first.firstChild) {
-				first.firstChild.nodeValue = `(${first.firstChild.nodeValue}`;
+				first.firstChild.nodeValue = `(${(first.firstChild.nodeValue ?? "").replace(/^[（(]+/, "")}`;
 			}
 			if (last.firstChild) {
-				last.firstChild.nodeValue = `${last.firstChild.nodeValue})`;
+				last.firstChild.nodeValue = `${(last.firstChild.nodeValue ?? "").replace(/[)）]+$/, "")})`;
 			}
 			return bgSpan;
 		});
@@ -1581,17 +1581,23 @@ export default function exportTTMLText(
 							textEl.appendChild(placeholder);
 							continue;
 						}
+						// 剥掉文本中已有的括号前缀/后缀（半角或全角），统一补上一对半角小括号，避免双层括号（与主歌词 spec:603 保持一致）
+						const stripped = bgText
+							.trim()
+							.replace(/^[（(]+/, "")
+							.replace(/[)）]+$/, "")
+							.trim();
+						const formattedBgText = `(${stripped})`;
 						if (
 							separateSpecialSpansWithSpace &&
 							textEl.lastChild &&
-							!endsWithSpace(textEl.lastChild) &&
-							!/^\s/.test(bgText)
+							!endsWithSpace(textEl.lastChild)
 						) {
 							textEl.appendChild(doc.createTextNode(" "));
 						}
 						const bgSpan = doc.createElement("span");
 						bgSpan.setAttribute("ttm:role", "x-bg");
-						bgSpan.appendChild(doc.createTextNode(bgText));
+						bgSpan.appendChild(doc.createTextNode(formattedBgText));
 						textEl.appendChild(bgSpan);
 					}
 					const translation = getOrCreateTranslation(lang, "subtitle");
