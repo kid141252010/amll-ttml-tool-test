@@ -34,6 +34,11 @@ export interface TTMLAgent {
 	names: string[];
 }
 
+export interface TTMLAudio {
+	lyricOffset: string;
+	role?: string;
+}
+
 export interface TTMLLyric {
 	metadata: TTMLMetadata[];
 	lyricLines: LyricLine[];
@@ -51,6 +56,14 @@ export interface TTMLLyric {
 	 * @description 存储文件中出现的但不在预设列表中的自定义 songPart 值
 	 */
 	customSongParts?: string[];
+	/**
+	 * @description 空间音频偏移或音频标签设置
+	 */
+	audios?: TTMLAudio[];
+	/**
+	 * @description 空间音频偏移（秒），例如 "0.940"
+	 */
+	spatialAudioLyricOffset?: string;
 }
 
 export interface LyricWordBase {

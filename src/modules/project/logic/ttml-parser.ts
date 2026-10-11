@@ -22,6 +22,7 @@ import type {
 	LyricWord,
 	LyricWordBase,
 	TTMLAgent,
+	TTMLAudio,
 	TTMLLangData,
 	TTMLLyric,
 	TTMLMetadata,
@@ -32,6 +33,7 @@ import type {
 import { log } from "../../../utils/logging.ts";
 import { parseTimespan } from "../../../utils/timestamp.ts";
 import { distributeRomanizationByCharCount } from "../../segmentation/utils/Transliteration/distributor.ts";
+import { isSpatialAudioOffsetKey } from "./ttml-writer.ts";
 
 /** 预设的 songPart 列表 */
 const PREDEFINED_SONG_PARTS = new Set([
@@ -836,6 +838,51 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		}
 	}
 
+	// 解析 iTunesMetadata > audio 空间音频偏移标签
+	let audioElements: Element[] = [];
+	try {
+		audioElements = Array.from(
+			ttmlDoc.querySelectorAll(
+				"iTunesMetadata > audio, itunes\\:audio, audio[lyricOffset]",
+			),
+		);
+	} catch {
+		audioElements = Array.from(ttmlDoc.getElementsByTagName("*")).filter(
+			(el) =>
+				(el.localName === "audio" ||
+					el.tagName.toLowerCase().endsWith(":audio")) &&
+				(el.hasAttribute("lyricOffset") || el.hasAttribute("lyricoffset")),
+		);
+	}
+
+	const parsedAudios: TTMLAudio[] = [];
+	for (const el of audioElements) {
+		const offset =
+			el.getAttribute("lyricOffset") ?? el.getAttribute("lyricoffset");
+		if (offset && offset.trim().length > 0) {
+			const role = el.getAttribute("role") ?? undefined;
+			parsedAudios.push({
+				lyricOffset: offset.trim(),
+				role: role?.trim(),
+			});
+		}
+	}
+
+	if (parsedAudios.length > 0) {
+		const offsetValues = parsedAudios.map((a) => a.lyricOffset);
+		const existing = metadata.find((m) => isSpatialAudioOffsetKey(m.key));
+		if (existing) {
+			for (const val of offsetValues) {
+				if (!existing.value.includes(val)) existing.value.push(val);
+			}
+		} else {
+			metadata.push({
+				key: "spatialAudioLyricOffset",
+				value: offsetValues,
+			});
+		}
+	}
+
 	// 解析所有 ttm:agent 元素
 	const agents: TTMLAgent[] = [];
 
@@ -1346,6 +1393,9 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		autoLang,
 		customSongParts:
 			customSongParts.size > 0 ? Array.from(customSongParts) : undefined,
+		audios: parsedAudios.length > 0 ? parsedAudios : undefined,
+		spatialAudioLyricOffset:
+			parsedAudios.length > 0 ? parsedAudios[0].lyricOffset : undefined,
 	};
 
 	// 输出整个解析后的对象到控制台

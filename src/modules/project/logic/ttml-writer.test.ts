@@ -1981,3 +1981,148 @@ describe("collectExportIssues", () => {
 		expect(issues[0].lang).toBe("zh-Latn-pinyin");
 	});
 });
+
+describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
+	it("should export <audio lyricOffset=\"0.940\" role=\"spatial\"/> inside <iTunesMetadata> when spatialAudioLyricOffset is set", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+			},
+		]);
+		ttmlLyric.metadata = [
+			{ key: "musicName", value: ["Test Song"] },
+			{ key: "spatialAudioLyricOffset", value: ["0.940"] },
+		];
+
+		const xml = exportTTMLText(ttmlLyric);
+		expect(xml).toContain('<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">');
+		expect(xml).toContain('<audio lyricOffset="0.940" role="spatial"/>');
+		// 确保没有导出为普通的 amll:meta
+		expect(xml).not.toContain('amll:meta key="spatialAudioLyricOffset"');
+	});
+
+	it("should place <audio> at the very end of <iTunesMetadata> after songwriters and translations", () => {
+		const ttmlLyric = createMockLyric([
+			{
+				words: [
+					{
+						id: "w1",
+						word: "Hello",
+						startTime: 1000,
+						endTime: 2000,
+						obscene: false,
+						emptyBeat: 0,
+						romanWord: "",
+						rubyPhraseStart: false,
+					},
+				],
+				translatedLyricByLang: {
+					"zh-Hans": { data: "你好" },
+				},
+			},
+		]);
+		ttmlLyric.metadata = [
+			{ key: "songwriter", value: ["John Doe"] },
+			{ key: "spatialAudioLyricOffset", value: ["0.940"] },
+		];
+
+		const xml = exportTTMLText(ttmlLyric);
+		expect(xml).toContain("<songwriters><songwriter>John Doe</songwriter></songwriters>");
+		expect(xml).toContain("<translations>");
+		expect(xml).toContain('<audio lyricOffset="0.940" role="spatial"/>');
+
+		// 验证相对顺序：songwriters < translations < audio
+		const songwritersIndex = xml.indexOf("<songwriters>");
+		const translationsIndex = xml.indexOf("<translations>");
+		const audioIndex = xml.indexOf("<audio lyricOffset=\"0.940\" role=\"spatial\"/>");
+		const closingItunesIndex = xml.indexOf("</iTunesMetadata>");
+
+		expect(songwritersIndex).toBeGreaterThan(-1);
+		expect(translationsIndex).toBeGreaterThan(songwritersIndex);
+		expect(audioIndex).toBeGreaterThan(translationsIndex);
+		expect(closingItunesIndex).toBeGreaterThan(audioIndex);
+	});
+
+	it("should support alias keys such as lyricOffset and spatialAudioOffset", () => {
+		const ttmlLyric = createMockLyric([]);
+		ttmlLyric.metadata = [
+			{ key: "lyricOffset", value: ["-0.200"] },
+		];
+
+		const xml = exportTTMLText(ttmlLyric);
+		expect(xml).toContain('<audio lyricOffset="-0.200" role="spatial"/>');
+		expect(xml).not.toContain('amll:meta key="lyricOffset"');
+	});
+
+	it("should not export <audio> or <iTunesMetadata> when spatialAudioLyricOffset is empty", () => {
+		const ttmlLyric = createMockLyric([]);
+		ttmlLyric.metadata = [
+			{ key: "spatialAudioLyricOffset", value: ["", "  "] },
+		];
+
+		const xml = exportTTMLText(ttmlLyric);
+		expect(xml).not.toContain("<iTunesMetadata");
+		expect(xml).not.toContain("<audio");
+	});
+
+	it("should support spatialAudioLyricOffset and audios field directly on TTMLLyric", () => {
+		const ttmlLyric1 = createMockLyric([]);
+		ttmlLyric1.spatialAudioLyricOffset = "1.250";
+		const xml1 = exportTTMLText(ttmlLyric1);
+		expect(xml1).toContain('<audio lyricOffset="1.250" role="spatial"/>');
+
+		const ttmlLyric2 = createMockLyric([]);
+		ttmlLyric2.audios = [{ lyricOffset: "0.500", role: "spatial" }];
+		const xml2 = exportTTMLText(ttmlLyric2);
+		expect(xml2).toContain('<audio lyricOffset="0.500" role="spatial"/>');
+	});
+
+	it("should parse <audio lyricOffset=\"0.940\" role=\"spatial\"/> correctly and round-trip", () => {
+		const sampleTTML = `<?xml version="1.0" encoding="utf-8"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal">
+  <head>
+    <metadata>
+      <iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">
+        <songwriters>
+          <songwriter>Jane Doe</songwriter>
+        </songwriters>
+        <audio lyricOffset="0.940" role="spatial"/>
+      </iTunesMetadata>
+    </metadata>
+  </head>
+  <body>
+    <div>
+      <p begin="00:01.000" end="00:03.000">
+        <span begin="00:01.000" end="00:03.000">Test</span>
+      </p>
+    </div>
+  </body>
+</tt>`;
+
+		const parsed = parseLyric(sampleTTML);
+		const spatialMeta = parsed.metadata.find((m) => m.key === "spatialAudioLyricOffset");
+		expect(spatialMeta).toBeDefined();
+		expect(spatialMeta?.value).toEqual(["0.940"]);
+		expect(parsed.spatialAudioLyricOffset).toBe("0.940");
+		expect(parsed.audios).toEqual([{ lyricOffset: "0.940", role: "spatial" }]);
+
+		// Round-trip export
+		const exported = exportTTMLText(parsed);
+		expect(exported).toContain('<audio lyricOffset="0.940" role="spatial"/>');
+		const songwritersIndex = exported.indexOf("<songwriters>");
+		const audioIndex = exported.indexOf("<audio lyricOffset=\"0.940\" role=\"spatial\"/>");
+		expect(audioIndex).toBeGreaterThan(songwritersIndex);
+	});
+});
+

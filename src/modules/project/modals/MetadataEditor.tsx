@@ -8,6 +8,7 @@ import {
 	NumberSymbol16Regular,
 	Open16Regular,
 	Person16Regular,
+	PersonSoundSpatial16Regular,
 	Sparkle20Regular,
 } from "@fluentui/react-icons";
 import {
@@ -783,6 +784,24 @@ export const MetadataEditor = () => {
 						"metadataDialog.builtinOptions.songwriterInvalidMsg",
 						"如果有多个词曲作者，请多次添加该键值，避免使用分隔符",
 					),
+				},
+			},
+			{
+				// 空间音频偏移（秒），例如 0.940 或 -0.200
+				label: t(
+					"metadataDialog.builtinOptions.spatialAudioLyricOffset",
+					"空间音频歌词偏移（秒）",
+				),
+				value: "spatialAudioLyricOffset",
+				icon: <PersonSoundSpatial16Regular />,
+				validation: {
+					verifier: (value: string) =>
+						/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.trim()),
+					message: t(
+						"metadataDialog.builtinOptions.spatialAudioLyricOffsetInvalidMsg",
+						"空间音频偏移应为数字（秒），例如 0.940 或 -0.200",
+					),
+					severe: true,
 				},
 			},
 			{

@@ -697,6 +697,8 @@
 			"artistsInvalidMsg": "If there are multiple artists, please add this key multiple times instead of using delimiters; if an artist name contains delimiters, please ignore this message",
 			"songwriter": "Songwriter",
 			"songwriterInvalidMsg": "If there are multiple songwriters, please add this key multiple times instead of using delimiters",
+			"spatialAudioLyricOffset": "Spatial Audio Lyric Offset (seconds)",
+			"spatialAudioLyricOffsetInvalidMsg": "Spatial audio offset should be a number in seconds, e.g. 0.940 or -0.200",
 			"album": "Album Name",
 			"ncmMusicId": "NetEase Music ID",
 			"ncmMusicIdInvalidMsg": "NetEase Music ID should be numeric",

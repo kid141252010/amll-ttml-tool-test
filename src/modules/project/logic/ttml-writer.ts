@@ -27,6 +27,21 @@ import type {
 } from "../../../types/ttml.ts";
 import { log } from "../../../utils/logging.ts";
 import { msToTimestamp, parseTimespan } from "../../../utils/timestamp.ts";
+const SPATIAL_AUDIO_OFFSET_KEY_SET = new Set([
+	"spatialaudiolyricoffset",
+	"spatialaudiooffset",
+	"audiolyricoffset",
+	"lyricoffset",
+	"spatiallyricoffset",
+]);
+
+/**
+ * 判断是否为空间音频歌词偏移（lyricOffset）相关的元数据键名
+ */
+export function isSpatialAudioOffsetKey(key: string): boolean {
+	const normalized = key.replace(/[-_]/g, "").toLowerCase();
+	return SPATIAL_AUDIO_OFFSET_KEY_SET.has(normalized);
+}
 
 type LineMetadata = {
 	main: string;
@@ -925,6 +940,8 @@ export default function exportTTMLText(
 	for (const metadata of ttmlLyric.metadata) {
 		// songwriter 会在 iTunesMetadata 中单独处理，不在此处重复导出
 		if (metadata.key === "songwriter") continue;
+		// 空间音频偏移标签会在 iTunesMetadata 中作为 <audio> 导出，不在此处重复导出
+		if (isSpatialAudioOffsetKey(metadata.key)) continue;
 		for (const value of metadata.value) {
 			const metaEl = doc.createElement("amll:meta");
 			metaEl.setAttribute("key", metadata.key);
@@ -1423,7 +1440,51 @@ export default function exportTTMLText(
 		body.appendChild(paramDiv);
 	}
 
-	// 检查是否需要创建 iTunesMetadata（songwriter、translations、transliterations）
+	// 收集空间音频偏移项（<audio lyricOffset="..." role="spatial"/>）
+	const spatialAudios: { lyricOffset: string; role: string }[] = [];
+
+	if (Array.isArray(ttmlLyric.audios)) {
+		for (const a of ttmlLyric.audios) {
+			const offset = (a.lyricOffset ?? "").trim();
+			if (offset) {
+				spatialAudios.push({
+					lyricOffset: offset,
+					role: a.role?.trim() || "spatial",
+				});
+			}
+		}
+	}
+
+	if (ttmlLyric.spatialAudioLyricOffset?.trim()) {
+		spatialAudios.push({
+			lyricOffset: ttmlLyric.spatialAudioLyricOffset.trim(),
+			role: "spatial",
+		});
+	}
+
+	for (const m of ttmlLyric.metadata) {
+		if (isSpatialAudioOffsetKey(m.key)) {
+			for (const val of m.value) {
+				const trimmed = val.trim();
+				if (trimmed) {
+					spatialAudios.push({
+						lyricOffset: trimmed,
+						role: "spatial",
+					});
+				}
+			}
+		}
+	}
+
+	const uniqueSpatialAudios = spatialAudios.filter(
+		(item, index, self) =>
+			index ===
+			self.findIndex(
+				(t) => t.lyricOffset === item.lyricOffset && t.role === item.role,
+			),
+	);
+
+	// 检查是否需要创建 iTunesMetadata（songwriter、translations、transliterations、audio）
 	const hasSongwriter = ttmlLyric.metadata.some(
 		(m) => m.key === "songwriter" && m.value.some((v) => v.trim().length > 0),
 	);
@@ -1431,8 +1492,14 @@ export default function exportTTMLText(
 		translationByLangMap.size > 0 || wordTranslationByLangMap.size > 0;
 	const hasTransliterations =
 		romanizationByLangMap.size > 0 || wordRomanizationByLangMap.size > 0;
+	const hasSpatialAudio = uniqueSpatialAudios.length > 0;
 
-	if (hasSongwriter || hasTranslations || hasTransliterations) {
+	if (
+		hasSongwriter ||
+		hasTranslations ||
+		hasTransliterations ||
+		hasSpatialAudio
+	) {
 		const iTunesMetadata = doc.createElement("iTunesMetadata");
 		iTunesMetadata.setAttribute(
 			"xmlns",
@@ -1622,6 +1689,16 @@ export default function exportTTMLText(
 			iTunesMetadata.appendChild(transliterations);
 		}
 
+		// 4. 添加 audio（空间音频偏移标签，在 iTunesMetadata 块中间，最后插入）
+		if (hasSpatialAudio) {
+			for (const audio of uniqueSpatialAudios) {
+				const audioEl = doc.createElement("audio");
+				audioEl.setAttribute("lyricOffset", audio.lyricOffset);
+				audioEl.setAttribute("role", audio.role);
+				iTunesMetadata.appendChild(audioEl);
+			}
+		}
+
 		// 将 iTunesMetadata 添加到 metadata 的最后
 		metadataEl.appendChild(iTunesMetadata);
 	}
@@ -1641,6 +1718,14 @@ export default function exportTTMLText(
 
 	ttRoot.appendChild(body);
 	log("ttml document built", ttRoot);
+
+	function normalizeXmlOutput(xml: string): string {
+		return xml
+			.replace(/<itunesmetadata\b/g, "<iTunesMetadata")
+			.replace(/<\/itunesmetadata>/g, "</iTunesMetadata>")
+			.replace(/\blyricoffset=/g, "lyricOffset=")
+			.replace(/<audio([^>]*?)><\/audio>/g, "<audio$1/>");
+	}
 
 	if (pretty) {
 		const xsltDoc = new DOMParser().parseFromString(
@@ -1663,7 +1748,7 @@ export default function exportTTMLText(
 		xsltProcessor.importStylesheet(xsltDoc);
 		const resultDoc = xsltProcessor.transformToDocument(doc);
 
-		return new XMLSerializer().serializeToString(resultDoc);
+		return normalizeXmlOutput(new XMLSerializer().serializeToString(resultDoc));
 	}
-	return new XMLSerializer().serializeToString(doc);
+	return normalizeXmlOutput(new XMLSerializer().serializeToString(doc));
 }

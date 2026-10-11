@@ -725,6 +725,8 @@
 			"artistsInvalidMsg": "如果有多个艺术家，请多次添加该键值，避免使用分隔符号；若艺术家名本身包含分隔符号，请忽略此提示",
 			"songwriter": "词曲作者",
 			"songwriterInvalidMsg": "如果有多个词曲作者，请多次添加该键值，避免使用分隔符",
+			"spatialAudioLyricOffset": "空间音频歌词偏移（秒）",
+			"spatialAudioLyricOffsetInvalidMsg": "空间音频偏移应为数字（秒），例如 0.940 或 -0.200",
 			"album": "歌曲的专辑名",
 			"ncmMusicId": "网易云音乐 ID",
 			"ncmMusicIdInvalidMsg": "网易云音乐 ID 应为纯数字",
