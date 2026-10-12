@@ -999,7 +999,7 @@ export default function exportTTMLText(
 			({ main }) => main.songPart && main.songPart.trim().length > 0,
 		)?.main;
 		if (firstLineWithSongPart?.songPart) {
-			paramDiv.setAttribute("itunes:song-part", firstLineWithSongPart.songPart);
+			paramDiv.setAttribute("itunes:songPart", firstLineWithSongPart.songPart);
 		}
 
 		// 与旧逻辑一致的「div 内行序号」（含背景行），用于下方 <p> begin 的兼容判断
