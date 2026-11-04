@@ -409,13 +409,15 @@ export function collectExportIssues(ttmlLyric: TTMLLyric): ExportIssue[] {
 	return issues;
 }
 
+const XML_ENTITY_REGEX = /^&(?:[a-zA-Z_][\w.:-]*|#[0-9]+|#[xX][0-9a-fA-F]+);/;
+
 /**
- * 转义 XML 中的特殊字符（特别是文本节点与属性中的 " 和 ' 等），
+ * 转义 XML 中的特殊字符（特别是文本节点与属性中的 &、"、' 等），
  * 确保输出符合严格的 TTML / XML 规范要求：
- * - 标签外的文本内容（Text Content）中的 " 转为 &quot;，' 转为 &apos;，裸 > 转为 &gt;
- * - 属性值（双引号包裹）中的 ' 转为 &apos;
- * - 属性值（单引号包裹）中的 " 转为 &quot;
- * 不破坏已有的 XML 标签结构、属性边界及已转义实体。
+ * - 标签外的文本内容（Text Content）中的裸 & 转为 &amp;，" 转为 &quot;，' 转为 &apos;，裸 > 转为 &gt;
+ * - 属性值（双引号包裹）中的裸 & 转为 &amp;，' 转为 &apos;
+ * - 属性值（单引号包裹）中的裸 & 转为 &amp;，" 转为 &quot;
+ * 不破坏已有的 XML 标签结构、属性边界及已转义的合法实体（如 &amp;, &quot;, &apos;, &lt;, &gt;, &#...; 等）。
  */
 export function escapeXmlEntities(xml: string): string {
 	let result = "";
@@ -444,6 +446,14 @@ export function escapeXmlEntities(xml: string): string {
 				}
 				state = "TAG";
 				i++;
+			} else if (char === "&") {
+				if (XML_ENTITY_REGEX.test(xml.slice(i))) {
+					i++;
+				} else {
+					result += `${xml.slice(lastCopied, i)}&amp;`;
+					i++;
+					lastCopied = i;
+				}
 			} else if (char === '"') {
 				result += `${xml.slice(lastCopied, i)}&quot;`;
 				i++;
@@ -476,6 +486,14 @@ export function escapeXmlEntities(xml: string): string {
 			if (char === '"') {
 				state = "TAG";
 				i++;
+			} else if (char === "&") {
+				if (XML_ENTITY_REGEX.test(xml.slice(i))) {
+					i++;
+				} else {
+					result += `${xml.slice(lastCopied, i)}&amp;`;
+					i++;
+					lastCopied = i;
+				}
 			} else if (char === "'") {
 				result += `${xml.slice(lastCopied, i)}&apos;`;
 				i++;
@@ -487,6 +505,14 @@ export function escapeXmlEntities(xml: string): string {
 			if (char === "'") {
 				state = "TAG";
 				i++;
+			} else if (char === "&") {
+				if (XML_ENTITY_REGEX.test(xml.slice(i))) {
+					i++;
+				} else {
+					result += `${xml.slice(lastCopied, i)}&amp;`;
+					i++;
+					lastCopied = i;
+				}
 			} else if (char === '"') {
 				result += `${xml.slice(lastCopied, i)}&quot;`;
 				i++;

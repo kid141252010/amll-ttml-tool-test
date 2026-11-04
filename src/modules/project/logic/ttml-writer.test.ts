@@ -2361,6 +2361,21 @@ describe("exportTTMLText - translation x-bg bracket handling", () => {
 
 describe("escapeXmlEntities & exportTTMLText special characters escaping", () => {
 	describe("escapeXmlEntities unit tests", () => {
+		it("should escape bare & in text content to &amp; but preserve existing entities", () => {
+			const input = '<span>Rock & Roll &amp; "Pop"</span>';
+			expect(escapeXmlEntities(input)).toBe(
+				"<span>Rock &amp; Roll &amp; &quot;Pop&quot;</span>",
+			);
+		});
+
+		it("should escape bare & in attribute values to &amp; but preserve existing entities", () => {
+			const input =
+				'<amll:meta key="band" value="Simon & Garfunkel &amp; &quot;Friends&quot;"/>';
+			expect(escapeXmlEntities(input)).toBe(
+				'<amll:meta key="band" value="Simon &amp; Garfunkel &amp; &quot;Friends&quot;"/>',
+			);
+		});
+
 		it("should escape double quotes in text content to &quot;", () => {
 			const input = '<span>"Hello"</span>';
 			expect(escapeXmlEntities(input)).toBe("<span>&quot;Hello&quot;</span>");
@@ -2447,6 +2462,37 @@ describe("escapeXmlEntities & exportTTMLText special characters escaping", () =>
 			expect(
 				parsed.lyricLines[0].romanLyricByLang?.["zh-Latn-pinyin"]?.data,
 			).toBe("'test'");
+		});
+
+		it("should escape bare & in words and metadata and round-trip restore to literal &", () => {
+			const ttmlLyric = createMockLyric([
+				{
+					startTime: 1000,
+					endTime: 2000,
+					words: [
+						{
+							id: "w1",
+							word: 'R&B & "Soul" ',
+							startTime: 1000,
+							endTime: 2000,
+							obscene: false,
+							emptyBeat: 0,
+							romanWord: "",
+							rubyPhraseStart: false,
+						},
+					],
+				},
+			]);
+			ttmlLyric.metadata = [{ key: "album", value: ["Tom & Jerry & Friends"] }];
+
+			const xml = exportTTMLText(ttmlLyric);
+			expect(xml).toContain("R&amp;B &amp; &quot;Soul&quot;");
+			expect(xml).toContain('value="Tom &amp; Jerry &amp; Friends"');
+
+			const parsed = parseLyric(xml);
+			expect(parsed.lyricLines[0].words[0].word).toBe('R&B & "Soul" ');
+			const albumMeta = parsed.metadata.find((m) => m.key === "album");
+			expect(albumMeta?.value).toEqual(["Tom & Jerry & Friends"]);
 		});
 		it("should escape quotes and apostrophes in lyric line words and metadata", () => {
 			const ttmlLyric = createMockLyric([
