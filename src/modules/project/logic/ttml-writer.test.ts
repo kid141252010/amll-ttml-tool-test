@@ -4,7 +4,10 @@ import * as fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { LyricLine, TTMLLyric } from "../../../types/ttml.ts";
 import { parseLyric } from "./ttml-parser.ts";
-import exportTTMLText, { collectExportIssues } from "./ttml-writer.ts";
+import exportTTMLText, {
+	collectExportIssues,
+	escapeXmlEntities,
+} from "./ttml-writer.ts";
 
 function createMockLyric(lines: Partial<LyricLine>[]): TTMLLyric {
 	return {
@@ -1983,7 +1986,7 @@ describe("collectExportIssues", () => {
 });
 
 describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
-	it("should export <audio lyricOffset=\"0.940\" role=\"spatial\"/> inside <iTunesMetadata> when spatialAudioLyricOffset is set", () => {
+	it('should export <audio lyricOffset="0.940" role="spatial"/> inside <iTunesMetadata> when spatialAudioLyricOffset is set', () => {
 		const ttmlLyric = createMockLyric([
 			{
 				words: [
@@ -2006,7 +2009,9 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 		];
 
 		const xml = exportTTMLText(ttmlLyric);
-		expect(xml).toContain('<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">');
+		expect(xml).toContain(
+			'<iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">',
+		);
 		expect(xml).toContain('<audio lyricOffset="0.940" role="spatial"/>');
 		// 确保没有导出为普通的 amll:meta
 		expect(xml).not.toContain('amll:meta key="spatialAudioLyricOffset"');
@@ -2038,14 +2043,18 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 		];
 
 		const xml = exportTTMLText(ttmlLyric);
-		expect(xml).toContain("<songwriters><songwriter>John Doe</songwriter></songwriters>");
+		expect(xml).toContain(
+			"<songwriters><songwriter>John Doe</songwriter></songwriters>",
+		);
 		expect(xml).toContain("<translations>");
 		expect(xml).toContain('<audio lyricOffset="0.940" role="spatial"/>');
 
 		// 验证相对顺序：songwriters < translations < audio
 		const songwritersIndex = xml.indexOf("<songwriters>");
 		const translationsIndex = xml.indexOf("<translations>");
-		const audioIndex = xml.indexOf("<audio lyricOffset=\"0.940\" role=\"spatial\"/>");
+		const audioIndex = xml.indexOf(
+			'<audio lyricOffset="0.940" role="spatial"/>',
+		);
 		const closingItunesIndex = xml.indexOf("</iTunesMetadata>");
 
 		expect(songwritersIndex).toBeGreaterThan(-1);
@@ -2056,9 +2065,7 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 
 	it("should support alias keys such as lyricOffset and spatialAudioOffset", () => {
 		const ttmlLyric = createMockLyric([]);
-		ttmlLyric.metadata = [
-			{ key: "lyricOffset", value: ["-0.200"] },
-		];
+		ttmlLyric.metadata = [{ key: "lyricOffset", value: ["-0.200"] }];
 
 		const xml = exportTTMLText(ttmlLyric);
 		expect(xml).toContain('<audio lyricOffset="-0.200" role="spatial"/>');
@@ -2088,7 +2095,7 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 		expect(xml2).toContain('<audio lyricOffset="0.500" role="spatial"/>');
 	});
 
-	it("should parse <audio lyricOffset=\"0.940\" role=\"spatial\"/> correctly and round-trip", () => {
+	it('should parse <audio lyricOffset="0.940" role="spatial"/> correctly and round-trip', () => {
 		const sampleTTML = `<?xml version="1.0" encoding="utf-8"?>
 <tt xmlns="http://www.w3.org/ns/ttml" xmlns:itunes="http://music.apple.com/lyric-ttml-internal">
   <head>
@@ -2111,7 +2118,9 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 </tt>`;
 
 		const parsed = parseLyric(sampleTTML);
-		const spatialMeta = parsed.metadata.find((m) => m.key === "spatialAudioLyricOffset");
+		const spatialMeta = parsed.metadata.find(
+			(m) => m.key === "spatialAudioLyricOffset",
+		);
 		expect(spatialMeta).toBeDefined();
 		expect(spatialMeta?.value).toEqual(["0.940"]);
 		expect(parsed.spatialAudioLyricOffset).toBe("0.940");
@@ -2121,7 +2130,9 @@ describe("exportTTMLText & parseLyric - spatial audio lyricOffset tag", () => {
 		const exported = exportTTMLText(parsed);
 		expect(exported).toContain('<audio lyricOffset="0.940" role="spatial"/>');
 		const songwritersIndex = exported.indexOf("<songwriters>");
-		const audioIndex = exported.indexOf("<audio lyricOffset=\"0.940\" role=\"spatial\"/>");
+		const audioIndex = exported.indexOf(
+			'<audio lyricOffset="0.940" role="spatial"/>',
+		);
 		expect(audioIndex).toBeGreaterThan(songwritersIndex);
 	});
 });
@@ -2339,9 +2350,166 @@ describe("exportTTMLText - translation x-bg bracket handling", () => {
 		// 验证往返解析 parseLyric 能正确恢复无括号的背景翻译
 		const parsed = parseLyric(xml);
 		expect(parsed.lyricLines.length).toBe(3);
-		expect(parsed.lyricLines[1].translatedLyricByLang?.["zh-Hans"]?.data).toBe("背景一");
-		expect(parsed.lyricLines[2].translatedLyricByLang?.["zh-Hans"]?.data).toBe("背景二");
+		expect(parsed.lyricLines[1].translatedLyricByLang?.["zh-Hans"]?.data).toBe(
+			"背景一",
+		);
+		expect(parsed.lyricLines[2].translatedLyricByLang?.["zh-Hans"]?.data).toBe(
+			"背景二",
+		);
 	});
 });
 
+describe("escapeXmlEntities & exportTTMLText special characters escaping", () => {
+	describe("escapeXmlEntities unit tests", () => {
+		it("should escape double quotes in text content to &quot;", () => {
+			const input = '<span>"Hello"</span>';
+			expect(escapeXmlEntities(input)).toBe("<span>&quot;Hello&quot;</span>");
+		});
 
+		it("should escape single quotes / apostrophes in text content to &apos;", () => {
+			const input = "<span>don't</span>";
+			expect(escapeXmlEntities(input)).toBe("<span>don&apos;t</span>");
+		});
+
+		it("should escape both quotes and apostrophes in text content", () => {
+			const input = '<span>"I don\'t know"</span>';
+			expect(escapeXmlEntities(input)).toBe(
+				"<span>&quot;I don&apos;t know&quot;</span>",
+			);
+		});
+
+		it("should escape bare > in text content to &gt;", () => {
+			const input = "<span>A > B</span>";
+			expect(escapeXmlEntities(input)).toBe("<span>A &gt; B</span>");
+		});
+
+		it("should preserve existing entities &amp;, &lt;, &gt;, &quot;, &apos;", () => {
+			const input = "<span>&amp; &lt; &gt; &quot; &apos;</span>";
+			expect(escapeXmlEntities(input)).toBe(
+				"<span>&amp; &lt; &gt; &quot; &apos;</span>",
+			);
+		});
+
+		it("should escape single quotes inside double-quoted attributes to &apos;", () => {
+			const input = '<amll:meta key="title" value="Bob\'s Song"/>';
+			expect(escapeXmlEntities(input)).toBe(
+				'<amll:meta key="title" value="Bob&apos;s Song"/>',
+			);
+		});
+
+		it("should preserve attribute delimiters and existing &quot; inside double-quoted attributes", () => {
+			const input =
+				'<amll:meta key="title" value="Bob\'s &quot;Best&quot; Song"/>';
+			expect(escapeXmlEntities(input)).toBe(
+				'<amll:meta key="title" value="Bob&apos;s &quot;Best&quot; Song"/>',
+			);
+		});
+
+		it("should escape double quotes inside single-quoted attributes to &quot;", () => {
+			const input = "<amll:meta key='title' value='He said \"Hi\"'/>";
+			expect(escapeXmlEntities(input)).toBe(
+				"<amll:meta key='title' value='He said &quot;Hi&quot;'/>",
+			);
+		});
+
+		it("should preserve comments and CDATA without escaping", () => {
+			const input =
+				'<!-- "don\'t" --><![CDATA["don\'t"]]><span>"don\'t"</span>';
+			expect(escapeXmlEntities(input)).toBe(
+				'<!-- "don\'t" --><![CDATA["don\'t"]]><span>&quot;don&apos;t&quot;</span>',
+			);
+		});
+
+		it("should return identical string if no special characters need escaping", () => {
+			const input =
+				'<p begin="00:01.000" end="00:02.000"><span>Hello world</span></p>';
+			expect(escapeXmlEntities(input)).toBe(input);
+		});
+	});
+
+	describe("exportTTMLText integration tests with special characters", () => {
+		it("should escape quotes and apostrophes in lyric line words and metadata", () => {
+			const ttmlLyric = createMockLyric([
+				{
+					startTime: 1000,
+					endTime: 3000,
+					words: [
+						{
+							id: "w1",
+							word: 'She said, "Don\'t" ',
+							startTime: 1000,
+							endTime: 3000,
+							obscene: false,
+							emptyBeat: 0,
+							romanWord: "",
+							rubyPhraseStart: false,
+						},
+					],
+				},
+			]);
+			ttmlLyric.metadata = [
+				{ key: "musicName", value: ['Song "Title"\''] },
+				{ key: "songwriter", value: ["Guns N' Roses"] },
+			];
+
+			const xml = exportTTMLText(ttmlLyric);
+
+			// Check that spans contain escaped entities, not raw quotes
+			expect(xml).toContain("&quot;Don&apos;t&quot;");
+			expect(xml).not.toMatch(/<span[^>]*>[^<]*"[^<]*<\/span>/);
+
+			// Check that songwriter contains &apos;
+			expect(xml).toContain("<songwriter>Guns N&apos; Roses</songwriter>");
+
+			// Check that amll:meta value attributes have properly escaped quotes
+			expect(xml).toContain('value="Song &quot;Title&quot;&apos;"');
+
+			// Verify round-trip parsing restores exact original strings
+			const parsed = parseLyric(xml);
+			expect(parsed.lyricLines[0].words[0].word).toBe('She said, "Don\'t" ');
+			const songwriterMeta = parsed.metadata.find(
+				(m) => m.key === "songwriter",
+			);
+			expect(songwriterMeta?.value).toEqual(["Guns N' Roses"]);
+		});
+
+		it("should escape special characters in translations and transliterations", () => {
+			const ttmlLyric = createMockLyric([
+				{
+					startTime: 1000,
+					endTime: 2000,
+					words: [
+						{
+							id: "w1",
+							word: "word",
+							startTime: 1000,
+							endTime: 2000,
+							obscene: false,
+							emptyBeat: 0,
+							romanWord: "",
+							rubyPhraseStart: false,
+						},
+					],
+					translatedLyricByLang: {
+						"zh-Hans": { data: '她说："别走"' },
+					},
+					romanLyricByLang: {
+						"zh-Latn-pinyin": { data: "tā shuō: 'bié zǒu'" },
+					},
+				},
+			]);
+
+			const xml = exportTTMLText(ttmlLyric);
+			expect(xml).toContain("她说：&quot;别走&quot;");
+			expect(xml).toContain("tā shuō: &apos;bié zǒu&apos;");
+
+			const parsed = parseLyric(xml);
+			expect(
+				parsed.lyricLines[0].translatedLyricByLang?.["zh-Hans"]?.data,
+			).toBe('她说："别走"');
+			expect(
+				parsed.lyricLines[0].romanLyricByLang?.["zh-Latn-pinyin"]?.data,
+			).toBe("tā shuō: 'bié zǒu'");
+		});
+	});
+});

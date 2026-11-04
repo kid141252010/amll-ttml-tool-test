@@ -409,6 +409,105 @@ export function collectExportIssues(ttmlLyric: TTMLLyric): ExportIssue[] {
 	return issues;
 }
 
+/**
+ * 转义 XML 中的特殊字符（特别是文本节点与属性中的 " 和 ' 等），
+ * 确保输出符合严格的 TTML / XML 规范要求：
+ * - 标签外的文本内容（Text Content）中的 " 转为 &quot;，' 转为 &apos;，裸 > 转为 &gt;
+ * - 属性值（双引号包裹）中的 ' 转为 &apos;
+ * - 属性值（单引号包裹）中的 " 转为 &quot;
+ * 不破坏已有的 XML 标签结构、属性边界及已转义实体。
+ */
+export function escapeXmlEntities(xml: string): string {
+	let result = "";
+	let lastCopied = 0;
+	const len = xml.length;
+	let state: "TEXT" | "TAG" | "ATTR_DOUBLE" | "ATTR_SINGLE" = "TEXT";
+	let i = 0;
+
+	while (i < len) {
+		const char = xml[i];
+
+		if (state === "TEXT") {
+			if (char === "<") {
+				if (xml.startsWith("<!--", i)) {
+					const endComment = xml.indexOf("-->", i + 4);
+					if (endComment !== -1) {
+						i = endComment + 3;
+						continue;
+					}
+				} else if (xml.startsWith("<![CDATA[", i)) {
+					const endCData = xml.indexOf("]]>", i + 9);
+					if (endCData !== -1) {
+						i = endCData + 3;
+						continue;
+					}
+				}
+				state = "TAG";
+				i++;
+			} else if (char === '"') {
+				result += `${xml.slice(lastCopied, i)}&quot;`;
+				i++;
+				lastCopied = i;
+			} else if (char === "'") {
+				result += `${xml.slice(lastCopied, i)}&apos;`;
+				i++;
+				lastCopied = i;
+			} else if (char === ">") {
+				result += `${xml.slice(lastCopied, i)}&gt;`;
+				i++;
+				lastCopied = i;
+			} else {
+				i++;
+			}
+		} else if (state === "TAG") {
+			if (char === ">") {
+				state = "TEXT";
+				i++;
+			} else if (char === '"') {
+				state = "ATTR_DOUBLE";
+				i++;
+			} else if (char === "'") {
+				state = "ATTR_SINGLE";
+				i++;
+			} else {
+				i++;
+			}
+		} else if (state === "ATTR_DOUBLE") {
+			if (char === '"') {
+				state = "TAG";
+				i++;
+			} else if (char === "'") {
+				result += `${xml.slice(lastCopied, i)}&apos;`;
+				i++;
+				lastCopied = i;
+			} else {
+				i++;
+			}
+		} else if (state === "ATTR_SINGLE") {
+			if (char === "'") {
+				state = "TAG";
+				i++;
+			} else if (char === '"') {
+				result += `${xml.slice(lastCopied, i)}&quot;`;
+				i++;
+				lastCopied = i;
+			} else {
+				i++;
+			}
+		}
+	}
+
+	if (lastCopied === 0) {
+		return xml;
+	}
+
+	if (lastCopied < len) {
+		result += xml.slice(lastCopied);
+	}
+
+	return result;
+}
+
 export default function exportTTMLText(
 	ttmlLyric: TTMLLyric,
 	prettyOrOptions: boolean | ExportTTMLOptions = false,
@@ -1726,11 +1825,13 @@ export default function exportTTMLText(
 	log("ttml document built", ttRoot);
 
 	function normalizeXmlOutput(xml: string): string {
-		return xml
-			.replace(/<itunesmetadata\b/g, "<iTunesMetadata")
-			.replace(/<\/itunesmetadata>/g, "</iTunesMetadata>")
-			.replace(/\blyricoffset=/g, "lyricOffset=")
-			.replace(/<audio([^>]*?)><\/audio>/g, "<audio$1/>");
+		return escapeXmlEntities(
+			xml
+				.replace(/<itunesmetadata\b/g, "<iTunesMetadata")
+				.replace(/<\/itunesmetadata>/g, "</iTunesMetadata>")
+				.replace(/\blyricoffset=/g, "lyricOffset=")
+				.replace(/<audio([^>]*?)><\/audio>/g, "<audio$1/>"),
+		);
 	}
 
 	if (pretty) {
