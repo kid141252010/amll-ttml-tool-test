@@ -766,8 +766,15 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	});
 
 	const metadata: TTMLMetadata[] = [];
-	for (const meta of ttmlDoc.querySelectorAll("meta")) {
-		if (meta.tagName === "amll:meta") {
+	const metadataContainer =
+		ttmlDoc.querySelector("head > metadata") ??
+		ttmlDoc.querySelector("metadata");
+	const metaElements: Element[] = metadataContainer
+		? Array.from(metadataContainer.children)
+		: Array.from(ttmlDoc.querySelectorAll("meta"));
+
+	for (const meta of metaElements) {
+		if (meta.tagName === "amll:meta" || meta.tagName === "meta") {
 			const key = meta.getAttribute("key");
 			if (key) {
 				const value = meta.getAttribute("value");
@@ -1197,7 +1204,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						}
 						if (!line.translatedLyricByLang[transLang]) {
 							line.translatedLyricByLang[transLang] = {
-								data: wordEl.innerHTML,
+								data: wordEl.textContent ?? "",
 								isAutoFilled,
 							};
 						}
@@ -1208,7 +1215,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 						}
 						if (!line.romanLyricByLang[defaultRomanLang]) {
 							line.romanLyricByLang[defaultRomanLang] = {
-								data: wordEl.innerHTML,
+								data: wordEl.textContent ?? "",
 								// 内嵌音译使用默认语言代码，视为自动填充
 								isAutoFilled: true,
 							};

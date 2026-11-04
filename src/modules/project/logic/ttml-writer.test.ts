@@ -2428,6 +2428,26 @@ describe("escapeXmlEntities & exportTTMLText special characters escaping", () =>
 	});
 
 	describe("exportTTMLText integration tests with special characters", () => {
+		it("should parse inline x-translation and x-roman with entities back to literal quotes", () => {
+			const xml = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata">
+	<body>
+		<div>
+			<p begin="00:01.000" end="00:03.000">
+				<span begin="00:01.000" end="00:02.000">test</span>
+				<span ttm:role="x-translation" xml:lang="zh-Hans">&quot;测试&quot;</span>
+				<span ttm:role="x-roman">&apos;test&apos;</span>
+			</p>
+		</div>
+	</body>
+</tt>`;
+			const parsed = parseLyric(xml);
+			expect(
+				parsed.lyricLines[0].translatedLyricByLang?.["zh-Hans"]?.data,
+			).toBe('"测试"');
+			expect(
+				parsed.lyricLines[0].romanLyricByLang?.["zh-Latn-pinyin"]?.data,
+			).toBe("'test'");
+		});
 		it("should escape quotes and apostrophes in lyric line words and metadata", () => {
 			const ttmlLyric = createMockLyric([
 				{
@@ -2467,6 +2487,8 @@ describe("escapeXmlEntities & exportTTMLText special characters escaping", () =>
 			// Verify round-trip parsing restores exact original strings
 			const parsed = parseLyric(xml);
 			expect(parsed.lyricLines[0].words[0].word).toBe('She said, "Don\'t" ');
+			const titleMeta = parsed.metadata.find((m) => m.key === "musicName");
+			expect(titleMeta?.value).toEqual(['Song "Title"\'']);
 			const songwriterMeta = parsed.metadata.find(
 				(m) => m.key === "songwriter",
 			);
