@@ -82,6 +82,10 @@ import {
 	calculateDuetOptions,
 } from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
+import {
+	syncWordRomanizationForWord,
+	syncWordRomanizationTiming,
+} from "$/modules/lyric-editor/utils/word-romanization.ts";
 import { RibbonFrame, RibbonSection } from "./common";
 
 const MULTIPLE_VALUES = Symbol("multiple-values");
@@ -309,7 +313,15 @@ function EditField<
 									) {
 										continue;
 									}
+									const previousStartTime = word.startTime;
+									const previousEndTime = word.endTime;
 									word.endTime = newEndTime;
+									syncWordRomanizationTiming(
+										line,
+										word,
+										previousStartTime,
+										previousEndTime,
+									);
 								}
 							} else if (selectedItems.has(line.id)) {
 								line.endTime = line.startTime + durationValue;
@@ -324,8 +336,26 @@ function EditField<
 					for (const line of state.lyricLines) {
 						if (isWordField) {
 							for (const word of line.words) {
-								if (selectedItems.has(word.id)) {
-									(word as L)[fieldName] = value;
+								if (!selectedItems.has(word.id)) continue;
+								if (fieldName === "romanWord") {
+									syncWordRomanizationForWord(
+										line,
+										word,
+										String(value ?? ""),
+										store.get(selectedWordRomanizationLangAtom),
+									);
+									continue;
+								}
+								const previousStartTime = word.startTime;
+								const previousEndTime = word.endTime;
+								(word as L)[fieldName] = value;
+								if (fieldName === "startTime" || fieldName === "endTime") {
+									syncWordRomanizationTiming(
+										line,
+										word,
+										previousStartTime,
+										previousEndTime,
+									);
 								}
 							}
 						} else {

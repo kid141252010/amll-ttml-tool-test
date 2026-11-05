@@ -3,6 +3,7 @@
 import * as fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { LyricLine, TTMLLyric } from "../../../types/ttml.ts";
+import { newLyricWord } from "../../../types/ttml.ts";
 import { parseLyric } from "./ttml-parser.ts";
 import exportTTMLText, {
 	collectExportIssues,
@@ -2579,5 +2580,50 @@ describe("escapeXmlEntities & exportTTMLText special characters escaping", () =>
 				parsed.lyricLines[0].romanLyricByLang?.["zh-Latn-pinyin"]?.data,
 			).toBe("tā shuō: 'bié zǒu'");
 		});
+	});
+});
+
+describe("exportTTMLText - preserve word-level romanization", () => {
+	it.each([false, true])("preserves independently timed spans (background=%s)", (isBG) => {
+		const entries = [
+			{ startTime: 1000, endTime: 1200, text: "hoeng1" },
+			{ startTime: 1300, endTime: 1500, text: "gong2" },
+		];
+		const lyric = createMockLyric([{
+			isBG,
+			startTime: 1000,
+			endTime: 1600,
+			words: [
+				{ ...newLyricWord(), word: "香", startTime: 1000, endTime: 1250 },
+				{ ...newLyricWord(), word: "港", startTime: 1300, endTime: 1600 },
+			],
+			wordRomanizationByLang: { "zh-Latn-jyutping": { data: entries } },
+		}]);
+		const restored = parseLyric(exportTTMLText(lyric));
+		const roman = restored.lyricLines.find(line => line.isBG === isBG)
+			?.wordRomanizationByLang?.["zh-Latn-jyutping"]?.data;
+		expect(roman?.map(({ startTime, endTime, text }) => ({ startTime, endTime, text })))
+			.toEqual(entries);
+	});
+
+	it.each([false, true])("preserves syllable separators stored in text (background=%s)", (isBG) => {
+		const lyric = createMockLyric([{
+			isBG,
+			startTime: 1000,
+			endTime: 1500,
+			words: [
+				{ ...newLyricWord(), word: "這", startTime: 1000, endTime: 1200 },
+				{ ...newLyricWord(), word: "次", startTime: 1300, endTime: 1500 },
+			],
+			wordRomanizationByLang: { "zh-Latn-jyutping": { data: [
+				{ startTime: 1000, endTime: 1200, text: "ze5 " },
+				{ startTime: 1300, endTime: 1500, text: "ci3" },
+			] } },
+		}]);
+		const restored = parseLyric(exportTTMLText(lyric));
+		const roman = restored.lyricLines.find(line => line.isBG === isBG)
+			?.wordRomanizationByLang?.["zh-Latn-jyutping"]?.data;
+		expect(roman?.map(item => ({ text: item.text, space: item.hasSpaceAfter })))
+			.toEqual([{ text: "ze5", space: true }, { text: "ci3", space: false }]);
 	});
 });

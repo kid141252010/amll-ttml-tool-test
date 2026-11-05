@@ -21,6 +21,7 @@ import {
 	distributeRomanizationBySpace,
 } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
+import { syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { separateSpecialSpansWithSpaceAtom } from "$/modules/settings/states/index.ts";
 import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
@@ -573,9 +574,16 @@ export const useTopMenuActions = () => {
 				for (const line of linesToProcess) {
 					if (line.words.length === 0) continue;
 
-					// 将行内最后一个音节的结束时间设置为行结束时间
 					const lastWord = line.words[line.words.length - 1];
+					const previousStartTime = lastWord.startTime;
+					const previousEndTime = lastWord.endTime;
 					lastWord.endTime = line.endTime;
+					syncWordRomanizationTiming(
+						line,
+						lastWord,
+						previousStartTime,
+						previousEndTime,
+					);
 				}
 			});
 		};

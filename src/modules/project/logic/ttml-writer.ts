@@ -847,27 +847,21 @@ export default function exportTTMLText(
 		words: LyricWord[],
 		items: T[],
 	): (T | undefined)[] {
-		const timedWords = words.filter((word) => word.word.trim().length > 0);
-		const timeKey = (t: { startTime: number; endTime: number }) =>
-			`${t.startTime}:${t.endTime}`;
-		const allItemsUntimed =
-			items.length > 0 &&
-			items.every((r) => r.startTime === 0 && r.endTime === 0);
-		const hasDuplicateWordTimes =
-			new Set(timedWords.map(timeKey)).size < timedWords.length;
-		if (allItemsUntimed || hasDuplicateWordTimes) {
-			// 时间无法区分单词（如纯文本导入的 0/0 单词）：按非空白单词的顺序一一对应，
-			// 避免所有单词都匹配到第一条数据
+		if (items.length > 0 && items.every((item) => item.startTime === 0 && item.endTime === 0)) {
 			let next = 0;
-			return words.map((word) =>
-				word.word.trim().length === 0 ? undefined : items[next++],
-			);
+			return words.map((word) => word.word.trim() ? items[next++] : undefined);
+		}
+		const byTime = new Map<string, { items: T[]; next: number }>();
+		for (const item of items) {
+			const key = `${item.startTime}:${item.endTime}`;
+			const bucket = byTime.get(key);
+			if (bucket) bucket.items.push(item);
+			else byTime.set(key, { items: [item], next: 0 });
 		}
 		return words.map((word) => {
-			if (word.word.trim().length === 0) return undefined;
-			return items.find(
-				(r) => r.startTime === word.startTime && r.endTime === word.endTime,
-			);
+			if (!word.word.trim()) return undefined;
+			const bucket = byTime.get(`${word.startTime}:${word.endTime}`);
+			return bucket?.items[bucket.next++];
 		});
 	}
 
@@ -883,48 +877,35 @@ export default function exportTTMLText(
 		data: WordLevelEntry<T>,
 		createSpan: (item: T) => Element,
 	) {
-		if (data.mainItems.length > 0) {
-			const matches = matchWordItems(data.mainWords, data.mainItems);
-			data.mainWords.forEach((word, i) => {
-				if (word.word.trim().length === 0) {
-					if (textEl.hasChildNodes()) {
-						textEl.appendChild(doc.createTextNode(word.word));
-					}
-					return;
-				}
-				const match = matches[i];
-				if (!match || match.text.length === 0) return;
-				textEl.appendChild(createSpan(match));
-				// 如果 hasSpaceAfter 为 true，添加空格文本节点
-				if (match.hasSpaceAfter) {
-					textEl.appendChild(doc.createTextNode(" "));
-				}
+		function appendItems(parent: Element, words: LyricWord[], items: T[]): Element[] {
+			const matches = matchWordItems(words, items);
+			const spaces = new Map<T, string>();
+			let previous: T | undefined;
+			words.forEach((word, i) => {
+				if (word.word.trim()) previous = matches[i];
+				else if (previous) spaces.set(previous, (spaces.get(previous) ?? "") + word.word);
 			});
+			const spans: Element[] = [];
+			// Auxiliary spans have their own timing/segmentation. Matching is only for
+			// lyric-space placement; a missing match must never delete saved text.
+			for (const item of items) {
+				if (!item.text.trim()) continue;
+				const span = createSpan(item);
+				parent.appendChild(span);
+				spans.push(span);
+				const separator = spaces.get(item) ||
+					(item.hasSpaceAfter || /\s$/.test(item.text) ? " " : "");
+				if (separator) parent.appendChild(doc.createTextNode(separator));
+			}
+			return spans;
 		}
+		appendItems(textEl, data.mainWords, data.mainItems);
 
 		const bgSpanList: (Element | null)[] = data.bgs.map((bg) => {
 			if (bg.items.length === 0) return null;
 			const bgSpan = doc.createElement("span");
 			bgSpan.setAttribute("ttm:role", "x-bg");
-			const bgSpans: Element[] = [];
-			const matches = matchWordItems(bg.words, bg.items);
-			bg.words.forEach((word, i) => {
-				if (word.word.trim().length === 0) {
-					if (bgSpan.hasChildNodes()) {
-						bgSpan.appendChild(doc.createTextNode(word.word));
-					}
-					return;
-				}
-				const match = matches[i];
-				if (!match || match.text.length === 0) return;
-				const span = createSpan(match);
-				bgSpan.appendChild(span);
-				bgSpans.push(span);
-				// 如果 hasSpaceAfter 为 true，添加空格文本节点
-				if (match.hasSpaceAfter) {
-					bgSpan.appendChild(doc.createTextNode(" "));
-				}
-			});
+			const bgSpans = appendItems(bgSpan, bg.words, bg.items);
 			if (bgSpans.length === 0) return null;
 			const first = bgSpans[0];
 			const last = bgSpans[bgSpans.length - 1];

@@ -16,6 +16,7 @@ import {
 	newLyricWord,
 } from "$/types/ttml";
 import { msToTimestamp } from "$/utils/timestamp.ts";
+import { syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time";
 
 const selectedLinesSizeAtom = atom((get) => get(selectedLinesAtom).size);
@@ -366,7 +367,15 @@ export const LyricWordMenu = ({
 			if (!currentWord || !prevWord) return;
 
 			const newDuration = calculateDuration(prevWord, currentWord);
+			const previousStartTime = currentWord.startTime;
+			const previousEndTime = currentWord.endTime;
 			currentWord.endTime = currentWord.startTime + newDuration;
+			syncWordRomanizationTiming(
+				line,
+				currentWord,
+				previousStartTime,
+				previousEndTime,
+			);
 			normalizeLineTime(line);
 		});
 	}
@@ -382,7 +391,15 @@ export const LyricWordMenu = ({
 			if (!currentWord || !nextWord) return;
 
 			const newDuration = calculateDuration(nextWord, currentWord);
+			const previousStartTime = currentWord.startTime;
+			const previousEndTime = currentWord.endTime;
 			currentWord.startTime = currentWord.endTime - newDuration;
+			syncWordRomanizationTiming(
+				line,
+				currentWord,
+				previousStartTime,
+				previousEndTime,
+			);
 			normalizeLineTime(line);
 		});
 	}

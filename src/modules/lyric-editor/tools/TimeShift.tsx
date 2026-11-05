@@ -16,6 +16,7 @@ import { useSetImmerAtom } from "jotai-immer";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { timeShiftDialogAtom } from "$/states/dialogs.ts";
+import { syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 import { lyricLinesAtom, selectedLinesAtom } from "$/states/main.ts";
 
 type ShiftDirection = "delay" | "advance";
@@ -108,8 +109,16 @@ export const TimeShiftDialog = () => {
 					line.endTime = Math.max(0, line.endTime + finalOffset);
 
 					line.words.forEach((word) => {
+						const previousStartTime = word.startTime;
+						const previousEndTime = word.endTime;
 						word.startTime = Math.max(0, word.startTime + finalOffset);
 						word.endTime = Math.max(0, word.endTime + finalOffset);
+						syncWordRomanizationTiming(
+							line,
+							word,
+							previousStartTime,
+							previousEndTime,
+						);
 						if (word.ruby && word.ruby.length > 0) {
 							word.ruby.forEach((rubyWord) => {
 								rubyWord.startTime = Math.max(

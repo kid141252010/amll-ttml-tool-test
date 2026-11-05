@@ -13,6 +13,7 @@ import {
 	lyricLinesAtom,
 	selectedWordRomanizationLangAtom,
 } from "$/states/main";
+import { syncWordRomanizationForWord } from "$/modules/lyric-editor/utils/word-romanization.ts";
 import type { LyricWord } from "$/types/ttml";
 import styles from "./roman-word-view.module.css";
 
@@ -56,14 +57,25 @@ export const RomanWordView = ({
 						const wordIndex = line.words.findIndex((w) => w.id === word.id);
 						if (wordIndex === -1) continue;
 						const targetWord = line.words[wordIndex];
-						targetWord.romanWord = newValue;
+						syncWordRomanizationForWord(
+							line,
+							targetWord,
+							newValue,
+							selectedWordRomanizationLang,
+						);
 						break;
 					}
 				});
 			}
 			setEditingIndex(null);
 		},
-		[word.id, word.romanWord, editLyricLines, setEditingIndex],
+		[
+			word.id,
+			word.romanWord,
+			editLyricLines,
+			selectedWordRomanizationLang,
+			setEditingIndex,
+		],
 	);
 
 	useEffect(() => {
