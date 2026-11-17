@@ -369,7 +369,7 @@ export const EditLanguageDialog = () => {
 	// 确认按钮是否禁用
 	const canSubmit = useMemo(() => {
 		const trimmed = newLang.trim();
-		// 语言代码不能为空，不能是 und，不能与当前相同
+		// 仅修改语言代码时，新代码不能与当前相同。
 		if (isWordRomanization || isPrimary) {
 			return (
 				trimmed.length > 0 &&
@@ -379,14 +379,17 @@ export const EditLanguageDialog = () => {
 		}
 		// 对于非逐字音译且非主要内容，检查是否有内容且不溢出
 		const hasContent = validContentLines.some(line => line.trim().length > 0);
+		const previousLines = (dialogState.currentContent ?? "").split(/\r?\n/);
+		const romanContentChanged = dialogState.target === "romanization" &&
+			validContentLines.some((line, i) => line !== (previousLines[i] ?? ""));
 		return (
 			trimmed.length > 0 &&
 			trimmed !== "und" &&
-			trimmed !== dialogState.currentLang &&
-			hasContent &&
+			(trimmed !== dialogState.currentLang || romanContentChanged) &&
+			(hasContent || romanContentChanged) &&
 			!hasOverflow
 		);
-	}, [newLang, dialogState.currentLang, validContentLines, hasOverflow, isWordRomanization, isPrimary]);
+	}, [newLang, dialogState.currentLang, dialogState.currentContent, dialogState.target, validContentLines, hasOverflow, isWordRomanization, isPrimary]);
 
 	const handleClose = () => {
 		setDialogState({ ...dialogState, open: false });
@@ -394,7 +397,7 @@ export const EditLanguageDialog = () => {
 
 	const handleSubmit = () => {
 		const trimmed = newLang.trim();
-		if (!trimmed || trimmed === "und" || trimmed === dialogState.currentLang) return;
+		if (!canSubmit) return;
 		dialogState.onSubmit?.(trimmed, validContentLines);
 		setNewLang("");
 		setContentLines([]);

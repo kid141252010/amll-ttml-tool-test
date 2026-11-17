@@ -51,27 +51,24 @@ export const RomanWordView = ({
 
 	const saveAndStopEditing = useCallback(
 		(newValue: string) => {
-			if (newValue !== word.romanWord) {
-				editLyricLines((draft) => {
-					for (const line of draft.lyricLines) {
-						const wordIndex = line.words.findIndex((w) => w.id === word.id);
-						if (wordIndex === -1) continue;
-						const targetWord = line.words[wordIndex];
-						syncWordRomanizationForWord(
-							line,
-							targetWord,
-							newValue,
-							selectedWordRomanizationLang,
-						);
-						break;
-					}
-				});
-			}
+			editLyricLines((draft) => {
+				for (const line of draft.lyricLines) {
+					const wordIndex = line.words.findIndex((w) => w.id === word.id);
+					if (wordIndex === -1) continue;
+					const targetWord = line.words[wordIndex];
+					syncWordRomanizationForWord(
+						line,
+						targetWord,
+						newValue,
+						selectedWordRomanizationLang,
+					);
+					break;
+				}
+			});
 			setEditingIndex(null);
 		},
 		[
 			word.id,
-			word.romanWord,
 			editLyricLines,
 			selectedWordRomanizationLang,
 			setEditingIndex,

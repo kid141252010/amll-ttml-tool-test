@@ -17,6 +17,7 @@ import { reduceStutterDialogAtom } from "$/states/dialogs.ts";
 import { lyricLinesAtom } from "$/states/main.ts";
 import type { LyricWord, TTMLLangData, TTMLTranslationWord } from "$/types/ttml";
 import { msToTimestamp } from "$/utils/timestamp.ts";
+import { bindWordRomanizationToWords, syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 
 interface StutterPair {
 	lineIndex: number;
@@ -111,6 +112,7 @@ export const ReduceStutterDialog = () => {
 				const prevEndTime = prevWord.endTime;
 				const nextStartTime = nextWord.startTime;
 
+				bindWordRomanizationToWords(line);
 				// 设置两个音节的边界为中间时间
 				prevWord.endTime = middleTime;
 				nextWord.startTime = middleTime;
@@ -136,26 +138,8 @@ export const ReduceStutterDialog = () => {
 					);
 				}
 
-				// 同步更新逐字音译的时间戳
-				if (line.wordRomanizationByLang) {
-					Object.values(line.wordRomanizationByLang).forEach(
-						(langData: TTMLLangData<{ startTime: number; endTime: number; text: string }[]> | { startTime: number; endTime: number; text: string }[]) => {
-							// 兼容旧数据：如果 langData 是数组，则直接使用
-							const data = Array.isArray(langData) ? langData : langData?.data ?? [];
-							// 找到与 prevWord 和 nextWord 时间匹配的音译项
-							data.forEach((roman) => {
-								// 如果音译项的结束时间等于 prevWord 的原始结束时间，则更新
-								if (roman.endTime === prevEndTime) {
-									roman.endTime = middleTime;
-								}
-								// 如果音译项的开始时间等于 nextWord 的原始开始时间，则更新
-								if (roman.startTime === nextStartTime) {
-									roman.startTime = middleTime;
-								}
-							});
-						},
-					);
-				}
+				syncWordRomanizationTiming(line, prevWord, prevWord.startTime, prevEndTime);
+				syncWordRomanizationTiming(line, nextWord, nextStartTime, nextWord.endTime);
 			});
 		});
 

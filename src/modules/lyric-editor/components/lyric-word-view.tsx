@@ -60,7 +60,7 @@ import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time.ts";
 import { buildRubySelectionId } from "../utils/lyric-states.ts";
-import { syncWordRomanizationTiming } from "../utils/word-romanization.ts";
+import { bindWordRomanizationToWords, syncWordRomanizationTiming } from "../utils/word-romanization.ts";
 import styles from "./index.module.css";
 import { LyricLineMenu } from "./lyric-line-menu.tsx";
 import { LyricWordMenu } from "./lyric-word-menu";
@@ -387,6 +387,7 @@ function WordEditField<F extends keyof LyricWord, V extends LyricWord[F]>({
 					for (const line of state.lyricLines) {
 						for (const word of line.words) {
 							if (thisWord.id === word.id) {
+								if (fieldName === "startTime" || fieldName === "endTime") bindWordRomanizationToWords(line);
 								const previousStartTime = word.startTime;
 								const previousEndTime = word.endTime;
 								word[fieldName] = value;

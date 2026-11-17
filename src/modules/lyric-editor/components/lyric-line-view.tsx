@@ -77,6 +77,7 @@ import {
 } from "$/types/ttml.ts";
 import { containsRadicalChar } from "$/utils/detect-radical.ts";
 import { msToTimestamp } from "$/utils/timestamp.ts";
+import { syncLineRomanizationForLang } from "../utils/word-romanization.ts";
 import styles from "./index.module.css";
 import { LyricLineMenu } from "./lyric-line-menu.tsx";
 import { draggingIdAtom } from "./lyric-line-view-states.ts";
@@ -216,6 +217,7 @@ const SubLineEdit = memo(
 		const { t } = useTranslation();
 		const selectedTranslationLang = useAtomValue(selectedTranslationLangAtom);
 		const selectedRomanizationLang = useAtomValue(selectedRomanizationLangAtom);
+		const selectedWordRomanizationLang = useAtomValue(selectedWordRomanizationLangAtom);
 
 		const disabled =
 			type === "translatedLyric"
@@ -233,9 +235,13 @@ const SubLineEdit = memo(
 			(evt: SyntheticEvent<HTMLInputElement>) => {
 				setEditing(false);
 				const newValue = evt.currentTarget.value;
-				if (newValue !== line[type]) {
+				if (type === "romanLyric" || newValue !== line[type]) {
 					editLyricLines((state) => {
 						const targetLine = state.lyricLines[lineIndex];
+						if (type === "romanLyric") {
+							syncLineRomanizationForLang(targetLine, newValue, selectedRomanizationLang, selectedWordRomanizationLang);
+							return;
+						}
 						const previousValue = targetLine[type];
 						targetLine[type] = newValue;
 						const syncByLang = (
@@ -280,13 +286,10 @@ const SubLineEdit = memo(
 						if (type === "translatedLyric") {
 							syncByLang(targetLine.translatedLyricByLang);
 						}
-						if (type === "romanLyric") {
-							syncByLang(targetLine.romanLyricByLang);
-						}
 					});
 				}
 			},
-			[editLyricLines, line, lineIndex, type],
+			[editLyricLines, line, lineIndex, type, selectedRomanizationLang, selectedWordRomanizationLang],
 		);
 
 		useEffect(() => {

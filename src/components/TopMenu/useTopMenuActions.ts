@@ -21,7 +21,7 @@ import {
 	distributeRomanizationBySpace,
 } from "$/modules/segmentation/utils/Transliteration/distributor";
 import { applyRomanizationWarnings } from "$/modules/segmentation/utils/Transliteration/roman-warning";
-import { syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
+import { bindWordRomanizationToWords, syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 import { useSegmentationConfig } from "$/modules/segmentation/utils/useSegmentationConfig";
 import { separateSpecialSpansWithSpaceAtom } from "$/modules/settings/states/index.ts";
 import { checkSongIdsExist } from "$/services/raw-lyrics-index-db";
@@ -574,6 +574,7 @@ export const useTopMenuActions = () => {
 				for (const line of linesToProcess) {
 					if (line.words.length === 0) continue;
 
+					bindWordRomanizationToWords(line);
 					const lastWord = line.words[line.words.length - 1];
 					const previousStartTime = lastWord.startTime;
 					const previousEndTime = lastWord.endTime;

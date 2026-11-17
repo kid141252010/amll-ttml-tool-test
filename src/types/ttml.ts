@@ -91,6 +91,8 @@ export interface TTMLRomanWord {
 	startTime: number;
 	endTime: number;
 	text: string;
+	/** Editor-only word identity; never emitted into TTML. */
+	wordId?: string;
 	/** @description 该音节后是否有空格 */
 	hasSpaceAfter?: boolean;
 }
@@ -153,6 +155,8 @@ export interface LyricLine extends AMLLLyricLine {
 	translatedLyricByLang?: Record<string, TTMLLangData<string>>;
 	romanLyricByLang?: Record<string, TTMLLangData<string>>;
 	wordRomanizationByLang?: Record<string, TTMLLangData<TTMLRomanWord[]>>;
+	/** Background romanization with no corresponding body x-bg; retained on the main line. */
+	orphanedBackgroundRomanizationByLang?: Record<string, { text: string; words: TTMLRomanWord[] }[]>;
 	wordTranslationByLang?: Record<string, TTMLLangData<TTMLTranslationWord[]>>;
 	/**
 	 * @description 存储该行的 songPart 信息（来自父级 div 的 itunes:songPart 属性）

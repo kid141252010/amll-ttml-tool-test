@@ -15,7 +15,7 @@ import {
 	newLyricWord,
 	type TTMLLyric,
 } from "../../../types/ttml.ts";
-import { syncWordRomanizationTiming } from "../utils/word-romanization.ts";
+import { syncLineRomanizationForLang, syncWordRomanizationTiming } from "../utils/word-romanization.ts";
 import { RomanWordView } from "./roman-word-view.tsx";
 
 // React's DOM renderer requires this flag for deterministic act() flushing.
@@ -68,13 +68,23 @@ function createJyutpingLyric(): TTMLLyric {
 }
 
 describe("word romanization survives editing and saving", () => {
-	it.each([
+	it.each<{ nextValue: string; fillMissing: boolean; independentTiming?: boolean; legacy?: boolean; blur?: boolean; staleSavedValue?: boolean }>([
 		{ nextValue: "gong2", fillMissing: false },
 		{ nextValue: "", fillMissing: false },
 		{ nextValue: "gong2", fillMissing: true },
+		{ nextValue: "gong2", fillMissing: false, independentTiming: true },
+		{ nextValue: "", fillMissing: false, independentTiming: true },
+		{ nextValue: "gong2", fillMissing: false, legacy: true },
+		{ nextValue: "", fillMissing: false, legacy: true },
+		{ nextValue: "gong2", fillMissing: false, blur: true },
+		{ nextValue: "gong2", fillMissing: false, staleSavedValue: true },
 	])("persists edit $nextValue (missing=$fillMissing) without changing the other language", async ({
 		nextValue,
 		fillMissing,
+		independentTiming,
+		legacy,
+		blur,
+		staleSavedValue,
 	}) => {
 		const store = createStore();
 		const lyric = createJyutpingLyric();
@@ -84,6 +94,12 @@ describe("word romanization survives editing and saving", () => {
 			].data.pop();
 			lyric.lyricLines[0].words[1].romanWord = "";
 		}
+		if (independentTiming) {
+			lyric.lyricLines[0].words[1].startTime = 1300;
+			lyric.lyricLines[0].words[1].endTime = 1600;
+		}
+		if (legacy) delete lyric.lyricLines[0].wordRomanizationByLang;
+		if (staleSavedValue) lyric.lyricLines[0].words[1].romanWord = nextValue;
 		store.set(lyricLinesAtom, lyric);
 		store.set(selectedWordRomanizationLangAtom, "zh-Latn-jyutping");
 		const wordAtom = atom((get) => get(lyricLinesAtom).lyricLines[0].words[1]);
@@ -106,7 +122,8 @@ describe("word romanization survives editing and saving", () => {
 			if (!input) throw new Error("Romanization editor was not rendered");
 			await act(async () => {
 				input.value = nextValue;
-				input.dispatchEvent(
+				if (blur) input.blur();
+				else input.dispatchEvent(
 					new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
 				);
 			});
@@ -115,9 +132,11 @@ describe("word romanization survives editing and saving", () => {
 			expect(
 				tracks?.["zh-Latn-jyutping"]?.data.map((item) => item.text),
 			).toEqual(nextValue ? ["hoeng1", nextValue] : ["hoeng1"]);
-			expect(tracks?.["zh-Latn-pinyin"]?.data.map((item) => item.text)).toEqual(
-				["xiang1", "gang3"],
-			);
+			if (!legacy) {
+				expect(tracks?.["zh-Latn-pinyin"]?.data.map((item) => item.text)).toEqual(
+					["xiang1", "gang3"],
+				);
+			}
 		} finally {
 			await act(async () => root.unmount());
 			container.remove();
@@ -148,5 +167,18 @@ describe("word romanization survives editing and saving", () => {
 				{ startTime: 1300, endTime: 1600, text: texts[1] },
 			]);
 		}
+	});
+
+	it.each(["new line", ""])("saves a whole-line replacement %s without resurrecting the timed version", (text) => {
+		const lyric = createJyutpingLyric();
+		const line = lyric.lyricLines[0];
+		line.romanLyricByLang = { "zh-Latn-jyutping": { data: "old line" } };
+		syncLineRomanizationForLang(line, text, "zh-Latn-jyutping", "zh-Latn-jyutping");
+		const xml = exportTTMLText(lyric);
+		const saved = parseLyric(xml).lyricLines[0];
+		expect(saved.romanLyricByLang?.["zh-Latn-jyutping"]?.data ?? "").toBe(text);
+		expect(saved.wordRomanizationByLang?.["zh-Latn-jyutping"]).toBeUndefined();
+		expect(saved.wordRomanizationByLang?.["zh-Latn-pinyin"]?.data.map((entry) => entry.text)).toEqual(["xiang1", "gang3"]);
+		expect(xml).not.toContain("old line");
 	});
 });

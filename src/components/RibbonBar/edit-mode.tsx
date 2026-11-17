@@ -73,7 +73,6 @@ import {
 	type LyricLine,
 	type LyricWord,
 	type TTMLAgent,
-	type TTMLLangData,
 	type TTMLTranslationWord,
 	newLyricLine,
 } from "$/types/ttml";
@@ -83,6 +82,9 @@ import {
 } from "$/modules/project/logic/ttml-parser";
 import { msToTimestamp, parseTimespan } from "$/utils/timestamp.ts";
 import {
+	applyWordRomanizationToWords,
+	bindWordRomanizationToWords,
+	syncLineRomanizationForLang,
 	syncWordRomanizationForWord,
 	syncWordRomanizationTiming,
 } from "$/modules/lyric-editor/utils/word-romanization.ts";
@@ -297,6 +299,7 @@ function EditField<
 					editLyricLines((state) => {
 						for (const line of state.lyricLines) {
 							if (isWordField) {
+								bindWordRomanizationToWords(line);
 								for (
 									let wordIndex = 0;
 									wordIndex < line.words.length;
@@ -335,6 +338,7 @@ function EditField<
 				editLyricLines((state) => {
 					for (const line of state.lyricLines) {
 						if (isWordField) {
+							bindWordRomanizationToWords(line);
 							for (const word of line.words) {
 								if (!selectedItems.has(word.id)) continue;
 								if (fieldName === "romanWord") {
@@ -360,7 +364,12 @@ function EditField<
 							}
 						} else {
 							if (selectedItems.has(line.id)) {
-								(line as L)[fieldName] = value;
+								if (fieldName === "romanLyric") {
+									syncLineRomanizationForLang(line, String(value ?? ""),
+										store.get(selectedRomanizationLangAtom), store.get(selectedWordRomanizationLangAtom));
+								} else {
+									(line as L)[fieldName] = value;
+								}
 							}
 						}
 					}
@@ -2014,27 +2023,7 @@ const MultilingualField: FC = () => {
 			setSelectedWordRomanizationLang(lang);
 			editLyricLines((state) => {
 				for (const line of state.lyricLines) {
-					const value = line.wordRomanizationByLang?.[lang];
-					// 兼容旧数据：如果 value 是数组，则直接使用
-					const romanWords = Array.isArray(value) ? value : value?.data ?? [];
-					if (romanWords.length === 0) {
-						for (const word of line.words) {
-							word.romanWord = "";
-						}
-						continue;
-					}
-					for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
-						const word = line.words[wordIndex];
-						if (word.word.trim().length === 0) {
-							word.romanWord = "";
-							continue;
-						}
-						const match = romanWords.find(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-						word.romanWord = match?.text ?? "";
-					}
+					applyWordRomanizationToWords(line, lang);
 				}
 			});
 		},
@@ -2075,17 +2064,13 @@ const MultilingualField: FC = () => {
 					editLyricLines((state) => {
 						for (let i = 0; i < state.lyricLines.length; i++) {
 							const line = state.lyricLines[i];
-							line.romanLyricByLang ??= {};
-							const data = contentLines[i] ?? "";
-							line.romanLyricByLang[lang] = { data, isAutoFilled: false };
-							// 更新当前显示的音译
-							line.romanLyric = data;
+							syncLineRomanizationForLang(line, contentLines[i] ?? "", lang, selectedWordRomanizationLang);
 						}
 					});
 					setSelectedRomanizationLang(lang);
 				},
 		});
-	}, [lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang]);
+	}, [lyricLines.lyricLines, editLyricLines, setAddLanguageDialog, setSelectedRomanizationLang, selectedWordRomanizationLang]);
 
 	// 当歌词解析完成后，自动选择第一个可用语言
 	useEffect(() => {
@@ -2187,33 +2172,20 @@ const MultilingualField: FC = () => {
 			currentContent: currentContentLines.join("\n"),
 			onSubmit: (newLang, contentLines) => {
 				const trimmed = newLang.trim();
-				if (!trimmed || trimmed === selectedRomanizationLang) return;
+				if (!trimmed) return;
 				editLyricLines((state) => {
 					for (let i = 0; i < state.lyricLines.length; i++) {
 						const line = state.lyricLines[i];
+						line.romanLyricByLang ??= {};
 						const byLang = line.romanLyricByLang;
-						if (!byLang || !byLang[selectedRomanizationLang]) continue;
-						// 获取当前语言的值
-						const currentValue = byLang[selectedRomanizationLang];
-						// 兼容旧数据：如果 currentValue 是字符串，则转换为对象
-						const currentData = typeof currentValue === "string"
-							? { data: currentValue, isAutoFilled: false }
-							: { ...currentValue, isAutoFilled: false };
-						// 如果目标语言已存在，互换内容
-						if (byLang[trimmed]) {
-							const temp = byLang[trimmed];
-							byLang[selectedRomanizationLang] = temp;
-							byLang[trimmed] = currentData;
-						} else {
-							// 否则直接重命名，并将 isAutoFilled 设置为 false
-							byLang[trimmed] = currentData;
-							delete byLang[selectedRomanizationLang];
+						if (trimmed !== selectedRomanizationLang && byLang[selectedRomanizationLang] !== undefined) {
+							if (byLang[trimmed] !== undefined) {
+								byLang[selectedRomanizationLang] = byLang[trimmed];
+							} else {
+								delete byLang[selectedRomanizationLang];
+							}
 						}
-						// 更新内容
-						const newData = contentLines[i] ?? "";
-						byLang[trimmed] = { data: newData, isAutoFilled: false };
-						// 更新当前显示的音译
-						line.romanLyric = newData;
+						syncLineRomanizationForLang(line, contentLines[i] ?? "", trimmed, selectedWordRomanizationLang);
 					}
 				});
 				setSelectedRomanizationLang(trimmed);
@@ -2221,6 +2193,7 @@ const MultilingualField: FC = () => {
 		});
 	}, [
 		selectedRomanizationLang,
+		selectedWordRomanizationLang,
 		lyricLines.lyricLines,
 		setEditLanguageDialog,
 		editLyricLines,
@@ -2260,25 +2233,7 @@ const MultilingualField: FC = () => {
 							delete byLang[selectedWordRomanizationLang];
 						}
 						// 更新当前显示的逐字音译
-						const newValue = byLang[trimmed];
-						// 兼容旧数据：如果 newValue 是数组，则直接使用
-						const romanWords = Array.isArray(newValue) ? newValue : newValue?.data ?? [];
-						for (
-							let wordIndex = 0;
-							wordIndex < line.words.length;
-							wordIndex++
-						) {
-							const word = line.words[wordIndex];
-							if (word.word.trim().length === 0) {
-								word.romanWord = "";
-								continue;
-							}
-							const match = romanWords.find(
-								(r) =>
-									r.startTime === word.startTime && r.endTime === word.endTime,
-							);
-							word.romanWord = match?.text ?? "";
-						}
+						applyWordRomanizationToWords(line, trimmed);
 					}
 				});
 				setSelectedWordRomanizationLang(trimmed);

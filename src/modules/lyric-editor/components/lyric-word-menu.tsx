@@ -16,7 +16,7 @@ import {
 	newLyricWord,
 } from "$/types/ttml";
 import { msToTimestamp } from "$/utils/timestamp.ts";
-import { syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
+import { bindWordRomanizationToWords, syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 import { normalizeLineTime } from "../utils/normalize-line-time";
 
 const selectedLinesSizeAtom = atom((get) => get(selectedLinesAtom).size);
@@ -366,6 +366,7 @@ export const LyricWordMenu = ({
 			const prevWord = line.words[wordIndex - 1];
 			if (!currentWord || !prevWord) return;
 
+			bindWordRomanizationToWords(line);
 			const newDuration = calculateDuration(prevWord, currentWord);
 			const previousStartTime = currentWord.startTime;
 			const previousEndTime = currentWord.endTime;
@@ -390,6 +391,7 @@ export const LyricWordMenu = ({
 			const nextWord = line.words[wordIndex + 1];
 			if (!currentWord || !nextWord) return;
 
+			bindWordRomanizationToWords(line);
 			const newDuration = calculateDuration(nextWord, currentWord);
 			const previousStartTime = currentWord.startTime;
 			const previousEndTime = currentWord.endTime;

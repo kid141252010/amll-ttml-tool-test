@@ -2627,3 +2627,55 @@ describe("exportTTMLText - preserve word-level romanization", () => {
 			.toEqual([{ text: "ze5", space: true }, { text: "ci3", space: false }]);
 	});
 });
+
+describe("romanization save regressions", () => {
+	it("writes one updated track instead of both legacy line and word values", () => {
+		const lyric = createMockLyric([{
+			startTime: 1000,
+			endTime: 2000,
+			romanLyric: "old romanization",
+			words: [{ ...newLyricWord(), word: "词", romanWord: "new", startTime: 1000, endTime: 2000 }],
+		}]);
+		const doc = new DOMParser().parseFromString(exportTTMLText(lyric), "application/xml");
+		const texts = doc.querySelectorAll('transliteration > text[for="L1"]');
+		expect(Array.from(texts, (text) => text.textContent)).toEqual(["new"]);
+	});
+
+	it.each([false, true])("preserves mixed line and timed background tracks (mainTimed=%s)", (mainTimed) => {
+		const main = {
+			startTime: 1000, endTime: 2000,
+			words: [{ ...newLyricWord(), word: "词", startTime: 1000, endTime: 2000 }],
+		};
+		const lyric = createMockLyric([
+			{ ...main, ...(mainTimed
+				? { wordRomanizationByLang: { "ko-Latn": { data: [{ startTime: 1000, endTime: 2000, text: "main" }] } } }
+				: { romanLyricByLang: { "ko-Latn": { data: "main" } } }) },
+			{ ...main, isBG: true, ...(mainTimed
+				? { romanLyricByLang: { "ko-Latn": { data: "background" } } }
+				: { wordRomanizationByLang: { "ko-Latn": { data: [{ startTime: 1000, endTime: 2000, text: "background" }] } } }) },
+		]);
+		let xml = exportTTMLText(lyric);
+		for (let i = 0; i < 3; i++) {
+			const parsed = parseLyric(xml);
+			const [mainLine, bgLine] = parsed.lyricLines;
+			expect(mainTimed ? mainLine.wordRomanizationByLang?.["ko-Latn"]?.data[0]?.text : mainLine.romanLyricByLang?.["ko-Latn"]?.data).toBe("main");
+			expect(mainTimed ? bgLine.romanLyricByLang?.["ko-Latn"]?.data : bgLine.wordRomanizationByLang?.["ko-Latn"]?.data[0]?.text).toBe("background");
+			expect(new DOMParser().parseFromString(xml, "application/xml").querySelectorAll('transliteration > text[for="L1"]')).toHaveLength(1);
+			xml = exportTTMLText(parsed);
+		}
+	});
+
+	it("keeps auxiliary background syllables even when the body background is absent", () => {
+		let xml = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xml:lang="ko">
+			<head><metadata><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal"><transliterations><transliteration xml:lang="ko-Latn">
+			<text for="L1"><span xmlns="http://www.w3.org/ns/ttml" begin="00:01.000" end="00:02.000">main</span><span ttm:role="x-bg"><span xmlns="http://www.w3.org/ns/ttml" begin="00:02.000" end="00:03.000">(echo)</span></span></text>
+			</transliteration></transliterations></iTunesMetadata></metadata></head>
+			<body><div><p begin="00:01.000" end="00:03.000" itunes:key="L1"><span begin="00:01.000" end="00:02.000">词</span></p></div></body></tt>`;
+		for (let i = 0; i < 3; i++) {
+			xml = exportTTMLText(parseLyric(xml));
+			const doc = new DOMParser().parseFromString(xml, "application/xml");
+			expect(Array.from(doc.querySelectorAll("transliteration span[begin][end]"), (span) => span.textContent)).toEqual(["main", "(echo)"]);
+			expect(doc.querySelectorAll('body span[ttm\\:role="x-bg"]')).toHaveLength(0);
+		}
+	});
+});

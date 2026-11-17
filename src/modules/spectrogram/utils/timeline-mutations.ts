@@ -1,4 +1,4 @@
-import type { Draft } from "immer";
+import { type Draft, produce } from "immer";
 import {
 	type ProcessedLyricLine,
 	processSingleLine,
@@ -7,6 +7,7 @@ import {
 import { lyricLinesAtom } from "$/states/main";
 import { globalStore } from "$/states/store.ts";
 import type { LyricLine, LyricWord } from "$/types/ttml";
+import { bindWordRomanizationToWords, syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization";
 
 const MIN_DIVIDER_WIDTH_PX = 15;
 const MIN_WORD_DURATION_MS = 10;
@@ -161,8 +162,7 @@ export function commitUpdatedLine(updatedLine: ProcessedLyricLine) {
 				const updatedWord = updatedWordsMap.get(originalWord.id);
 				let nextWord = originalWord;
 				if (updatedWord) {
-					const { type, isRuby, parentId, rubyIndex, ...word } = updatedWord;
-					nextWord = word;
+					nextWord = { ...originalWord, startTime: updatedWord.startTime, endTime: updatedWord.endTime };
 				}
 
 				const rubyUpdates = updatedRubyMap.get(originalWord.id);
@@ -172,7 +172,6 @@ export function commitUpdatedLine(updatedLine: ProcessedLyricLine) {
 						if (!updatedRuby) return rubyWord;
 						return {
 							...rubyWord,
-							word: updatedRuby.word,
 							startTime: updatedRuby.startTime,
 							endTime: updatedRuby.endTime,
 						};
@@ -204,12 +203,15 @@ export function commitUpdatedLine(updatedLine: ProcessedLyricLine) {
 				return nextWord;
 			});
 
-			return {
-				...line,
-				startTime: updatedLine.startTime,
-				endTime: updatedLine.endTime,
-				words: newWords,
-			};
+			return produce(line, (draft) => {
+				bindWordRomanizationToWords(draft);
+				draft.startTime = updatedLine.startTime;
+				draft.endTime = updatedLine.endTime;
+				draft.words = newWords;
+				for (let i = 0; i < newWords.length; i++) {
+					syncWordRomanizationTiming(draft, draft.words[i], line.words[i].startTime, line.words[i].endTime);
+				}
+			});
 		});
 
 		return {
@@ -334,6 +336,7 @@ export function tryInitializeZeroTimestampLine(
 		line.words.every((w) => w.startTime === 0 && w.endTime === 0);
 
 	if (isAllZero) {
+		bindWordRomanizationToWords(line);
 		line.startTime = newStartTime;
 		line.endTime = newEndTime;
 		const totalDuration = newEndTime - newStartTime;
@@ -353,6 +356,7 @@ export function tryInitializeZeroTimestampLine(
 				word.startTime = newStartTime + nonEmptyWordIndex * perWordDuration;
 				word.endTime = newStartTime + (nonEmptyWordIndex + 1) * perWordDuration;
 				nonEmptyWordIndex++;
+				syncWordRomanizationTiming(line, word, 0, 0);
 			}
 			fillRubyTimingFromWord(word);
 		});
@@ -373,6 +377,7 @@ export function tryFixPartialInitialization(line: Draft<LyricLine>): boolean {
 		return false;
 	}
 
+	bindWordRomanizationToWords(line);
 	let didChange = false;
 
 	for (let i = 0; i < line.words.length; i++) {
@@ -406,6 +411,8 @@ export function tryFixPartialInitialization(line: Draft<LyricLine>): boolean {
 					let cursorTime = groupStartTime;
 
 					for (const word of groupToProcess) {
+						const previousStartTime = word.startTime;
+						const previousEndTime = word.endTime;
 						if (word.word.trim() !== "") {
 							word.startTime = cursorTime;
 							word.endTime = cursorTime + perWordDuration;
@@ -414,6 +421,7 @@ export function tryFixPartialInitialization(line: Draft<LyricLine>): boolean {
 							word.startTime = cursorTime;
 							word.endTime = cursorTime;
 						}
+						syncWordRomanizationTiming(line, word, previousStartTime, previousEndTime);
 						fillRubyTimingFromWord(word);
 					}
 				}
@@ -432,10 +440,14 @@ export function shiftLineStartTime(
 ) {
 	const delta = newStartTime - line.startTime;
 	if (delta !== 0) {
+		bindWordRomanizationToWords(line);
 		line.startTime = newStartTime;
 		for (const word of line.words) {
+			const previousStartTime = word.startTime;
+			const previousEndTime = word.endTime;
 			word.startTime += delta;
 			word.endTime += delta;
+			syncWordRomanizationTiming(line, word, previousStartTime, previousEndTime);
 			if (word.ruby && word.ruby.length > 0) {
 				for (const rubyWord of word.ruby) {
 					rubyWord.startTime += delta;
@@ -460,12 +472,17 @@ export function adjustLineEndTime(line: Draft<LyricLine>, newEndTime: number) {
 	}
 
 	if (diff < 0) {
+		bindWordRomanizationToWords(line);
 		line.endTime = newEndTime;
 		const lastWord = line.words[line.words.length - 1];
 		if (newEndTime > lastWord.startTime) {
+			const previousEndTime = lastWord.endTime;
 			lastWord.endTime = newEndTime;
+			syncWordRomanizationTiming(line, lastWord, lastWord.startTime, previousEndTime);
 		}
 	} else if (diff > 0) {
+		bindWordRomanizationToWords(line);
+		const previousTimes = line.words.map((word) => [word.startTime, word.endTime] as const);
 		line.endTime = newEndTime;
 
 		const processedLine = processSingleLine(line);
@@ -552,5 +569,8 @@ export function adjustLineEndTime(line: Draft<LyricLine>, newEndTime: number) {
 				}
 			}
 		}
+		line.words.forEach((word, i) => {
+			syncWordRomanizationTiming(line, word, previousTimes[i][0], previousTimes[i][1]);
+		});
 	}
 }

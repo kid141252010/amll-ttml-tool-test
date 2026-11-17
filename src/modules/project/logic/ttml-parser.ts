@@ -33,6 +33,7 @@ import type {
 import { log } from "../../../utils/logging.ts";
 import { parseTimespan } from "../../../utils/timestamp.ts";
 import { distributeRomanizationByCharCount } from "../../segmentation/utils/Transliteration/distributor.ts";
+import { applyWordRomanizationToWords, bindWordRomanizationToWords } from "../../lyric-editor/utils/word-romanization.ts";
 import { isSpatialAudioOffsetKey } from "./ttml-writer.ts";
 
 /** 预设的 songPart 列表 */
@@ -499,6 +500,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 					// 每个 x-bg span（含空占位）占一个序号，与 bgIndex 对齐
 					const bgGroup: TTMLRomanWord[] = [];
 					bgWords.push(bgGroup);
+					lineRomanBgList.push("");
 					const nestedSpans = el.querySelectorAll("span[begin][end]");
 					if (nestedSpans.length > 0) {
 						isWordByWord = true;
@@ -540,7 +542,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 							.replace(/^[（(]/, "")
 							.replace(/[)）]$/, "")
 							.trim();
-						lineRomanBgList.push(trimmed);
+						lineRomanBgList[lineRomanBgList.length - 1] = trimmed;
 					}
 				} else if (el.hasAttribute("begin") && el.hasAttribute("end")) {
 					isWordByWord = true;
@@ -694,8 +696,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		return parts.map((v) => v.trim()).filter(Boolean);
 	};
 
-	const itunesWordRomanizations = new Map<string, WordRomanMetadata>();
-
 	const romanizationTextElements = ttmlDoc.querySelectorAll(
 		"iTunesMetadata > transliterations > transliteration > text[for]",
 	);
@@ -703,10 +703,7 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 	romanizationTextElements.forEach((textEl) => {
 		const key = textEl.getAttribute("for");
 		if (!key) return;
-		const { lineData, wordData } = parseRomanizationTextElement(textEl);
-		if (wordData) {
-			itunesWordRomanizations.set(key, wordData);
-		}
+		const { lineData } = parseRomanizationTextElement(textEl);
 		if (lineData) {
 			itunesLineRomanizations.set(key, lineData);
 		}
@@ -1019,14 +1016,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 		// 有效查询 key：主行使用自身 itunesKey，背景行使用 parentItunesKey
 		const effectiveKey = isBG ? parentItunesKey : itunesKey;
 
-		const romanWordData = effectiveKey
-			? itunesWordRomanizations.get(effectiveKey)
-			: undefined;
-		const sourceRomanList = isBG
-			? romanWordData?.bg[bgIndex]
-			: romanWordData?.main;
-		const availableRomanWords = sourceRomanList ? [...sourceRomanList] : [];
-
 		if (effectiveKey) {
 			const timedTrans = itunesTimedTranslations.get(effectiveKey);
 			const lineTrans = itunesTranslations.get(effectiveKey);
@@ -1224,17 +1213,6 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				} else {
 					const word = createWordFromSpanElement(wordEl);
 					if (!word) continue;
-					if (availableRomanWords.length > 0) {
-						const matchIndex = availableRomanWords.findIndex(
-							(r) =>
-								r.startTime === word.startTime && r.endTime === word.endTime,
-						);
-
-						if (matchIndex !== -1) {
-							word.romanWord = availableRomanWords[matchIndex].text;
-							availableRomanWords.splice(matchIndex, 1);
-						}
-					}
 
 					line.words.push(word);
 				}
@@ -1338,6 +1316,29 @@ export function parseLyric(ttmlText: string): TTMLLyric {
 				if (lastWord.word.length === 0) {
 					line.words.pop();
 				}
+			}
+		}
+
+		bindWordRomanizationToWords(line);
+		const romanLang = Object.keys(line.wordRomanizationByLang ?? {})[0];
+		if (romanLang) applyWordRomanizationToWords(line, romanLang);
+
+		// Metadata can outlive a deleted body background; do not discard its syllables.
+		if (!isBG && effectiveKey) {
+			const languages = new Set([
+				...itunesLineRomanizationsByLang.keys(),
+				...itunesWordRomanizationsByLang.keys(),
+			]);
+			for (const lang of languages) {
+				const texts = itunesLineRomanizationsByLang.get(lang)?.get(effectiveKey)?.bgList ?? [];
+				const words = itunesWordRomanizationsByLang.get(lang)?.get(effectiveKey)?.bg ?? [];
+				const count = Math.max(texts.length, words.length);
+				if (count <= bgCounter) continue;
+				line.orphanedBackgroundRomanizationByLang ??= {};
+				line.orphanedBackgroundRomanizationByLang[lang] = Array.from(
+					{ length: count - bgCounter },
+					(_, index) => ({ text: texts[bgCounter + index] ?? "", words: words[bgCounter + index] ?? [] }),
+				);
 			}
 		}
 

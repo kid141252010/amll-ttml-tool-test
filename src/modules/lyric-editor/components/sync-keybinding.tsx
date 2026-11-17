@@ -46,7 +46,7 @@ import {
 	useKeyBindingAtom,
 } from "$/utils/keybindings.ts";
 
-import { syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
+import { bindWordRomanizationToWords, syncWordRomanizationTiming } from "$/modules/lyric-editor/utils/word-romanization.ts";
 
 const getUnitStartTime = (unit: {
 	word: LyricWord;
@@ -67,6 +67,7 @@ const setUnitStartTime = (
 	rubyIndex: number | undefined,
 	time: number,
 ) => {
+	bindWordRomanizationToWords(line);
 	const word = line.words[wordIndex];
 	const previousStartTime = word.startTime;
 	const previousEndTime = word.endTime;
@@ -90,6 +91,7 @@ const setUnitEndTime = (
 	rubyIndex: number | undefined,
 	time: number,
 ) => {
+	bindWordRomanizationToWords(line);
 	const word = line.words[wordIndex];
 	const previousStartTime = word.startTime;
 	const previousEndTime = word.endTime;
